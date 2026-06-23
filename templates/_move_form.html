@@ -1,0 +1,22 @@
+<div class="bg-white rounded-xl p-5 w-full max-w-md" onclick="event.stopPropagation()">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="font-medium">Переместить в…</h3>
+    <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+  </div>
+  <form id="move-form" hx-post="/htmx/move-many" hx-target="#toast-host" hx-swap="beforeend" class="space-y-3">
+    <div id="move-srcs"></div>
+    <div class="max-h-64 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+      {% for d in dirs %}
+      <label class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
+        <input type="radio" name="dest_dir" value="{{ d }}" required>
+        <i class="ti ti-folder text-amber-500"></i><span class="truncate">{{ d }}</span>
+      </label>
+      {% endfor %}
+      {% if not dirs %}<div class="px-3 py-3 text-sm text-slate-400">Папок назначения нет</div>{% endif %}
+    </div>
+    <div class="flex justify-end gap-2">
+      <button type="button" class="px-3 py-1.5 text-slate-500" onclick="SW.closeModal()">Отмена</button>
+      <button class="px-4 py-1.5 bg-sky-600 text-white rounded-lg">Переместить</button>
+    </div>
+  </form>
+</div>

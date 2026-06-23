@@ -1,0 +1,33 @@
+<div class="bg-white rounded-xl p-5 w-full max-w-sm" onclick="event.stopPropagation()">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="font-medium flex items-center gap-2"><i class="ti ti-device-tv text-sky-600"></i>Медиасервер DLNA</h3>
+    <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+  </div>
+
+  {% if not st.installed %}
+    <p class="text-sm text-slate-500">Пакет <code>minidlna</code> не установлен. Поставь его: <code>apt install minidlna</code> и обнови страницу.</p>
+  {% else %}
+    <p class="text-sm text-slate-500 mb-4">
+      Транслирует содержимое <code>{{ mount_root }}</code> в локальную сеть. На телевизоре сервер появится в источниках под именем «SambaWrapper».
+    </p>
+    <div class="flex items-center gap-2 mb-4 text-sm">
+      <span class="text-slate-500">Статус:</span>
+      {% if st.active %}
+        <span class="inline-flex items-center gap-1 text-emerald-600"><i class="ti ti-circle-filled text-[8px]"></i>работает</span>
+      {% else %}
+        <span class="inline-flex items-center gap-1 text-slate-400"><i class="ti ti-circle text-[8px]"></i>выключен</span>
+      {% endif %}
+    </div>
+    <div class="flex gap-2">
+      {% if st.active %}
+        <button class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
+                onclick="SW.post('/htmx/dlna-rescan',{})"><i class="ti ti-refresh"></i> Пересканировать</button>
+        <button class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm ml-auto"
+                onclick="SW.post('/htmx/dlna-toggle',{enable:'no'})">Выключить</button>
+      {% else %}
+        <button class="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-sm ml-auto"
+                onclick="SW.post('/htmx/dlna-toggle',{enable:'yes'})">Включить</button>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>

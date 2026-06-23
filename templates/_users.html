@@ -1,0 +1,35 @@
+<div class="bg-white rounded-xl p-5 w-full max-w-md" onclick="event.stopPropagation()">
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="font-medium">Пользователи Samba</h3>
+    <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+  </div>
+
+  <form hx-post="/htmx/user-add" hx-target="#toast-host" hx-swap="beforeend"
+        class="flex gap-2 mb-4" hx-on::after-request="this.reset()">
+    <input name="username" required pattern="[a-z_][a-z0-9_\-]{0,31}" placeholder="имя (lowercase)"
+           class="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+    <input type="password" name="password" required minlength="4" placeholder="пароль"
+           class="w-28 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+    <button class="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3 text-sm">Добавить</button>
+  </form>
+
+  <div class="space-y-2 max-h-72 overflow-y-auto">
+    {% if not users %}<p class="text-sm text-slate-400">Пока никого.</p>{% endif %}
+    {% for u in users %}
+    <div class="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
+      <span class="text-sm flex-1 truncate">{{ u }}</span>
+      <form hx-post="/htmx/user-passwd" hx-target="#toast-host" hx-swap="beforeend"
+            class="flex items-center gap-1.5" hx-on::after-request="this.reset()">
+        <input type="hidden" name="username" value="{{ u }}">
+        <input type="password" name="password" required minlength="4" placeholder="новый пароль"
+               class="w-28 border border-slate-300 rounded-lg px-2 py-1 text-sm">
+        <button class="text-sm text-slate-600 hover:bg-slate-100 rounded-md px-2 py-1">Сменить</button>
+      </form>
+      <button class="text-red-500 hover:bg-red-50 rounded-md px-2 py-1"
+              onclick="if(confirm('Удалить «{{ u }}»?')) SW.post('/htmx/user-delete',{username:{{ u|tojson|forceescape }}})">
+        <i class="ti ti-trash"></i>
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+</div>

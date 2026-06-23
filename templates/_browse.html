@@ -1,0 +1,50 @@
+<div class="space-y-3">
+{% if error %}
+    <div class="bg-red-500/20 border border-red-500/50 text-red-200 rounded px-3 py-2">{{ error }}</div>
+{% endif %}
+{% if listing %}
+<div class="flex items-center gap-3 text-sm">
+    <span class="text-slate-400">Путь:</span>
+    <code class="text-slate-200">{{ mount_root }}{% if listing.path %}/{{ listing.path }}{% endif %}</code>
+    {% if listing.path %}
+    <button class="ml-auto bg-emerald-600 hover:bg-emerald-500 rounded px-3 py-1.5 text-sm"
+            onclick="sessionStorage.setItem('pendingSharePath', {{ listing.abs_path | tojson }});
+                     sessionStorage.setItem('pendingShareName', {{ (listing.path.split('/')[-1]) | tojson }});
+                     document.body.dispatchEvent(new CustomEvent('openShareForm'));">
+        Расшарить эту папку
+    </button>
+    {% endif %}
+</div>
+
+<div class="bg-slate-800 rounded-lg overflow-hidden">
+    {% if listing.parent is not none %}
+    <button class="w-full text-left px-4 py-2 hover:bg-slate-700 text-slate-400 border-b border-slate-700"
+            hx-get="/htmx/browse?path={{ listing.parent | urlencode }}"
+            hx-target="#browse-pane" hx-swap="innerHTML">
+        ↑ Наверх
+    </button>
+    {% endif %}
+    {% for e in listing.entries %}
+        {% if e.is_dir %}
+        <button class="w-full text-left px-4 py-2 hover:bg-slate-700 border-b border-slate-700/50 last:border-0 flex items-center gap-2"
+                hx-get="/htmx/browse?path={{ (listing.path + '/' + e.name) if listing.path else e.name | urlencode }}"
+                hx-target="#browse-pane" hx-swap="innerHTML">
+            <span class="text-amber-400">📁</span>
+            <span class="text-slate-100">{{ e.name }}</span>
+        </button>
+        {% else %}
+        <div class="px-4 py-2 border-b border-slate-700/50 last:border-0 flex items-center gap-2 text-slate-400">
+            <span>📄</span>
+            <span>{{ e.name }}</span>
+            <span class="ml-auto text-xs">{{ e.size_human }}</span>
+        </div>
+        {% endif %}
+    {% endfor %}
+    {% if not listing.entries %}
+        <div class="px-4 py-3 text-slate-500 text-sm">Пусто</div>
+    {% endif %}
+</div>
+{% else %}
+    <p class="text-slate-500">Смонтируй диск во вкладке «Диски», чтобы увидеть содержимое.</p>
+{% endif %}
+</div>

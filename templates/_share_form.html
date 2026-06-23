@@ -1,0 +1,88 @@
+<div class="bg-white rounded-xl p-5 w-full max-w-md" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="font-medium">{{ "Права доступа к шаре" if editing else "Расшарить папку" }}</h3>
+        <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <form hx-post="/htmx/share-create" hx-target="#toast-host" hx-swap="beforeend" class="space-y-4">
+        <input type="hidden" name="abs_path" value="{{ abs_path }}">
+        <div class="text-xs text-slate-500">Папка: <code class="text-slate-700">{{ abs_path }}</code></div>
+
+        <label class="block">
+            <span class="text-sm text-slate-500">Имя шары (как видна в сети)</span>
+            <input name="name" required pattern="[A-Za-z0-9_\-]{1,32}" value="{{ suggested_name }}"
+                   {{ "readonly" if editing else "" }}
+                   class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 {{ 'bg-slate-100' if editing else '' }}">
+        </label>
+
+        <fieldset class="space-y-2">
+            <span class="text-sm text-slate-500">Кто имеет доступ</span>
+            <label class="flex items-center gap-2 text-sm">
+                <input type="radio" name="mode" value="guest" {{ "checked" if mode == "guest" else "" }}
+                       onchange="toggleMode(this.form)">
+                <span>Гость (без пароля)</span>
+            </label>
+            <div data-guest-opts class="ml-6 {{ '' if mode == 'guest' else 'hidden' }}">
+                <label class="flex items-center gap-2 text-sm text-slate-600">
+                    <input type="checkbox" name="guest_write" value="yes" {{ "checked" if guest_write else "" }}>
+                    <span>разрешить запись (иначе только чтение)</span>
+                </label>
+            </div>
+
+            <label class="flex items-center gap-2 text-sm">
+                <input type="radio" name="mode" value="users" {{ "checked" if mode == "users" else "" }}
+                       onchange="toggleMode(this.form)">
+                <span>По пользователям (с паролем)</span>
+            </label>
+            <div data-user-opts class="ml-6 {{ '' if mode == 'users' else 'hidden' }}">
+                {% if smb_users %}
+                <table class="text-sm w-full">
+                    <thead>
+                        <tr class="text-slate-400 text-xs">
+                            <th class="text-left font-normal pb-1">Пользователь</th>
+                            <th class="font-normal pb-1 w-20">Доступ</th>
+                            <th class="font-normal pb-1 w-20">Запись</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for u in smb_users %}
+                        <tr>
+                            <td class="py-1">{{ u }}</td>
+                            <td class="text-center">
+                                <input type="checkbox" name="access_users" value="{{ u }}" data-access="{{ u }}"
+                                       {{ "checked" if perms.get(u) in ("read", "write") else "" }}>
+                            </td>
+                            <td class="text-center">
+                                <input type="checkbox" name="write_users" value="{{ u }}" data-write="{{ u }}"
+                                       onchange="if(this.checked){this.form.querySelector('[data-access=\'{{ u }}\']').checked=true;}"
+                                       {{ "checked" if perms.get(u) == "write" else "" }}>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-xs text-amber-600">Сначала добавь пользователей: меню «admin» → «Пользователи Samba».</p>
+                {% endif %}
+            </div>
+        </fieldset>
+
+        <div class="flex items-center gap-2 pt-1">
+            {% if editing %}
+            <button type="button" class="text-sm text-red-600 hover:bg-red-50 rounded-lg px-3 py-1.5"
+                    onclick="if(confirm('Удалить шару «{{ suggested_name }}»?')) SW.post('/htmx/share-delete',{name:{{ suggested_name|tojson|forceescape }}})">
+                Удалить шару
+            </button>
+            {% endif %}
+            <button type="button" class="text-sm text-slate-500 px-3 py-1.5 ml-auto" onclick="SW.closeModal()">Отмена</button>
+            <button class="text-sm bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-4 py-1.5">Сохранить</button>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleMode(form) {
+    const mode = form.querySelector('input[name=mode]:checked').value;
+    form.querySelector('[data-guest-opts]').classList.toggle('hidden', mode !== 'guest');
+    form.querySelector('[data-user-opts]').classList.toggle('hidden', mode !== 'users');
+}
+</script>

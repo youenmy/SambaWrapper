@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Вход — SambaWrapper{% endblock %}
+{% block body %}
+<div class="min-h-screen flex items-center justify-center px-4">
+    <form method="post" action="/login" class="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 w-full max-w-sm space-y-4">
+        <h1 class="text-xl font-medium text-center flex items-center justify-center gap-2">
+            <i class="ti ti-folder-open text-sky-600 text-2xl"></i> SambaWrapper
+        </h1>
+        {% if err %}
+        <div class="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+            Неверный логин или пароль
+        </div>
+        {% endif %}
+        <label class="block">
+            <span class="text-sm text-slate-500">Логин</span>
+            <input name="username" autocomplete="username" required value="admin"
+                   class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2">
+        </label>
+        <label class="block">
+            <span class="text-sm text-slate-500">Пароль</span>
+            <input type="password" name="password" autocomplete="current-password" required
+                   class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2">
+        </label>
+        <button class="w-full bg-sky-600 hover:bg-sky-500 text-white rounded-lg py-2 font-medium">Войти</button>
+        <p class="text-xs text-slate-400 text-center">
+            Первый пароль — в файле <code class="text-slate-600">/var/lib/sambawrapper/initial-password.txt</code>
+        </p>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="h-screen flex flex-col">
+
+  <header class="flex items-center justify-between px-4 h-12 bg-white border-b border-slate-200 shrink-0">
+    <div class="flex items-center gap-2 font-medium">
+      <i class="ti ti-folder-open text-sky-600 text-xl"></i> SambaWrapper
+    </div>
+    <div class="relative">
+      <button id="userchip" class="flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg hover:bg-slate-100"
+              onclick="event.stopPropagation();SW.toggleUserMenu()">
+        <span class="w-6 h-6 rounded-full bg-sky-100 text-sky-700 grid place-items-center text-xs">A</span>
+        admin <i class="ti ti-chevron-down text-base"></i>
+      </button>
+      <div id="usermenu" class="hidden absolute right-0 top-10 w-52 bg-white border border-slate-200 rounded-lg shadow-lg p-1.5 z-50 text-sm">
+        <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
+                onclick="SW.openModal('/htmx/users')"><i class="ti ti-users text-slate-500"></i>Пользователи Samba</button>
+        <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
+                onclick="SW.passwordModal()"><i class="ti ti-key text-slate-500"></i>Сменить пароль</button>
+        <button id="theme-btn" class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
+                onclick="SW.toggleTheme()"><i class="ti ti-moon text-slate-500"></i><span id="theme-label">Тёмная тема</span></button>
+        <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
+                onclick="SW.openModal('/htmx/dlna')"><i class="ti ti-device-tv text-slate-500"></i>Медиасервер (DLNA)</button>
+        <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
+                onclick="SW.portModal()"><i class="ti ti-plug text-slate-500"></i>Порт веб-интерфейса</button>
+        <form method="post" action="/logout">
+          <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"><i class="ti ti-logout text-slate-500"></i>Выйти</button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex flex-1 min-h-0">
+    <aside id="sidebar" class="w-60 shrink-0 bg-white border-r border-slate-200 overflow-y-auto"
+           hx-get="/htmx/sidebar" hx-trigger="load, every 8s" hx-swap="innerHTML">
+      <div class="p-4 text-slate-400 text-sm">Загрузка…</div>
+    </aside>
+
+    <main id="browser" class="flex-1 min-w-0 flex flex-col bg-white overflow-hidden">
+      <div class="m-auto text-slate-400 text-sm flex flex-col items-center gap-2">
+        <i class="ti ti-folder text-3xl"></i>
+        Выбери диск слева
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="modal-host" class="hidden fixed inset-0 z-[90] bg-black/40 flex items-center justify-center p-4"></div>
+<div id="ctxmenu" class="hidden fixed z-[95] w-48 bg-white border border-slate-200 rounded-lg shadow-lg p-1 text-sm"></div>
+<input type="file" id="uploader" class="hidden" onchange="SW.doUpload(this)">
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SW = {
+  path: "",
+  mountRoot: {{ mount_root | tojson }},
+  curPort: {{ port | tojson }},
+  sel: null,
+
+  abs(rel) { return this.mountRoot + (rel ? "/" + rel : ""); },
+
+  navigate(path) { htmx.ajax("GET", "/htmx/browse?path=" + encodeURIComponent(path), {target:"#browser", swap:"innerHTML"}); },
+  refreshBrowser() { this.navigate(this.path); },
+  refreshSidebar() { htmx.ajax("GET", "/htmx/sidebar", {target:"#sidebar", swap:"innerHTML"}); },
+
+  post(url, vals) { htmx.ajax("POST", url, {target:"#toast-host", swap:"beforeend", values:vals}); },
+
+  openModal(url) {
+    htmx.ajax("GET", url, {target:"#modal-host", swap:"innerHTML"}).then(() => {
+      document.getElementById("modal-host").classList.remove("hidden");
+    });
+  },
+  closeModal() {
+    const m = document.getElementById("modal-host");
+    m.classList.add("hidden"); m.innerHTML = "";
+  },
+
+  toggleUserMenu() { document.getElementById("usermenu").classList.toggle("hidden"); },
+
+  toggleTheme() {
+    const dark = document.documentElement.classList.toggle("dark");
+    localStorage.setItem("sw.theme", dark ? "dark" : "light");
+    this._syncTheme();
+  },
+  _syncTheme() {
+    const dark = document.documentElement.classList.contains("dark");
+    const l = document.getElementById("theme-label"); if (l) l.textContent = dark ? "Светлая тема" : "Тёмная тема";
+    const i = document.querySelector("#theme-btn i"); if (i) i.className = "ti " + (dark ? "ti-sun" : "ti-moon") + " text-slate-500";
+  },
+
+  checked: new Set(),
+  select(path, name, isDir) { this.sel = {path, name, isDir}; this._mark(); },
+  toggleCheck(path, on) { if (on) this.checked.add(path); else this.checked.delete(path); this._mark(); this._bar(); },
+  checkAll(on) {
+    this.checked.clear();
+    document.querySelectorAll("#browser .fchk").forEach(c => {
+      c.checked = on; if (on) this.checked.add(c.closest(".frow").dataset.path);
+    });
+    this._mark(); this._bar();
+  },
+  resetSel() { this.sel = null; this.checked.clear(); },
+  _mark() {
+    document.querySelectorAll("#browser .frow").forEach(r => {
+      const on = this.checked.has(r.dataset.path) || (this.sel && r.dataset.path === this.sel.path);
+      r.classList.toggle("bg-sky-50", on);
+    });
+  },
+  _bar() {
+    const el = document.getElementById("selinfo");
+    if (el) el.textContent = this.checked.size ? ("выбрано: " + this.checked.size) : (el.dataset.count + " элементов");
+  },
+  _targets() {  // current operation targets: checked set, else single selection
+    if (this.checked.size) return [...this.checked];
+    return this.sel ? [this.sel.path] : [];
+  },
+
+  mkdir() { const n = prompt("Имя новой папки"); if (n) this.post("/htmx/mkdir", {path:this.path, name:n}); },
+  rename() {
+    if (this.checked.size > 1) { this.toast("Переименование — по одному элементу"); return; }
+    const t = this.checked.size === 1 ? {path:[...this.checked][0], name:[...this.checked][0].split("/").pop()} : this.sel;
+    if (!t) { this.toast("Выбери элемент"); return; }
+    const n = prompt("Новое имя", t.name);
+    if (n && n !== t.name) this.post("/htmx/rename", {path:t.path, new_name:n});
+  },
+  del() {
+    const paths = this._targets();
+    if (!paths.length) { this.toast("Выбери элементы"); return; }
+    if (confirm("Удалить выбранное (" + paths.length + ")? Папки — со всем содержимым.")) {
+      if (paths.length === 1) this.post("/htmx/delete", {path:paths[0]});
+      else this._postMany("/htmx/delete-many", "paths", paths);
+    }
+  },
+  move() {
+    const srcs = this._targets();
+    if (!srcs.length) { this.toast("Выбери элементы"); return; }
+    htmx.ajax("GET", "/htmx/move-form", {target:"#modal-host", swap:"innerHTML"}).then(() => {
+      const box = document.getElementById("move-srcs");
+      const a = s => String(s).replace(/"/g, "&quot;");
+      box.innerHTML = srcs.map(s => `<input type="hidden" name="srcs" value="${a(s)}">`).join("");
+      document.getElementById("modal-host").classList.remove("hidden");
+    });
+  },
+  _postMany(url, field, values) {
+    const body = new URLSearchParams();
+    values.forEach(v => body.append(field, v));
+    fetch(url, {method:"POST", body}).then(r => r.text()).then(html => { this._toastHtml(html); this.refreshBrowser(); });
+  },
+  dragStart(e, rel) {
+    this._drag = (this.checked.size && this.checked.has(rel)) ? [...this.checked] : [rel];
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", rel);
+  },
+  dragOver(e, el) { e.preventDefault(); el.classList.add("ring-2", "ring-sky-400"); },
+  drop(e, destRel, el) {
+    e.preventDefault();
+    if (el) el.classList.remove("ring-2", "ring-sky-400");
+    const srcs = (this._drag || []).filter(s => s !== destRel);
+    this._drag = null;
+    if (!srcs.length) return;
+    const body = new URLSearchParams();
+    srcs.forEach(s => body.append("srcs", s));
+    body.append("dest_dir", destRel);
+    fetch("/htmx/move-many", {method:"POST", body}).then(r => r.text()).then(html => { this._toastHtml(html); this.refreshBrowser(); });
+  },
+
+  share(rel, name) { this.openModal("/htmx/share-form?path=" + encodeURIComponent(this.abs(rel)) + "&suggested_name=" + encodeURIComponent(name)); },
+  shareCurrent() { if (!this.path) { this.toast("Открой папку внутри диска"); return; }
+                   this.share(this.path, this.path.split("/").pop()); },
+  download(rel) { window.location = "/download?path=" + encodeURIComponent(rel); },
+
+  upload() { document.getElementById("uploader").click(); },
+  doUpload(input) {
+    const f = input.files[0]; if (!f) return;
+    const fd = new FormData(); fd.append("dir", this.path); fd.append("file", f);
+    this.toast("Загрузка «" + f.name + "»…");
+    fetch("/htmx/upload", {method:"POST", body:fd}).then(r => r.text()).then(html => {
+      this._toastHtml(html); this.refreshBrowser();
+    }).catch(() => this.toast("Ошибка загрузки"));
+    input.value = "";
+  },
+
+  mountModal(path, fstype, uuid, label, suggested, autoMount) {
+    const a = s => String(s).replace(/"/g, "&quot;");
+    const html = `<div class="bg-white rounded-xl p-5 w-full max-w-sm" onclick="event.stopPropagation()">
+      <h3 class="font-medium mb-3">Смонтировать диск</h3>
+      <form hx-post="/htmx/mount" hx-target="#toast-host" hx-swap="beforeend" class="space-y-3">
+        <input type="hidden" name="path" value="${a(path)}">
+        <input type="hidden" name="fstype" value="${a(fstype)}">
+        <input type="hidden" name="uuid" value="${a(uuid)}">
+        <input type="hidden" name="label" value="${a(label)}">
+        <label class="block text-sm">Имя в системе
+          <input name="mount_name" required pattern="[A-Za-z0-9_.\\-]{1,32}" value="${a(suggested)}"
+                 class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"></label>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="auto_mount" value="yes" ${autoMount ? "checked" : ""}>монтировать автоматически впредь</label>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="px-3 py-1.5 text-slate-500" onclick="SW.closeModal()">Отмена</button>
+          <button class="px-4 py-1.5 bg-sky-600 text-white rounded-lg">Смонтировать</button>
+        </div>
+      </form></div>`;
+    const m = document.getElementById("modal-host"); m.innerHTML = html; m.classList.remove("hidden"); htmx.process(m);
+  },
+
+  formatModal(device, kname, label) {
+    const a = s => String(s).replace(/"/g, "&quot;");
+    const kn = JSON.stringify(String(kname));
+    const html = `<div class="bg-white rounded-xl p-5 w-full max-w-md" onclick="event.stopPropagation()">
+      <h3 class="font-medium mb-1 text-red-600 flex items-center gap-2"><i class="ti ti-alert-triangle"></i>Форматировать ${a(kname)}</h3>
+      <p class="text-sm text-slate-500 mb-3">Все данные на <code>${a(device)}</code> будут стёрты безвозвратно.</p>
+      <form hx-post="/htmx/format" hx-target="#toast-host" hx-swap="beforeend" class="space-y-3">
+        <input type="hidden" name="device" value="${a(device)}">
+        <label class="block text-sm text-slate-600">Файловая система
+          <select name="fstype" class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2">
+            <option value="ext4">ext4 — Linux, быстрее всего</option>
+            <option value="exfat">exFAT — читается везде (Windows/Mac)</option>
+            <option value="ntfs">NTFS — Windows</option>
+          </select></label>
+        <label class="block text-sm text-slate-600">Метка (необязательно)
+          <input name="label" maxlength="11" value="${a(label)}" class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"></label>
+        <label class="block text-sm text-slate-600">Для подтверждения введите <code>${a(kname)}</code>
+          <input name="confirm" autocomplete="off" oninput="document.getElementById('fmt-go').disabled = this.value.trim() !== ${kn}"
+                 class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"></label>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="px-3 py-1.5 text-slate-500" onclick="SW.closeModal()">Отмена</button>
+          <button id="fmt-go" disabled class="px-4 py-1.5 bg-red-600 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed">Форматировать</button>
+        </div>
+      </form></div>`;
+    const m = document.getElementById("modal-host"); m.innerHTML = html; m.classList.remove("hidden"); htmx.process(m);
+  },
+
+  portModal() {
+    const html = `<div class="bg-white rounded-xl p-5 w-full max-w-sm" onclick="event.stopPropagation()">
+      <h3 class="font-medium mb-1">Порт веб-интерфейса</h3>
+      <p class="text-sm text-slate-500 mb-3">Текущий порт: ${this.curPort}. После смены страница станет недоступна — переподключись на новый порт.</p>
+      <form hx-post="/htmx/set-port" hx-target="#toast-host" hx-swap="beforeend" class="space-y-3">
+        <input type="number" name="port" min="1024" max="65535" required value="${this.curPort}"
+               class="w-full border border-slate-300 rounded-lg px-3 py-2">
+        <div class="flex justify-end gap-2">
+          <button type="button" class="px-3 py-1.5 text-slate-500" onclick="SW.closeModal()">Отмена</button>
+          <button class="px-4 py-1.5 bg-sky-600 text-white rounded-lg">Сменить и перезапустить</button>
+        </div>
+      </form></div>`;
+    const m = document.getElementById("modal-host"); m.innerHTML = html; m.classList.remove("hidden"); htmx.process(m);
+  },
+
+  passwordModal() {
+    const html = `<div class="bg-white rounded-xl p-5 w-full max-w-sm" onclick="event.stopPropagation()">
+      <h3 class="font-medium mb-3">Сменить пароль админки</h3>
+      <form hx-post="/htmx/admin-passwd" hx-target="#toast-host" hx-swap="beforeend" class="space-y-3">
+        <input type="password" name="password" required minlength="8" placeholder="Новый пароль (≥8)"
+               class="w-full border border-slate-300 rounded-lg px-3 py-2">
+        <div class="flex justify-end gap-2">
+          <button type="button" class="px-3 py-1.5 text-slate-500" onclick="SW.closeModal()">Отмена</button>
+          <button class="px-4 py-1.5 bg-sky-600 text-white rounded-lg">Сохранить</button>
+        </div>
+      </form></div>`;
+    const m = document.getElementById("modal-host"); m.innerHTML = html; m.classList.remove("hidden"); htmx.process(m);
+  },
+
+  ctx(evt, rel, name, isDir) {
+    evt.preventDefault(); this.select(rel, name, isDir);
+    const items = [];
+    if (isDir) items.push(["ti-folder-open","Открыть",`SW.navigate('${this._esc(rel)}')`]);
+    else items.push(["ti-download","Скачать",`SW.download('${this._esc(rel)}')`]);
+    items.push(["ti-edit","Переименовать","SW.rename()"]);
+    items.push(["ti-arrows-move","Переместить","SW.move()"]);
+    if (isDir) items.push(["ti-share","Расшарить",`SW.share('${this._esc(rel)}','${this._esc(name)}')`]);
+    items.push(["ti-trash","Удалить","SW.del()","text-red-600"]);
+    const menu = document.getElementById("ctxmenu");
+    menu.innerHTML = items.map(([ic,label,act,cls]) =>
+      `<button class="w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-100 ${cls||''}" onclick="document.getElementById('ctxmenu').classList.add('hidden');${act}"><i class="ti ${ic} text-slate-500"></i>${label}</button>`).join("");
+    menu.style.left = Math.min(evt.clientX, window.innerWidth-200) + "px";
+    menu.style.top = Math.min(evt.clientY, window.innerHeight-260) + "px";
+    menu.classList.remove("hidden");
+  },
+
+  toast(msg) { this._toastHtml(`<div class="toast-msg rounded-lg px-4 py-3 text-sm shadow-lg bg-slate-800 text-white">${msg}</div>`); },
+  _toastHtml(html) {
+    const host = document.getElementById("toast-host");
+    const tmp = document.createElement("div"); tmp.innerHTML = html;
+    const node = tmp.firstElementChild; if (!node) return;
+    host.appendChild(node); setTimeout(() => node.remove(), 4000);
+  },
+  _esc(s) { return String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'"); },
+};
+window.SW = SW;
+SW._syncTheme();
+
+document.body.addEventListener("refreshBrowser", () => SW.refreshBrowser());
+document.body.addEventListener("refreshSidebar", () => SW.refreshSidebar());
+document.body.addEventListener("closeModal", () => SW.closeModal());
+document.body.addEventListener("reloadUsers", () => SW.openModal("/htmx/users"));
+document.body.addEventListener("reloadDlna", () => SW.openModal("/htmx/dlna"));
+
+document.addEventListener("click", (e) => {
+  document.getElementById("ctxmenu").classList.add("hidden");
+  if (!e.target.closest("#userchip")) document.getElementById("usermenu").classList.add("hidden");
+});
+document.getElementById("modal-host").addEventListener("click", () => SW.closeModal());
+</script>
+{% endblock %}

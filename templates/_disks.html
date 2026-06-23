@@ -1,0 +1,76 @@
+<div class="space-y-3">
+{% if not partitions %}
+    <p class="text-slate-500">Дисков с файловой системой не найдено. Воткни диск и подожди — список обновится сам.</p>
+{% endif %}
+{% for p in partitions %}
+<div class="bg-slate-800 rounded-lg p-4 flex items-center justify-between gap-4">
+    <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+            <span class="font-medium">{{ p.label or p.model or p.kname }}</span>
+            <span class="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">{{ p.fstype }}</span>
+            {% if p.tran == 'usb' %}
+                <span class="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">USB</span>
+            {% endif %}
+            {% if p.ro %}
+                <span class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-300">RO</span>
+            {% endif %}
+            {% if p.auto_mount %}
+                <span class="text-xs px-2 py-0.5 rounded bg-sky-500/20 text-sky-300" title="Поднимается сам при старте и вставке">авто</span>
+            {% endif %}
+        </div>
+        <div class="text-xs text-slate-400 mt-1 truncate">
+            {{ p.path }} · {{ p.size_human }}
+            {% if p.uuid %} · UUID {{ p.uuid[:8] }}…{% endif %}
+        </div>
+        {% if p.mountpoint %}
+            <div class="text-xs text-emerald-400 mt-1">Смонтирован: <code>{{ p.mountpoint }}</code></div>
+        {% endif %}
+
+        {# --- auto-mount toggle for an already-mounted (by us) disk --- #}
+        {% if p.uuid and p.mountpoint and p.mountpoint.startswith(mount_root) %}
+        <label class="flex items-center gap-1.5 text-xs text-slate-400 mt-2 cursor-pointer w-max">
+            <input type="checkbox" {% if p.auto_mount %}checked{% endif %}
+                   hx-post="/htmx/automount-toggle" hx-target="#toast-host" hx-swap="beforeend"
+                   hx-vals='js:{"uuid": "{{ p.uuid }}", "mount_name": "{{ p.mountpoint.split("/")[-1] }}", "enabled": event.target.checked ? "yes" : "no"}'>
+            <span>монтировать автоматически</span>
+        </label>
+        {% endif %}
+    </div>
+
+    <div class="shrink-0">
+        {% if p.mountpoint %}
+            {% if p.mountpoint.startswith(mount_root) %}
+                <form hx-post="/htmx/umount" hx-target="#toast-host" hx-swap="beforeend">
+                    <input type="hidden" name="mount_point" value="{{ p.mountpoint }}">
+                    <button class="text-sm bg-slate-700 hover:bg-slate-600 rounded px-3 py-1.5">Отмонтировать</button>
+                </form>
+            {% else %}
+                <span class="text-xs text-slate-500">смонтирован не нами</span>
+            {% endif %}
+        {% elif p.mountable %}
+            <form hx-post="/htmx/mount" hx-target="#toast-host" hx-swap="beforeend"
+                  class="flex flex-col items-end gap-2">
+                <div class="flex items-center gap-2">
+                    <input type="hidden" name="path" value="{{ p.path }}">
+                    <input type="hidden" name="fstype" value="{{ p.fstype }}">
+                    <input type="hidden" name="uuid" value="{{ p.uuid or '' }}">
+                    <input type="hidden" name="label" value="{{ p.label or '' }}">
+                    <input name="mount_name" required pattern="[A-Za-z0-9_.\-]{1,32}"
+                           value="{{ p.saved_mount_name or p.label or p.kname }}"
+                           class="text-sm w-28 bg-slate-900 border border-slate-700 rounded px-2 py-1">
+                    <button class="text-sm bg-emerald-600 hover:bg-emerald-500 rounded px-3 py-1.5">Смонтировать</button>
+                </div>
+                {% if p.uuid %}
+                <label class="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+                    <input type="checkbox" name="auto_mount" value="yes" {% if p.auto_mount %}checked{% endif %}>
+                    <span>монтировать автоматически впредь</span>
+                </label>
+                {% endif %}
+            </form>
+        {% else %}
+            <span class="text-xs text-slate-500">{{ p.fstype }} не поддерживается</span>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+</div>

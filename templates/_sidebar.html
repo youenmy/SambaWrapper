@@ -1,0 +1,104 @@
+<div class="p-3 space-y-1">
+
+  <div class="px-2 pt-1 pb-2 text-[11px] uppercase tracking-wide text-slate-400">Накопители</div>
+
+  {% set managed = [] %}
+  {% for p in partitions %}
+    {% if p.mountpoint and p.mountpoint.startswith(mount_root) %}{% set _ = managed.append(p) %}{% endif %}
+  {% endfor %}
+
+  {% for p in partitions %}
+    {% set name = p.mountpoint[mount_root|length+1:] if p.mountpoint and p.mountpoint.startswith(mount_root) else '' %}
+    {% if p.mountpoint and p.mountpoint.startswith(mount_root) %}
+      <div class="rounded-lg hover:bg-slate-50 px-2 py-1.5">
+        <div class="flex items-center gap-2">
+          <button class="flex items-center gap-2 flex-1 min-w-0 text-left" onclick="SW.navigate({{ name|tojson|forceescape }})">
+            <i class="ti ti-disc text-sky-600 text-lg"></i>
+            <span class="truncate text-sm">{{ p.label or name }}</span>
+          </button>
+          {% if p.tran == 'usb' %}<span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 rounded">USB</span>{% endif %}
+          {% if p.tran == 'usb' or p.hotplug %}
+          <button title="Форматировать" class="text-slate-400 hover:text-red-600"
+                  onclick="SW.formatModal({{ p.path|tojson|forceescape }}, {{ p.kname|tojson|forceescape }}, {{ (p.label or '')|tojson|forceescape }})">
+            <i class="ti ti-eraser text-base"></i>
+          </button>
+          {% endif %}
+          <button title="Отмонтировать" class="text-slate-400 hover:text-red-600"
+                  onclick="if(confirm('Отмонтировать диск «{{ p.label or name }}»?')) SW.post('/htmx/umount',{mount_point:{{ p.mountpoint|tojson|forceescape }}})">
+            <i class="ti ti-eject text-base"></i>
+          </button>
+        </div>
+        {% if p.uuid %}
+        <label class="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1 pl-6 cursor-pointer">
+          <input type="checkbox" {% if p.auto_mount %}checked{% endif %}
+                 onchange="SW.post('/htmx/automount-toggle',{uuid:{{ p.uuid|tojson|forceescape }},mount_name:{{ name|tojson|forceescape }},label:{{ (p.label or '')|tojson|forceescape }},enabled:this.checked?'yes':'no'})">
+          автомонтирование
+        </label>
+        {% endif %}
+      </div>
+    {% elif p.mountpoint %}
+      <div class="px-2 py-1.5 flex items-center gap-2 text-sm text-slate-400">
+        <i class="ti ti-disc text-lg"></i><span class="truncate flex-1">{{ p.label or p.kname }}</span>
+        <span class="text-[10px]">сист.</span>
+      </div>
+    {% elif p.mountable %}
+      <div class="rounded-lg hover:bg-slate-50 px-2 py-1.5 flex items-center gap-2">
+        <button class="flex items-center gap-2 flex-1 min-w-0 text-left"
+                onclick="SW.mountModal({{ p.path|tojson|forceescape }},{{ p.fstype|tojson|forceescape }},{{ (p.uuid or '')|tojson|forceescape }},{{ (p.label or '')|tojson|forceescape }},{{ (p.saved_mount_name or p.label or p.kname)|tojson|forceescape }},{{ p.auto_mount|tojson|forceescape }})">
+          <i class="ti ti-disc text-slate-400 text-lg"></i>
+          <span class="truncate flex-1 text-sm">{{ p.label or p.kname }}</span>
+          <span class="text-[10px] text-slate-400">{{ p.size_human }}</span>
+          <span class="text-[11px] text-sky-600">смонтировать</span>
+        </button>
+        {% if p.tran == 'usb' or p.hotplug %}
+        <button title="Форматировать" class="text-slate-400 hover:text-red-600 shrink-0"
+                onclick="SW.formatModal({{ p.path|tojson|forceescape }}, {{ p.kname|tojson|forceescape }}, {{ (p.label or '')|tojson|forceescape }})">
+          <i class="ti ti-eraser text-base"></i>
+        </button>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="px-2 py-1.5 flex items-center gap-2 text-sm text-slate-300">
+        <i class="ti ti-disc text-lg"></i><span class="truncate flex-1">{{ p.label or p.kname }}</span>
+        <span class="text-[10px]">{{ p.fstype }}</span>
+      </div>
+    {% endif %}
+  {% endfor %}
+
+  <div class="px-2 pt-4 pb-2 text-[11px] uppercase tracking-wide text-slate-400">Шары</div>
+  {% if not shares %}
+    <div class="px-2 text-xs text-slate-400">Пока нет. Открой папку и нажми «Расшарить».</div>
+  {% endif %}
+  {% for s in shares %}
+    {% set writable = s.write_list or (s.guest_ok and not s.read_only) %}
+    <button class="w-full rounded-lg hover:bg-slate-50 px-2 py-1.5 flex items-center gap-2 text-left"
+            onclick="SW.openModal('/htmx/share-edit?name={{ s.name }}')">
+      <i class="ti ti-folder-share text-sky-600 text-lg"></i>
+      <span class="truncate flex-1 text-sm">{{ s.name }}</span>
+      {% if writable %}
+        <span class="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 rounded">чт+зап</span>
+      {% else %}
+        <span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 rounded">чтение</span>
+      {% endif %}
+    </button>
+  {% endfor %}
+
+  {% if stale %}
+  <div class="px-2 pt-4 pb-1 flex items-center justify-between">
+    <span class="text-[11px] uppercase tracking-wide text-amber-600">Зависшие точки</span>
+    <button class="text-[11px] text-red-600 hover:underline"
+            onclick="if(confirm('Очистить все зависшие точки?')) SW.post('/htmx/stale-clean-all',{})">очистить все</button>
+  </div>
+  {% for s in stale %}
+    <div class="px-2 py-1.5 flex items-center gap-2 rounded-lg hover:bg-slate-50">
+      <i class="ti ti-plug-connected-x text-amber-500 text-lg"></i>
+      <span class="truncate flex-1 text-sm text-slate-500" title="устройство отключено">{{ s.name }}</span>
+      <button title="Очистить" class="text-slate-400 hover:text-red-600"
+              onclick="SW.post('/htmx/stale-clean',{mountpoint:{{ s.mountpoint|tojson|forceescape }}})">
+        <i class="ti ti-x text-base"></i>
+      </button>
+    </div>
+  {% endfor %}
+  {% endif %}
+
+</div>

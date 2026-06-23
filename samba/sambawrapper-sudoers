@@ -1,0 +1,39 @@
+# Allow the sambawrapper service account to run only the commands it needs as root.
+# Installed to /etc/sudoers.d/sambawrapper (mode 0440) by install.sh.
+
+Cmnd_Alias SAMBAWRAPPER_CMDS = \
+    /bin/mkdir -p /mnt/sambawrapper/*, \
+    /usr/bin/mkdir -p /mnt/sambawrapper/*, \
+    /bin/mount *, \
+    /usr/bin/mount *, \
+    /bin/umount /mnt/sambawrapper/*, \
+    /usr/bin/umount /mnt/sambawrapper/*, \
+    /bin/umount -l /mnt/sambawrapper/*, \
+    /usr/bin/umount -l /mnt/sambawrapper/*, \
+    /bin/rmdir /mnt/sambawrapper/*, \
+    /usr/bin/rmdir /mnt/sambawrapper/*, \
+    /bin/chown * /mnt/sambawrapper/*, \
+    /usr/bin/chown * /mnt/sambawrapper/*, \
+    /usr/sbin/wipefs -a /dev/sd*, \
+    /usr/sbin/mkfs.ext4 *, \
+    /usr/sbin/mkfs.exfat *, \
+    /usr/sbin/mkfs.ntfs *, \
+    /usr/bin/tee /etc/samba/smb.conf.d/sambawrapper-*.conf, \
+    /bin/rm -f /etc/samba/smb.conf.d/sambawrapper-*.conf, \
+    /usr/bin/rm -f /etc/samba/smb.conf.d/sambawrapper-*.conf, \
+    /bin/systemctl reload-or-restart smbd, \
+    /usr/bin/systemctl reload-or-restart smbd, \
+    /usr/bin/systemd-run --on-active=2 systemctl restart sambawrapper, \
+    /bin/systemctl enable --now minidlna, \
+    /usr/bin/systemctl enable --now minidlna, \
+    /bin/systemctl disable --now minidlna, \
+    /usr/bin/systemctl disable --now minidlna, \
+    /bin/systemctl restart minidlna, \
+    /usr/bin/systemctl restart minidlna, \
+    /usr/bin/tee /etc/minidlna.conf, \
+    /usr/bin/pdbedit -L, \
+    /usr/bin/smbpasswd *, \
+    /usr/sbin/useradd *, \
+    /usr/sbin/userdel *
+
+sambawrapper ALL=(root) NOPASSWD: SAMBAWRAPPER_CMDS

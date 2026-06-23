@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}SambaWrapper{% endblock %}</title>
+    <script>if (localStorage.getItem("sw.theme") === "dark") document.documentElement.classList.add("dark");</script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+    <link rel="stylesheet" href="/static/style.css?v=3">
+    <style>
+      body { background:#f1f5f9; color:#0f172a; }
+      .ti { vertical-align: -2px; }
+
+      /* ---- dark theme (inline so it's never served stale) ---- */
+      html.dark body { background:#0b1220; color:#e2e8f0; }
+      html.dark .bg-white   { background:#1e293b !important; }
+      html.dark .bg-slate-50  { background:#273449 !important; }
+      html.dark .bg-slate-100 { background:#334155 !important; }
+      html.dark .hover\:bg-slate-50:hover  { background:#273449 !important; }
+      html.dark .hover\:bg-slate-100:hover { background:#334155 !important; }
+      html.dark .hover\:bg-red-50:hover    { background:#3a1d1d !important; }
+      html.dark .tbb:hover { background:#334155 !important; }
+      html.dark .border-slate-100 { border-color:#1f2b3e !important; }
+      html.dark .border-slate-200 { border-color:#334155 !important; }
+      html.dark .border-slate-300 { border-color:#475569 !important; }
+      html.dark .border-red-200   { border-color:#7f1d1d !important; }
+      html.dark .divide-slate-100 > * + * { border-color:#1f2b3e !important; }
+      html.dark .text-slate-800, html.dark .text-slate-700 { color:#e2e8f0 !important; }
+      html.dark .text-slate-600 { color:#cbd5e1 !important; }
+      html.dark .text-slate-500 { color:#94a3b8 !important; }
+      html.dark .text-slate-400 { color:#64748b !important; }
+      html.dark .text-slate-300 { color:#475569 !important; }
+      html.dark .hover\:text-slate-800:hover, html.dark .hover\:text-slate-700:hover { color:#f1f5f9 !important; }
+      html.dark .text-sky-600 { color:#38bdf8 !important; }
+      html.dark input, html.dark select { background:#0f172a !important; border-color:#334155 !important; color:#e2e8f0 !important; }
+      html.dark input::placeholder { color:#64748b; }
+      html.dark code { color:#cbd5e1; }
+      html.dark .bg-amber-100 { background:#3a2c08 !important; }
+      html.dark .text-amber-700, html.dark .text-amber-600 { color:#fcd34d !important; }
+      html.dark .bg-emerald-100 { background:#06281d !important; }
+      html.dark .text-emerald-700 { color:#6ee7b7 !important; }
+      html.dark .bg-sky-100 { background:#0c2a47 !important; }
+      html.dark .text-sky-700 { color:#7dd3fc !important; }
+      html.dark .bg-sky-50, html.dark .frow.bg-sky-50 { background:#0c2a47 !important; }
+    </style>
+</head>
+<body class="min-h-screen">
+{% block body %}{% endblock %}
+
+<div id="toast-host" class="fixed bottom-4 right-4 z-[100] space-y-2"></div>
+
+<script>
+// Relocate any toast fragment that arrives via an hx-swap into the toast host.
+document.body.addEventListener("htmx:afterSwap", function(evt) {
+    evt.target.querySelectorAll(".toast-msg").forEach(function(t) {
+        document.getElementById("toast-host").appendChild(t);
+        setTimeout(function(){ t.remove(); }, 4000);
+    });
+});
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

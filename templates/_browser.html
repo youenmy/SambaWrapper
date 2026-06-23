@@ -1,0 +1,72 @@
+{% if error %}
+  <div class="p-6">
+    <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{{ error }}</div>
+  </div>
+  <script>window.SW && (SW.path = {{ (cur_path or '')|tojson }}, SW.sel = null);</script>
+{% else %}
+
+<div class="flex items-center gap-1 px-3 h-12 border-b border-slate-200 shrink-0 flex-wrap">
+  <button class="tbb" onclick="SW.mkdir()"><i class="ti ti-folder-plus"></i>Новая папка</button>
+  <button class="tbb" onclick="SW.upload()"><i class="ti ti-upload"></i>Загрузить</button>
+  <span class="w-px h-5 bg-slate-200 mx-1"></span>
+  <button id="btn-rename" class="tbb" onclick="SW.rename()"><i class="ti ti-edit"></i>Переименовать</button>
+  <button id="btn-move" class="tbb" onclick="SW.move()"><i class="ti ti-arrows-move"></i>Переместить</button>
+  <button id="btn-del" class="tbb text-red-600" onclick="SW.del()"><i class="ti ti-trash"></i>Удалить</button>
+  <button class="tbb ml-auto" onclick="SW.shareCurrent()"><i class="ti ti-share"></i>Расшарить папку</button>
+</div>
+
+<div class="flex items-center gap-1.5 px-4 h-10 text-sm text-slate-500 border-b border-slate-100 shrink-0 overflow-x-auto whitespace-nowrap">
+  <button class="hover:text-slate-800 flex items-center gap-1" onclick="SW.navigate('')"><i class="ti ti-server text-base"></i>Накопители</button>
+  {% set parts = listing.path.split('/') if listing.path else [] %}
+  {% set ns = namespace(acc='') %}
+  {% for seg in parts %}
+    {% set ns.acc = (ns.acc ~ '/' ~ seg) if ns.acc else seg %}
+    <i class="ti ti-chevron-right text-slate-300"></i>
+    <button class="hover:text-slate-800 {% if loop.last %}text-slate-800{% endif %}" onclick="SW.navigate({{ ns.acc|tojson|forceescape }})">{{ seg }}</button>
+  {% endfor %}
+</div>
+
+<div class="flex items-center gap-2.5 px-4 py-1.5 text-[11px] text-slate-400 border-b border-slate-100 shrink-0">
+  <input type="checkbox" title="Выделить всё" onclick="SW.checkAll(this.checked)">
+  <span class="flex-1">имя</span><span class="w-24 text-right">размер</span><span class="w-32 text-right pr-1">изменён</span>
+</div>
+
+<div class="flex-1 overflow-y-auto px-2 py-1" oncontextmenu="event.preventDefault()">
+  {% if listing.parent is not none %}
+    <div class="frow flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer text-slate-500"
+         ondragover="event.preventDefault()" ondrop="SW.drop(event, {{ listing.parent|tojson|forceescape }})"
+         ondblclick="SW.navigate({{ listing.parent|tojson|forceescape }})">
+      <span class="w-4"></span><i class="ti ti-corner-left-up text-lg"></i><span class="flex-1 text-sm">.. (наверх)</span>
+    </div>
+  {% endif %}
+  {% for e in listing.entries %}
+    {% set rel = (listing.path ~ '/' ~ e.name) if listing.path else e.name %}
+    <div class="frow flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer" data-path="{{ rel }}"
+         draggable="true" ondragstart="SW.dragStart(event, {{ rel|tojson|forceescape }})"
+         {% if e.is_dir %}ondragover="SW.dragOver(event, this)" ondragleave="this.classList.remove('ring-2','ring-sky-400')" ondrop="SW.drop(event, {{ rel|tojson|forceescape }}, this)"{% endif %}
+         onclick="SW.select({{ rel|tojson|forceescape }}, {{ e.name|tojson|forceescape }}, {{ e.is_dir|tojson|forceescape }})"
+         ondblclick="{% if e.is_dir %}SW.navigate({{ rel|tojson|forceescape }}){% else %}SW.download({{ rel|tojson|forceescape }}){% endif %}"
+         oncontextmenu="SW.ctx(event, {{ rel|tojson|forceescape }}, {{ e.name|tojson|forceescape }}, {{ e.is_dir|tojson|forceescape }})">
+      <input type="checkbox" class="fchk" onclick="event.stopPropagation(); SW.toggleCheck({{ rel|tojson|forceescape }}, this.checked)">
+      {% if e.is_dir %}
+        <i class="ti ti-folder text-amber-500 text-lg"></i>
+      {% else %}
+        <i class="ti ti-file text-slate-400 text-lg"></i>
+      {% endif %}
+      <span class="flex-1 text-sm truncate">{{ e.name }}</span>
+      <span class="w-24 text-right text-xs text-slate-400">{{ e.size_human if not e.is_dir else '—' }}</span>
+      <span class="w-32 text-right pr-1 text-xs text-slate-400">{{ e.mtime or '' }}</span>
+    </div>
+  {% endfor %}
+  {% if not listing.entries %}
+    <div class="px-2 py-6 text-center text-slate-400 text-sm">Пусто</div>
+  {% endif %}
+</div>
+
+<div class="flex justify-between px-4 h-8 items-center text-xs text-slate-400 border-t border-slate-100 shrink-0">
+  <span id="selinfo" data-count="{{ listing.entries|length }}">{{ listing.entries|length }} элементов</span>
+  <span>{{ listing.path or 'корень' }}</span>
+</div>
+
+<script>window.SW && (SW.path = {{ listing.path|tojson }}, SW.resetSel());</script>
+{% endif %}

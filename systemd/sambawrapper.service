@@ -1,0 +1,31 @@
+[Unit]
+Description=SambaWrapper — web UI for managing disk mounts and Samba shares
+After=network-online.target smbd.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sambawrapper
+Group=sambawrapper
+WorkingDirectory=/opt/sambawrapper
+Environment=PYTHONUNBUFFERED=1
+Environment=SW_HOST=0.0.0.0
+Environment=SW_PORT=8080
+# Port is overridable via the web UI, which writes this file (SW_PORT=...).
+EnvironmentFile=-/var/lib/sambawrapper/service.env
+ExecStart=/opt/sambawrapper/venv/bin/uvicorn app.main:app --host ${SW_HOST} --port ${SW_PORT}
+Restart=on-failure
+RestartSec=3
+
+# IMPORTANT: this service must share the host mount namespace, otherwise disks it
+# mounts are visible only inside the service and not to smbd / the rest of the system.
+# Do NOT enable PrivateTmp / ProtectHome / ProtectSystem=strict — each creates a
+# private mount namespace and silently hides mounts. If you want them back, also add
+# `MountFlags=shared` to propagate mounts to the host.
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=false
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,66 @@
+<div class="space-y-6">
+
+<div id="share-form-host"></div>
+
+<script>
+// Если пришли из «Браузера» с выбранной папкой — сразу открыть форму создания шары.
+(function() {
+    const path = sessionStorage.getItem('pendingSharePath');
+    if (path) {
+        const name = sessionStorage.getItem('pendingShareName') || '';
+        sessionStorage.removeItem('pendingSharePath');
+        sessionStorage.removeItem('pendingShareName');
+        htmx.ajax('GET',
+            '/htmx/share-form?path=' + encodeURIComponent(path) + '&suggested_name=' + encodeURIComponent(name),
+            {target: '#share-form-host', swap: 'innerHTML'});
+    }
+})();
+</script>
+
+<div>
+    <h2 class="text-lg font-semibold mb-3">Активные шары</h2>
+    {% if not shares %}
+        <p class="text-slate-500 text-sm">Шар пока нет. Открой «Браузер», зайди в нужную папку и нажми «Расшарить эту папку».</p>
+    {% endif %}
+    <div class="space-y-2">
+    {% for s in shares %}
+    <div class="bg-slate-800 rounded-lg p-4 flex items-center justify-between gap-4">
+        <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+                <code class="font-medium text-slate-100">\\&lt;ip&gt;\{{ s.name }}</code>
+                {% if s.guest_ok %}
+                    <span class="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">гость</span>
+                {% else %}
+                    <span class="text-xs px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300">с паролем</span>
+                {% endif %}
+                {% set writable = s.write_list or (s.guest_ok and not s.read_only) %}
+                {% if writable %}
+                    <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">чтение + запись</span>
+                {% else %}
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">только чтение</span>
+                {% endif %}
+            </div>
+            <div class="text-xs text-slate-400 mt-1 truncate">{{ s.path }}</div>
+            {% if s.valid_users %}
+                <div class="text-xs text-slate-500 mt-0.5">
+                    Доступ: {{ s.valid_users | join(', ') }}
+                    {% if s.write_list %}· запись: {{ s.write_list | join(', ') }}{% endif %}
+                </div>
+            {% endif %}
+        </div>
+        <div class="flex items-center gap-2">
+            <button class="text-sm bg-slate-700 hover:bg-slate-600 rounded px-3 py-1.5"
+                    hx-get="/htmx/share-edit?name={{ s.name }}"
+                    hx-target="#share-form-host" hx-swap="innerHTML">Права</button>
+            <form hx-post="/htmx/share-delete" hx-target="#toast-host" hx-swap="beforeend"
+                  hx-confirm="Удалить шару «{{ s.name }}»?">
+                <input type="hidden" name="name" value="{{ s.name }}">
+                <button class="text-sm bg-red-600/80 hover:bg-red-500 rounded px-3 py-1.5">Удалить</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+    </div>
+</div>
+
+</div>
