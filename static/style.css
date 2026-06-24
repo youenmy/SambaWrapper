@@ -2,12 +2,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 /* toolbar button */
 .tbb {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 10px; font-size: 13px; border-radius: 8px;
+  display: inline-flex; align-items: center; gap: 0.375rem;
+  padding: 0.3125rem 0.625rem; font-size: 0.8125rem; border-radius: 0.5rem;
   color: inherit; background: transparent; white-space: nowrap;
 }
 .tbb:hover { background: rgb(241 245 249); }
-.tbb i { font-size: 16px; }
+.tbb i { font-size: 1rem; }
 
 .frow.bg-sky-50 { background: rgb(240 249 255); }
 

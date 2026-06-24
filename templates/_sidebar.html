@@ -1,6 +1,6 @@
 <div class="p-3 space-y-1">
 
-  <div class="px-2 pt-1 pb-2 text-[11px] uppercase tracking-wide text-slate-400">Накопители</div>
+  <div class="px-2 pt-1 pb-2 text-[0.6875rem] uppercase tracking-wide text-slate-400">Накопители</div>
 
   {% for p in partitions %}
     {% set name = p.mountpoint[mount_root|length+1:] if p.mountpoint and p.mountpoint.startswith(mount_root) else '' %}
@@ -11,7 +11,7 @@
             <i class="ti ti-disc text-sky-600 text-lg"></i>
             <span class="truncate text-sm">{{ p.label or name }}</span>
           </button>
-          {% if p.tran == 'usb' %}<span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 rounded">USB</span>{% endif %}
+          {% if p.tran == 'usb' %}<span class="text-[0.625rem] bg-amber-100 text-amber-700 px-1.5 rounded">USB</span>{% endif %}
           {% if p.tran == 'usb' or p.hotplug %}
           <button title="Проверить и исправить" class="text-slate-400 hover:text-amber-600"
                   onclick="SW.fixDisk({{ p.path|tojson|forceescape }}, {{ p.kname|tojson|forceescape }})">
@@ -28,7 +28,7 @@
           </button>
         </div>
         {% if p.uuid %}
-        <label class="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1 pl-6 cursor-pointer">
+        <label class="flex items-center gap-1.5 text-[0.6875rem] text-slate-500 mt-1 pl-6 cursor-pointer">
           <input type="checkbox" {% if p.auto_mount %}checked{% endif %}
                  onchange="SW.post('/htmx/automount-toggle',{uuid:{{ p.uuid|tojson|forceescape }},mount_name:{{ name|tojson|forceescape }},label:{{ (p.label or '')|tojson|forceescape }},enabled:this.checked?'yes':'no'})">
           автомонтирование
@@ -38,7 +38,7 @@
     {% elif p.mountpoint %}
       <div class="px-2 py-1.5 flex items-center gap-2 text-sm text-slate-400">
         <i class="ti ti-disc text-lg"></i><span class="truncate flex-1">{{ p.label or p.kname }}</span>
-        <span class="text-[10px]">сист.</span>
+        <span class="text-[0.625rem]">сист.</span>
       </div>
     {% elif p.mountable %}
       <div class="rounded-lg hover:bg-slate-50 px-2 py-1.5 flex items-center gap-2">
@@ -46,8 +46,8 @@
                 onclick="SW.mountModal({{ p.path|tojson|forceescape }},{{ p.fstype|tojson|forceescape }},{{ (p.uuid or '')|tojson|forceescape }},{{ (p.label or '')|tojson|forceescape }},{{ (p.saved_mount_name or p.label or p.kname)|tojson|forceescape }},{{ p.auto_mount|tojson|forceescape }})">
           <i class="ti ti-disc text-slate-400 text-lg"></i>
           <span class="truncate flex-1 text-sm">{{ p.label or p.kname }}</span>
-          <span class="text-[10px] text-slate-400">{{ p.size_human }}</span>
-          <span class="text-[11px] text-sky-600">смонтировать</span>
+          <span class="text-[0.625rem] text-slate-400">{{ p.size_human }}</span>
+          <span class="text-[0.6875rem] text-sky-600">смонтировать</span>
         </button>
         {% if p.tran == 'usb' or p.hotplug %}
         <button title="Проверить и исправить" class="text-slate-400 hover:text-amber-600 shrink-0"
@@ -63,12 +63,12 @@
     {% else %}
       <div class="px-2 py-1.5 flex items-center gap-2 text-sm text-slate-300">
         <i class="ti ti-disc text-lg"></i><span class="truncate flex-1">{{ p.label or p.kname }}</span>
-        <span class="text-[10px]">{{ p.fstype }}</span>
+        <span class="text-[0.625rem]">{{ p.fstype }}</span>
       </div>
     {% endif %}
   {% endfor %}
 
-  <div class="px-2 pt-4 pb-2 text-[11px] uppercase tracking-wide text-slate-400">История дисков</div>
+  <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-slate-400">История дисков</div>
   {% if not stale %}
     <div class="px-2 text-xs text-slate-400">Пусто — отключённых дисков нет.</div>
   {% endif %}
@@ -83,7 +83,7 @@
     </div>
   {% endfor %}
 
-  <div class="px-2 pt-4 pb-2 text-[11px] uppercase tracking-wide text-slate-400">Шары</div>
+  <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-slate-400">Шары</div>
   {% if not shares %}
     <div class="px-2 text-xs text-slate-400">Пока нет. Открой папку и нажми «Расшарить».</div>
   {% endif %}
@@ -94,27 +94,27 @@
       <i class="ti ti-folder-share text-sky-600 text-lg"></i>
       <span class="truncate flex-1 text-sm">{{ s.name }}</span>
       {% if writable %}
-        <span class="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 rounded">чт+зап</span>
+        <span class="text-[0.625rem] bg-emerald-100 text-emerald-700 px-1.5 rounded">чт+зап</span>
       {% else %}
-        <span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 rounded">чтение</span>
+        <span class="text-[0.625rem] bg-slate-100 text-slate-500 px-1.5 rounded">чтение</span>
       {% endif %}
     </button>
   {% endfor %}
 
-  <div class="px-2 pt-4 pb-2 text-[11px] uppercase tracking-wide text-slate-400">DLNA для телевизора</div>
+  <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-slate-400">DLNA для телевизора</div>
   <div class="px-2 py-1.5 flex items-center gap-2">
     <i class="ti ti-device-tv {{ 'text-sky-600' if dlna.active else 'text-slate-400' }} text-lg"></i>
     <span class="flex-1 min-w-0">
       <span class="text-sm block">Медиасервер</span>
-      <span class="text-[11px] {{ 'text-emerald-600' if dlna.active else 'text-slate-400' }}">{{ 'работает' if dlna.active else 'выключен' }}</span>
+      <span class="text-[0.6875rem] {{ 'text-emerald-600' if dlna.active else 'text-slate-400' }}">{{ 'работает' if dlna.active else 'выключен' }}</span>
     </span>
     {% if not dlna.installed %}
-      <span class="text-[10px] text-slate-400">не установлен</span>
+      <span class="text-[0.625rem] text-slate-400">не установлен</span>
     {% elif dlna.active %}
       <button title="Пересканировать" class="text-slate-400 hover:text-sky-600" onclick="SW.post('/htmx/dlna-rescan',{})"><i class="ti ti-refresh text-base"></i></button>
-      <button class="text-[11px] text-red-600 hover:underline" onclick="SW.post('/htmx/dlna-toggle',{enable:'no'})">выключить</button>
+      <button class="text-[0.6875rem] text-red-600 hover:underline" onclick="SW.post('/htmx/dlna-toggle',{enable:'no'})">выключить</button>
     {% else %}
-      <button class="text-[11px] text-emerald-600 hover:underline" onclick="SW.post('/htmx/dlna-toggle',{enable:'yes'})">включить</button>
+      <button class="text-[0.6875rem] text-emerald-600 hover:underline" onclick="SW.post('/htmx/dlna-toggle',{enable:'yes'})">включить</button>
     {% endif %}
   </div>
 
