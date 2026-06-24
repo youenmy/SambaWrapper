@@ -69,7 +69,7 @@
         <div class="flex items-center gap-2 pt-1">
             {% if editing %}
             <button type="button" class="text-sm text-red-600 hover:bg-red-50 rounded-lg px-3 py-1.5"
-                    onclick="if(confirm('Удалить шару «{{ suggested_name }}»?')) SW.post('/htmx/share-delete',{name:{{ suggested_name|tojson|forceescape }}})">
+                    onclick="SW.confirm('Удалить шару «{{ suggested_name }}»?', () => SW.post('/htmx/share-delete',{name:{{ suggested_name|tojson|forceescape }}}), {ok:'Удалить', danger:true})">
                 Удалить шару
             </button>
             {% endif %}

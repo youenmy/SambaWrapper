@@ -23,7 +23,7 @@
           </button>
           {% endif %}
           <button title="Отмонтировать" class="text-slate-400 hover:text-red-600"
-                  onclick="if(confirm('Отмонтировать диск «{{ p.label or name }}»?')) SW.post('/htmx/umount',{mount_point:{{ p.mountpoint|tojson|forceescape }}})">
+                  onclick="SW.confirm('Отмонтировать диск «{{ p.label or name }}»?', () => SW.post('/htmx/umount',{mount_point:{{ p.mountpoint|tojson|forceescape }}}), {ok:'Отмонтировать'})">
             <i class="ti ti-eject text-base"></i>
           </button>
         </div>

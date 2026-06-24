@@ -26,7 +26,7 @@
         <button class="text-sm text-slate-600 hover:bg-slate-100 rounded-md px-2 py-1">Сменить</button>
       </form>
       <button class="text-red-500 hover:bg-red-50 rounded-md px-2 py-1"
-              onclick="if(confirm('Удалить «{{ u }}»?')) SW.post('/htmx/user-delete',{username:{{ u|tojson|forceescape }}})">
+              onclick="SW.confirm('Удалить пользователя «{{ u }}»?', () => SW.post('/htmx/user-delete',{username:{{ u|tojson|forceescape }}}), {ok:'Удалить', danger:true})">
         <i class="ti ti-trash"></i>
       </button>
     </div>
