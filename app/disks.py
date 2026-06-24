@@ -233,6 +233,43 @@ def format_partition(device: str, fstype: str, label: str, confirm: str) -> tupl
             pass
     return True, f"{device} отформатирован в {fstype}"
 
+def check_repair(device: str) -> tuple[bool, str]:
+    """Run the right fsck tool to check/repair a removable partition.
+
+    For NTFS uses ntfsfix (fixes the dirty bit / $MFTMirr mismatch that blocks
+    mounting after an unclean Windows eject). Disk must be unmounted.
+    """
+    part = {p["path"]: p for p in list_partitions()}.get(device)
+    if not part:
+        return False, "Раздел не найден"
+    if not (part.get("tran") == "usb" or part.get("hotplug")):
+        return False, "Проверка доступна только для съёмных/USB-дисков"
+    if part.get("mountpoint"):
+        if part["mountpoint"].startswith(str(MOUNT_ROOT) + "/"):
+            ok, msg = unmount(part["mountpoint"])
+            if not ok:
+                return False, f"Не удалось отмонтировать для проверки: {msg}"
+        else:
+            return False, "Раздел смонтирован системно — проверка запрещена"
+    fs = part["fstype"]
+    if fs in ("ntfs", "ntfs3"):
+        argv = ["ntfsfix", device]
+    elif fs in ("ext2", "ext3", "ext4"):
+        argv = ["e2fsck", "-f", "-y", device]
+    elif fs == "exfat":
+        argv = ["fsck.exfat", "-y", device]
+    elif fs == "vfat":
+        argv = ["fsck.vfat", "-a", "-w", device]
+    else:
+        return False, f"Проверка для файловой системы {fs} не поддерживается"
+    r = sudo(argv, timeout=900)
+    out = (r.stdout or r.stderr).strip()
+    last = out.splitlines()[-1].strip() if out else ""
+    ok = (r.rc == 0) if fs in ("ntfs", "ntfs3") else (r.rc in (0, 1, 2))
+    if ok:
+        return True, f"Проверка завершена ({fs}). {last}".strip()
+    return False, f"Не удалось исправить: {last or out[:200] or ('rc=' + str(r.rc))}"
+
 def set_auto_mount(uuid: str, label: str | None, mount_name: str, enabled: bool) -> tuple[bool, str]:
     """Enable/disable auto-mount for a partition, keyed by its UUID."""
     if not uuid:

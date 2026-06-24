@@ -13,6 +13,10 @@
           </button>
           {% if p.tran == 'usb' %}<span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 rounded">USB</span>{% endif %}
           {% if p.tran == 'usb' or p.hotplug %}
+          <button title="Проверить и исправить" class="text-slate-400 hover:text-amber-600"
+                  onclick="SW.fixDisk({{ p.path|tojson|forceescape }}, {{ p.kname|tojson|forceescape }})">
+            <i class="ti ti-stethoscope text-base"></i>
+          </button>
           <button title="Форматировать" class="text-slate-400 hover:text-red-600"
                   onclick="SW.formatModal({{ p.path|tojson|forceescape }}, {{ p.kname|tojson|forceescape }}, {{ (p.label or '')|tojson|forceescape }})">
             <i class="ti ti-eraser text-base"></i>
@@ -46,6 +50,10 @@
           <span class="text-[11px] text-sky-600">смонтировать</span>
         </button>
         {% if p.tran == 'usb' or p.hotplug %}
+        <button title="Проверить и исправить" class="text-slate-400 hover:text-amber-600 shrink-0"
+                onclick="SW.fixDisk({{ p.path|tojson|forceescape }}, {{ p.kname|tojson|forceescape }})">
+          <i class="ti ti-stethoscope text-base"></i>
+        </button>
         <button title="Форматировать" class="text-slate-400 hover:text-red-600 shrink-0"
                 onclick="SW.formatModal({{ p.path|tojson|forceescape }}, {{ p.kname|tojson|forceescape }}, {{ (p.label or '')|tojson|forceescape }})">
           <i class="ti ti-eraser text-base"></i>

@@ -258,6 +258,13 @@ const SW = {
     const m = document.getElementById("modal-host"); m.innerHTML = html; m.classList.remove("hidden"); htmx.process(m);
   },
 
+  fixDisk(device, kname) {
+    if (confirm("Проверить и попытаться исправить ошибки файловой системы на " + kname + "?\nДиск будет отмонтирован на время проверки. Данные не удаляются.")) {
+      this.toast("Проверка " + kname + "… это может занять время");
+      this.post("/htmx/disk-check", {device});
+    }
+  },
+
   passwordModal() {
     const html = `<div class="bg-white rounded-xl p-5 w-full max-w-sm" onclick="event.stopPropagation()">
       <h3 class="font-medium mb-3">Сменить пароль админки</h3>

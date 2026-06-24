@@ -149,6 +149,11 @@ async def htmx_format(request: Request, _: str = Depends(current_user),
     ok, msg = await asyncio.to_thread(disks.format_partition, device, fstype, label, confirm)
     return _resp(request, ok, msg, ["refreshSidebar", "closeModal"] if ok else [])
 
+@app.post("/htmx/disk-check", response_class=HTMLResponse)
+async def htmx_disk_check(request: Request, _: str = Depends(current_user), device: str = Form(...)):
+    ok, msg = await asyncio.to_thread(disks.check_repair, device)
+    return _resp(request, ok, msg, ["refreshSidebar"])
+
 
 # ---------- file operations ----------
 

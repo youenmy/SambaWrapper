@@ -18,6 +18,10 @@ Cmnd_Alias SAMBAWRAPPER_CMDS = \
     /usr/sbin/mkfs.ext4 *, \
     /usr/sbin/mkfs.exfat *, \
     /usr/sbin/mkfs.ntfs *, \
+    /usr/bin/ntfsfix *, \
+    /usr/sbin/e2fsck *, \
+    /usr/sbin/fsck.exfat *, \
+    /usr/sbin/fsck.vfat *, \
     /usr/bin/tee /etc/samba/smb.conf.d/sambawrapper-*.conf, \
     /bin/rm -f /etc/samba/smb.conf.d/sambawrapper-*.conf, \
     /usr/bin/rm -f /etc/samba/smb.conf.d/sambawrapper-*.conf, \
