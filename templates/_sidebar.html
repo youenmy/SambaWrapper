@@ -2,17 +2,12 @@
 
   <div class="px-2 pt-1 pb-2 text-[11px] uppercase tracking-wide text-slate-400">Накопители</div>
 
-  {% set managed = [] %}
-  {% for p in partitions %}
-    {% if p.mountpoint and p.mountpoint.startswith(mount_root) %}{% set _ = managed.append(p) %}{% endif %}
-  {% endfor %}
-
   {% for p in partitions %}
     {% set name = p.mountpoint[mount_root|length+1:] if p.mountpoint and p.mountpoint.startswith(mount_root) else '' %}
     {% if p.mountpoint and p.mountpoint.startswith(mount_root) %}
       <div class="rounded-lg hover:bg-slate-50 px-2 py-1.5">
         <div class="flex items-center gap-2">
-          <button class="flex items-center gap-2 flex-1 min-w-0 text-left" onclick="SW.navigate({{ name|tojson|forceescape }})">
+          <button class="flex items-center gap-2 flex-1 min-w-0 text-left" onclick="SW.navigate({{ name|tojson|forceescape }}); SW.closeSidebar()">
             <i class="ti ti-disc text-sky-600 text-lg"></i>
             <span class="truncate text-sm">{{ p.label or name }}</span>
           </button>
@@ -65,6 +60,21 @@
     {% endif %}
   {% endfor %}
 
+  <div class="px-2 pt-4 pb-2 text-[11px] uppercase tracking-wide text-slate-400">История дисков</div>
+  {% if not stale %}
+    <div class="px-2 text-xs text-slate-400">Пусто — отключённых дисков нет.</div>
+  {% endif %}
+  {% for s in stale %}
+    <div class="px-2 py-1.5 flex items-center gap-2 rounded-lg hover:bg-slate-50">
+      <i class="ti ti-plug-connected-x text-amber-500 text-lg"></i>
+      <span class="truncate flex-1 text-sm text-slate-500" title="устройство отключено">{{ s.name }}</span>
+      <button title="Убрать из истории" class="text-slate-400 hover:text-red-600"
+              onclick="SW.post('/htmx/stale-clean',{mountpoint:{{ s.mountpoint|tojson|forceescape }}})">
+        <i class="ti ti-x text-base"></i>
+      </button>
+    </div>
+  {% endfor %}
+
   <div class="px-2 pt-4 pb-2 text-[11px] uppercase tracking-wide text-slate-400">Шары</div>
   {% if not shares %}
     <div class="px-2 text-xs text-slate-400">Пока нет. Открой папку и нажми «Расшарить».</div>
@@ -83,22 +93,21 @@
     </button>
   {% endfor %}
 
-  {% if stale %}
-  <div class="px-2 pt-4 pb-1 flex items-center justify-between">
-    <span class="text-[11px] uppercase tracking-wide text-amber-600">Зависшие точки</span>
-    <button class="text-[11px] text-red-600 hover:underline"
-            onclick="if(confirm('Очистить все зависшие точки?')) SW.post('/htmx/stale-clean-all',{})">очистить все</button>
+  <div class="px-2 pt-4 pb-2 text-[11px] uppercase tracking-wide text-slate-400">DLNA для телевизора</div>
+  <div class="px-2 py-1.5 flex items-center gap-2">
+    <i class="ti ti-device-tv {{ 'text-sky-600' if dlna.active else 'text-slate-400' }} text-lg"></i>
+    <span class="flex-1 min-w-0">
+      <span class="text-sm block">Медиасервер</span>
+      <span class="text-[11px] {{ 'text-emerald-600' if dlna.active else 'text-slate-400' }}">{{ 'работает' if dlna.active else 'выключен' }}</span>
+    </span>
+    {% if not dlna.installed %}
+      <span class="text-[10px] text-slate-400">не установлен</span>
+    {% elif dlna.active %}
+      <button title="Пересканировать" class="text-slate-400 hover:text-sky-600" onclick="SW.post('/htmx/dlna-rescan',{})"><i class="ti ti-refresh text-base"></i></button>
+      <button class="text-[11px] text-red-600 hover:underline" onclick="SW.post('/htmx/dlna-toggle',{enable:'no'})">выключить</button>
+    {% else %}
+      <button class="text-[11px] text-emerald-600 hover:underline" onclick="SW.post('/htmx/dlna-toggle',{enable:'yes'})">включить</button>
+    {% endif %}
   </div>
-  {% for s in stale %}
-    <div class="px-2 py-1.5 flex items-center gap-2 rounded-lg hover:bg-slate-50">
-      <i class="ti ti-plug-connected-x text-amber-500 text-lg"></i>
-      <span class="truncate flex-1 text-sm text-slate-500" title="устройство отключено">{{ s.name }}</span>
-      <button title="Очистить" class="text-slate-400 hover:text-red-600"
-              onclick="SW.post('/htmx/stale-clean',{mountpoint:{{ s.mountpoint|tojson|forceescape }}})">
-        <i class="ti ti-x text-base"></i>
-      </button>
-    </div>
-  {% endfor %}
-  {% endif %}
 
 </div>

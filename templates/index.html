@@ -2,48 +2,55 @@
 {% block body %}
 <div class="h-screen flex flex-col">
 
-  <header class="flex items-center justify-between px-4 h-12 bg-white border-b border-slate-200 shrink-0">
-    <div class="flex items-center gap-2 font-medium">
-      <i class="ti ti-folder-open text-sky-600 text-xl"></i> SambaWrapper
+  <header class="flex items-center justify-between px-3 sm:px-4 h-12 bg-white border-b border-slate-200 shrink-0 gap-2">
+    <div class="flex items-center gap-2 font-medium min-w-0">
+      <button class="md:hidden text-slate-500 hover:text-slate-800" onclick="SW.toggleSidebar()" aria-label="Меню"><i class="ti ti-menu-2 text-xl"></i></button>
+      <i class="ti ti-folder-open text-sky-600 text-xl"></i> <span class="truncate">SambaWrapper</span>
     </div>
-    <div class="relative">
-      <button id="userchip" class="flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg hover:bg-slate-100"
-              onclick="event.stopPropagation();SW.toggleUserMenu()">
-        <span class="w-6 h-6 rounded-full bg-sky-100 text-sky-700 grid place-items-center text-xs">A</span>
-        admin <i class="ti ti-chevron-down text-base"></i>
-      </button>
-      <div id="usermenu" class="hidden absolute right-0 top-10 w-52 bg-white border border-slate-200 rounded-lg shadow-lg p-1.5 z-50 text-sm">
-        <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
-                onclick="SW.openModal('/htmx/users')"><i class="ti ti-users text-slate-500"></i>Пользователи Samba</button>
-        <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
-                onclick="SW.passwordModal()"><i class="ti ti-key text-slate-500"></i>Сменить пароль</button>
-        <button id="theme-btn" class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
-                onclick="SW.toggleTheme()"><i class="ti ti-moon text-slate-500"></i><span id="theme-label">Тёмная тема</span></button>
-        <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
-                onclick="SW.openModal('/htmx/dlna')"><i class="ti ti-device-tv text-slate-500"></i>Медиасервер (DLNA)</button>
-        <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
-                onclick="SW.portModal()"><i class="ti ti-plug text-slate-500"></i>Порт веб-интерфейса</button>
-        <form method="post" action="/logout">
-          <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"><i class="ti ti-logout text-slate-500"></i>Выйти</button>
-        </form>
+    <div class="flex items-center gap-1">
+      <label class="flex items-center gap-1.5 text-sm px-2.5 py-1.5 rounded-lg hover:bg-slate-100 cursor-pointer select-none">
+        <input type="checkbox" id="theme-chk" onchange="SW.setTheme(this.checked)">
+        <i class="ti ti-moon text-base"></i><span class="hidden sm:inline">Тёмная</span>
+      </label>
+      <div class="relative">
+        <button id="userchip" class="flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg hover:bg-slate-100"
+                onclick="event.stopPropagation();SW.toggleUserMenu()">
+          <span class="w-6 h-6 rounded-full bg-sky-100 text-sky-700 grid place-items-center text-xs">A</span>
+          <span class="hidden sm:inline">admin</span> <i class="ti ti-chevron-down text-base"></i>
+        </button>
+        <div id="usermenu" class="hidden absolute right-0 top-10 w-52 bg-white border border-slate-200 rounded-lg shadow-lg p-1.5 z-50 text-sm">
+          <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
+                  onclick="SW.openModal('/htmx/users')"><i class="ti ti-users text-slate-500"></i>Пользователи Samba</button>
+          <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
+                  onclick="SW.passwordModal()"><i class="ti ti-key text-slate-500"></i>Сменить пароль</button>
+          <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
+                  onclick="SW.portModal()"><i class="ti ti-plug text-slate-500"></i>Порт веб-интерфейса</button>
+          <form method="post" action="/logout">
+            <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"><i class="ti ti-logout text-slate-500"></i>Выйти</button>
+          </form>
+        </div>
       </div>
     </div>
   </header>
 
-  <div class="flex flex-1 min-h-0">
-    <aside id="sidebar" class="w-60 shrink-0 bg-white border-r border-slate-200 overflow-y-auto"
+  <div class="flex flex-1 min-h-0 relative">
+    <aside id="sidebar" class="w-64 shrink-0 bg-white border-r border-slate-200 overflow-y-auto
+                                fixed md:static top-12 bottom-0 left-0 z-40 -translate-x-full md:translate-x-0 transition-transform duration-200"
            hx-get="/htmx/sidebar" hx-trigger="load, every 8s" hx-swap="innerHTML">
       <div class="p-4 text-slate-400 text-sm">Загрузка…</div>
     </aside>
 
     <main id="browser" class="flex-1 min-w-0 flex flex-col bg-white overflow-hidden">
-      <div class="m-auto text-slate-400 text-sm flex flex-col items-center gap-2">
+      <div class="m-auto text-slate-400 text-sm flex flex-col items-center gap-2 px-4 text-center">
         <i class="ti ti-folder text-3xl"></i>
-        Выбери диск слева
+        <span class="md:hidden">Нажми <i class="ti ti-menu-2"></i> вверху, чтобы выбрать диск</span>
+        <span class="hidden md:inline">Выбери диск слева</span>
       </div>
     </main>
   </div>
 </div>
+
+<div id="sb-backdrop" class="hidden fixed inset-0 bg-black/40 z-30 md:hidden" onclick="SW.closeSidebar()"></div>
 
 <div id="modal-host" class="hidden fixed inset-0 z-[90] bg-black/40 flex items-center justify-center p-4"></div>
 <div id="ctxmenu" class="hidden fixed z-[95] w-48 bg-white border border-slate-200 rounded-lg shadow-lg p-1 text-sm"></div>
@@ -78,15 +85,23 @@ const SW = {
 
   toggleUserMenu() { document.getElementById("usermenu").classList.toggle("hidden"); },
 
-  toggleTheme() {
-    const dark = document.documentElement.classList.toggle("dark");
-    localStorage.setItem("sw.theme", dark ? "dark" : "light");
-    this._syncTheme();
+  setTheme(on) {
+    document.documentElement.classList.toggle("dark", on);
+    localStorage.setItem("sw.theme", on ? "dark" : "light");
   },
   _syncTheme() {
-    const dark = document.documentElement.classList.contains("dark");
-    const l = document.getElementById("theme-label"); if (l) l.textContent = dark ? "Светлая тема" : "Тёмная тема";
-    const i = document.querySelector("#theme-btn i"); if (i) i.className = "ti " + (dark ? "ti-sun" : "ti-moon") + " text-slate-500";
+    const c = document.getElementById("theme-chk");
+    if (c) c.checked = document.documentElement.classList.contains("dark");
+  },
+  toggleSidebar() {
+    document.getElementById("sidebar").classList.toggle("-translate-x-full");
+    document.getElementById("sb-backdrop").classList.toggle("hidden");
+  },
+  closeSidebar() {
+    if (window.innerWidth < 768) {
+      document.getElementById("sidebar").classList.add("-translate-x-full");
+      document.getElementById("sb-backdrop").classList.add("hidden");
+    }
   },
 
   checked: new Set(),
@@ -290,7 +305,6 @@ document.body.addEventListener("refreshBrowser", () => SW.refreshBrowser());
 document.body.addEventListener("refreshSidebar", () => SW.refreshSidebar());
 document.body.addEventListener("closeModal", () => SW.closeModal());
 document.body.addEventListener("reloadUsers", () => SW.openModal("/htmx/users"));
-document.body.addEventListener("reloadDlna", () => SW.openModal("/htmx/dlna"));
 
 document.addEventListener("click", (e) => {
   document.getElementById("ctxmenu").classList.add("hidden");

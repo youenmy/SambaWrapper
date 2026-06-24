@@ -49,7 +49,7 @@ echo "  ┌───────────────────────
 echo "  │   SambaWrapper — установка            │"
 echo "  └──────────────────────────────────────┘"
 ask SW_PORT "Порт веб-интерфейса"                          "8080"
-ask SW_DLNA "Включить DLNA-медиасервер (для телевизора)?"  "y"
+ask SW_DLNA "Поставить DLNA-медиасервер (включишь в UI)?"  "y"
 if [[ -z "${SW_ADMIN_PASS:-}" && -e /dev/tty ]]; then
     read -r -s -p "  Пароль админа (Enter — сгенерировать): " SW_ADMIN_PASS </dev/tty || SW_ADMIN_PASS=""
     echo ""
@@ -116,9 +116,9 @@ if [[ -n "${SW_ADMIN_PASS:-}" ]]; then
     echo "==> Пароль админа установлен из ввода"
 fi
 
-# --- DLNA ---
+# --- DLNA (installed but OFF by default; enable from the web UI) ---
 if [[ "${SW_DLNA,,}" == y* ]]; then
-    echo "==> Настраиваю DLNA (minidlna)"
+    echo "==> Готовлю DLNA (minidlna) — выключен по умолчанию, включишь в интерфейсе"
     cat > /etc/minidlna.conf <<EOF
 media_dir=${MOUNT_ROOT}
 friendly_name=SambaWrapper
@@ -128,8 +128,7 @@ inotify=yes
 notify_interval=895
 root_container=B
 EOF
-    systemctl enable --now minidlna 2>/dev/null || true
-    systemctl restart minidlna 2>/dev/null || true
+    systemctl disable --now minidlna 2>/dev/null || true
 fi
 
 # wait for the initial password file (only created when no password was preset)

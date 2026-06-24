@@ -86,6 +86,7 @@ async def htmx_sidebar(request: Request, _: str = Depends(current_user)):
         "partitions": disks.list_partitions(),
         "shares": samba.list_shares(),
         "stale": disks.list_stale_mounts(),
+        "dlna": dlna.status(),
         "mount_root": str(MOUNT_ROOT),
     })
 
@@ -332,12 +333,12 @@ async def htmx_dlna(request: Request, _: str = Depends(current_user)):
 @app.post("/htmx/dlna-toggle", response_class=HTMLResponse)
 async def htmx_dlna_toggle(request: Request, _: str = Depends(current_user), enable: str = Form("no")):
     ok, msg = dlna.enable() if enable == "yes" else dlna.disable()
-    return _resp(request, ok, msg, ["reloadDlna"] if ok else [])
+    return _resp(request, ok, msg, ["refreshSidebar"] if ok else [])
 
 @app.post("/htmx/dlna-rescan", response_class=HTMLResponse)
 async def htmx_dlna_rescan(request: Request, _: str = Depends(current_user)):
     ok, msg = dlna.rescan()
-    return _resp(request, ok, msg, [])
+    return _resp(request, ok, msg, ["refreshSidebar"])
 
 
 @app.get("/healthz", response_class=PlainTextResponse)
