@@ -236,7 +236,7 @@ const SW = {
 
   formatModal(device, kname, label) {
     const a = s => String(s).replace(/"/g, "&quot;");
-    const kn = JSON.stringify(String(kname));
+    const kj = String(kname).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
     const html = `<div class="bg-white rounded-xl p-5 w-full max-w-md" onclick="event.stopPropagation()">
       <h3 class="font-medium mb-1 text-red-600 flex items-center gap-2"><i class="ti ti-alert-triangle"></i>Форматировать ${a(kname)}</h3>
       <p class="text-sm text-slate-500 mb-3">Все данные на <code>${a(device)}</code> будут стёрты безвозвратно.</p>
@@ -251,7 +251,7 @@ const SW = {
         <label class="block text-sm text-slate-600">Метка (необязательно)
           <input name="label" maxlength="11" value="${a(label)}" class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"></label>
         <label class="block text-sm text-slate-600">Для подтверждения введите <code>${a(kname)}</code>
-          <input name="confirm" autocomplete="off" oninput="document.getElementById('fmt-go').disabled = this.value.trim() !== ${kn}"
+          <input name="confirm" autocomplete="off" oninput="document.getElementById('fmt-go').disabled = this.value.trim() !== '${kj}'"
                  class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"></label>
         <div class="flex justify-end gap-2">
           <button type="button" class="px-3 py-1.5 text-slate-500" onclick="SW.closeModal()">Отмена</button>
