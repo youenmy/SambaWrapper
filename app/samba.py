@@ -90,6 +90,12 @@ def create_share(name: str, abs_path: str, mode: str, guest_write: bool,
         return False, f"Шарить можно только пути внутри {MOUNT_ROOT}"
     if not target.is_dir():
         return False, "Папка не существует или не директория"
+    # guest-writable shares need the shared folder world-writable (see _build_share_conf)
+    if mode == "guest" and guest_write:
+        try:
+            os.chmod(target, 0o777)
+        except OSError:
+            pass
     # writers always implicitly have access
     writers = [u for u in write_users if SAFE_USERNAME.match(u)]
     access = [u for u in (list(access_users) + writers) if SAFE_USERNAME.match(u)]
@@ -151,10 +157,14 @@ def _build_share_conf(name: str, path: str, mode: str, guest_write: bool,
         if write_users:
             lines.append("   write list = " + " ".join(write_users))
             lines.append(f"   force user = {SERVICE_USER}")
-    lines += [
-        "   create mask = 0664",
-        "   directory mask = 0775",
-    ]
+    # A guest-writable share needs world-writable dirs: for guest sessions Samba
+    # checks directory access as the guest account (nobody); `force user` only
+    # changes the resulting ownership, not that pre-write access check. So created
+    # dirs must be 0777 for nested writes to keep working.
+    if mode == "guest" and guest_write:
+        lines += ["   create mask = 0666", "   directory mask = 0777"]
+    else:
+        lines += ["   create mask = 0664", "   directory mask = 0775"]
     return "\n".join(lines) + "\n"
 
 def _rebuild_aggregate() -> str | None:

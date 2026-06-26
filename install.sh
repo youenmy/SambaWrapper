@@ -89,12 +89,12 @@ chown "${SERVICE_USER}:${SERVICE_USER}" "${DATA_DIR}/service.env"
 echo "==> Включаю include в /etc/samba/smb.conf"
 SMB_CONF=/etc/samba/smb.conf
 INCLUDE_LINE="include = ${SAMBA_CONF_DIR}/sambawrapper-all.conf"
+# Гарантируем наличие [global]
+grep -qE '^\s*\[global\]' "${SMB_CONF}" 2>/dev/null || printf '\n[global]\n' >> "${SMB_CONF}"
+# include добавляем в КОНЕЦ файла — иначе секции шар из include поглощают
+# параметры [global] (ломается гостевой доступ).
 if ! grep -qF "${INCLUDE_LINE}" "${SMB_CONF}" 2>/dev/null; then
-    if grep -qE '^\s*\[global\]' "${SMB_CONF}" 2>/dev/null; then
-        sed -i "0,/^\s*\[global\]/{s|^\s*\[global\].*|&\n   # sambawrapper-managed include\n   ${INCLUDE_LINE}|}" "${SMB_CONF}"
-    else
-        printf '\n# sambawrapper-managed\n[global]\n   %s\n' "${INCLUDE_LINE}" >> "${SMB_CONF}"
-    fi
+    printf '\n# sambawrapper-managed include (в конце файла)\n%s\n' "${INCLUDE_LINE}" >> "${SMB_CONF}"
 fi
 touch "${SAMBA_CONF_DIR}/sambawrapper-all.conf"
 
