@@ -107,9 +107,20 @@ async def htmx_stale_clean_all(request: Request, _: str = Depends(current_user))
 
 @app.get("/htmx/browse", response_class=HTMLResponse)
 async def htmx_browse(request: Request, _: str = Depends(current_user), path: str = ""):
-    ctx = {"request": request, "mount_root": str(MOUNT_ROOT), "error": None, "listing": None}
+    ctx = {"request": request, "mount_root": str(MOUNT_ROOT), "error": None, "listing": None, "disk": None}
     try:
-        ctx["listing"] = browse.list_dir(path)
+        listing = browse.list_dir(path)
+        ctx["listing"] = listing
+        # at a disk root (top-level) attach disk info for the auto-mount toggle
+        if listing["path"] and "/" not in listing["path"]:
+            name = listing["path"]
+            for p in disks.list_partitions():
+                if p.get("mountpoint") == str(MOUNT_ROOT / name):
+                    ctx["disk"] = {
+                        "name": name, "label": p.get("label"), "uuid": p.get("uuid"),
+                        "auto_mount": p.get("auto_mount"),
+                    }
+                    break
     except browse.BrowseError as e:
         ctx["error"] = str(e)
         ctx["cur_path"] = path

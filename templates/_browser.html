@@ -26,6 +26,18 @@
   {% endfor %}
 </div>
 
+{% if disk and disk.uuid %}
+<div class="flex items-center gap-2 px-4 py-2 text-sm border-b border-slate-100 shrink-0 bg-slate-50">
+  <i class="ti ti-disc text-sky-600"></i>
+  <span class="text-slate-500">Диск «{{ disk.label or disk.name }}»</span>
+  <label class="ml-auto flex items-center gap-2 cursor-pointer select-none">
+    <input type="checkbox" {% if disk.auto_mount %}checked{% endif %}
+           onchange="SW.post('/htmx/automount-toggle',{uuid:{{ disk.uuid|tojson|forceescape }},mount_name:{{ disk.name|tojson|forceescape }},label:{{ (disk.label or '')|tojson|forceescape }},enabled:this.checked?'yes':'no'})">
+    монтировать автоматически
+  </label>
+</div>
+{% endif %}
+
 <div class="flex items-center gap-2.5 px-4 py-1.5 text-[0.6875rem] text-slate-400 border-b border-slate-100 shrink-0">
   <input type="checkbox" title="Выделить всё" onclick="SW.checkAll(this.checked)">
   <span class="flex-1">имя</span><span class="w-24 text-right">размер</span><span class="w-32 text-right pr-1 hidden sm:block">изменён</span>

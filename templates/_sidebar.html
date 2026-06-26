@@ -28,14 +28,7 @@
             <i class="ti ti-eject text-base"></i>
           </button>
         </div>
-        <div class="pl-6 text-[0.625rem] text-slate-400 mt-0.5">{{ fsmap.get(p.fstype, p.fstype|upper) }} · {{ p.size_human }}</div>
-        {% if p.uuid %}
-        <label class="flex items-center gap-1.5 text-[0.6875rem] text-slate-500 mt-1 pl-6 cursor-pointer">
-          <input type="checkbox" {% if p.auto_mount %}checked{% endif %}
-                 onchange="SW.post('/htmx/automount-toggle',{uuid:{{ p.uuid|tojson|forceescape }},mount_name:{{ name|tojson|forceescape }},label:{{ (p.label or '')|tojson|forceescape }},enabled:this.checked?'yes':'no'})">
-          автомонтирование
-        </label>
-        {% endif %}
+        <div class="pl-6 text-[0.625rem] text-slate-400 mt-0.5">{{ fsmap.get(p.fstype, p.fstype|upper) }} · {{ p.size_human }}{% if p.uuid %} · авто <span class="{{ 'text-emerald-600' if p.auto_mount else 'text-slate-500' }}">{{ 'вкл' if p.auto_mount else 'выкл' }}</span>{% endif %}</div>
       </div>
     {% elif p.mountpoint %}
       <div class="disk-row px-2 py-1.5 flex items-center gap-2 text-sm text-slate-400">
