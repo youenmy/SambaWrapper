@@ -1,11 +1,12 @@
 <div class="p-3 space-y-1">
+  {% set fsmap = {'ntfs':'NTFS','ntfs3':'NTFS','exfat':'exFAT','vfat':'FAT','ext2':'ext2','ext3':'ext3','ext4':'ext4','xfs':'XFS','btrfs':'Btrfs'} %}
 
   <div class="px-2 pt-1 pb-2 text-[0.6875rem] uppercase tracking-wide text-slate-400">Накопители</div>
 
   {% for p in partitions %}
     {% set name = p.mountpoint[mount_root|length+1:] if p.mountpoint and p.mountpoint.startswith(mount_root) else '' %}
     {% if p.mountpoint and p.mountpoint.startswith(mount_root) %}
-      <div class="rounded-lg hover:bg-slate-50 px-2 py-1.5">
+      <div class="disk-row rounded-lg hover:bg-slate-50 px-2 py-1.5" data-disk="{{ name }}">
         <div class="flex items-center gap-2">
           <button class="flex items-center gap-2 flex-1 min-w-0 text-left" onclick="SW.navigate({{ name|tojson|forceescape }}); SW.closeSidebar()">
             <i class="ti ti-disc text-sky-600 text-lg"></i>
@@ -27,6 +28,7 @@
             <i class="ti ti-eject text-base"></i>
           </button>
         </div>
+        <div class="pl-6 text-[0.625rem] text-slate-400 mt-0.5">{{ fsmap.get(p.fstype, p.fstype|upper) }} · {{ p.size_human }}</div>
         {% if p.uuid %}
         <label class="flex items-center gap-1.5 text-[0.6875rem] text-slate-500 mt-1 pl-6 cursor-pointer">
           <input type="checkbox" {% if p.auto_mount %}checked{% endif %}
@@ -36,34 +38,36 @@
         {% endif %}
       </div>
     {% elif p.mountpoint %}
-      <div class="px-2 py-1.5 flex items-center gap-2 text-sm text-slate-400">
+      <div class="disk-row px-2 py-1.5 flex items-center gap-2 text-sm text-slate-400">
         <i class="ti ti-disc text-lg"></i><span class="truncate flex-1">{{ p.label or p.kname }}</span>
-        <span class="text-[0.625rem]">сист.</span>
+        <span class="text-[0.625rem]">{{ fsmap.get(p.fstype, p.fstype|upper) }} · сист.</span>
       </div>
     {% elif p.mountable %}
-      <div class="rounded-lg hover:bg-slate-50 px-2 py-1.5 flex items-center gap-2">
-        <button class="flex items-center gap-2 flex-1 min-w-0 text-left"
-                onclick="SW.mountModal({{ p.path|tojson|forceescape }},{{ p.fstype|tojson|forceescape }},{{ (p.uuid or '')|tojson|forceescape }},{{ (p.label or '')|tojson|forceescape }},{{ (p.saved_mount_name or p.label or p.kname)|tojson|forceescape }},{{ p.auto_mount|tojson|forceescape }})">
-          <i class="ti ti-disc text-slate-400 text-lg"></i>
-          <span class="truncate flex-1 text-sm">{{ p.label or p.kname }}</span>
-          <span class="text-[0.625rem] text-slate-400">{{ p.size_human }}</span>
-          <span class="text-[0.6875rem] text-sky-600">смонтировать</span>
-        </button>
-        {% if p.tran == 'usb' or p.hotplug %}
-        <button title="Проверить и исправить" class="text-slate-400 hover:text-amber-600 shrink-0"
-                onclick="SW.fixDisk({{ p.path|tojson|forceescape }}, {{ p.kname|tojson|forceescape }})">
-          <i class="ti ti-stethoscope text-base"></i>
-        </button>
-        <button title="Форматировать" class="text-slate-400 hover:text-red-600 shrink-0"
-                onclick="SW.formatModal({{ p.path|tojson|forceescape }}, {{ p.kname|tojson|forceescape }}, {{ (p.label or '')|tojson|forceescape }})">
-          <i class="ti ti-eraser text-base"></i>
-        </button>
-        {% endif %}
+      <div class="disk-row rounded-lg hover:bg-slate-50 px-2 py-1.5">
+        <div class="flex items-center gap-2">
+          <button class="flex items-center gap-2 flex-1 min-w-0 text-left"
+                  onclick="SW.mountModal({{ p.path|tojson|forceescape }},{{ p.fstype|tojson|forceescape }},{{ (p.uuid or '')|tojson|forceescape }},{{ (p.label or '')|tojson|forceescape }},{{ (p.saved_mount_name or p.label or p.kname)|tojson|forceescape }},{{ p.auto_mount|tojson|forceescape }})">
+            <i class="ti ti-disc text-slate-400 text-lg"></i>
+            <span class="truncate flex-1 text-sm">{{ p.label or p.kname }}</span>
+            <span class="text-[0.6875rem] text-sky-600">смонтировать</span>
+          </button>
+          {% if p.tran == 'usb' or p.hotplug %}
+          <button title="Проверить и исправить" class="text-slate-400 hover:text-amber-600 shrink-0"
+                  onclick="SW.fixDisk({{ p.path|tojson|forceescape }}, {{ p.kname|tojson|forceescape }})">
+            <i class="ti ti-stethoscope text-base"></i>
+          </button>
+          <button title="Форматировать" class="text-slate-400 hover:text-red-600 shrink-0"
+                  onclick="SW.formatModal({{ p.path|tojson|forceescape }}, {{ p.kname|tojson|forceescape }}, {{ (p.label or '')|tojson|forceescape }})">
+            <i class="ti ti-eraser text-base"></i>
+          </button>
+          {% endif %}
+        </div>
+        <div class="pl-6 text-[0.625rem] text-slate-400 mt-0.5">{{ fsmap.get(p.fstype, p.fstype|upper) }} · {{ p.size_human }}</div>
       </div>
     {% else %}
-      <div class="px-2 py-1.5 flex items-center gap-2 text-sm text-slate-300">
+      <div class="disk-row px-2 py-1.5 flex items-center gap-2 text-sm text-slate-300">
         <i class="ti ti-disc text-lg"></i><span class="truncate flex-1">{{ p.label or p.kname }}</span>
-        <span class="text-[0.625rem]">{{ p.fstype }}</span>
+        <span class="text-[0.625rem]">{{ fsmap.get(p.fstype, p.fstype|upper) }}</span>
       </div>
     {% endif %}
   {% endfor %}

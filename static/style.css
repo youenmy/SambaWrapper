@@ -11,6 +11,11 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 .frow.bg-sky-50 { background: rgb(240 249 255); }
 
+/* disk row as a left "tab" — active = accent bar + tint */
+.disk-row { border-left: 3px solid transparent; }
+.disk-row.sw-active { background: rgb(224 242 254); border-left-color: #0284c7; }
+html.dark .disk-row.sw-active { background: #0c2a47; border-left-color: #38bdf8; }
+
 /* ============ DARK THEME ============ */
 /* Overrides the light Tailwind utilities used in the templates, scoped to html.dark. */
 html.dark body { background: #0b1220; color: #e2e8f0; }

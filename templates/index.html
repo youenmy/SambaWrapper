@@ -71,6 +71,12 @@ const SW = {
   navigate(path) { htmx.ajax("GET", "/htmx/browse?path=" + encodeURIComponent(path), {target:"#browser", swap:"innerHTML"}); },
   refreshBrowser() { this.navigate(this.path); },
   refreshSidebar() { htmx.ajax("GET", "/htmx/sidebar", {target:"#sidebar", swap:"innerHTML"}); },
+  _markActiveDisk() {
+    const cur = (this.path || "").split("/")[0];
+    document.querySelectorAll("#sidebar .disk-row").forEach(r => {
+      r.classList.toggle("sw-active", !!cur && r.dataset.disk === cur);
+    });
+  },
 
   post(url, vals) { htmx.ajax("POST", url, {target:"#toast-host", swap:"beforeend", values:vals}); },
 
@@ -330,6 +336,9 @@ document.body.addEventListener("refreshBrowser", () => SW.refreshBrowser());
 document.body.addEventListener("refreshSidebar", () => SW.refreshSidebar());
 document.body.addEventListener("closeModal", () => SW.closeModal());
 document.body.addEventListener("reloadUsers", () => SW.openModal("/htmx/users"));
+document.body.addEventListener("htmx:afterSwap", (e) => {
+  if (e.target && (e.target.id === "sidebar" || e.target.id === "browser")) SW._markActiveDisk();
+});
 
 document.addEventListener("click", (e) => {
   document.getElementById("ctxmenu").classList.add("hidden");

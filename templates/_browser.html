@@ -68,5 +68,5 @@
   <span>{{ listing.path or 'корень' }}</span>
 </div>
 
-<script>window.SW && (SW.path = {{ listing.path|tojson }}, SW.resetSel());</script>
+<script>window.SW && (SW.path = {{ listing.path|tojson }}, SW.resetSel(), SW._markActiveDisk());</script>
 {% endif %}
