@@ -84,16 +84,26 @@
   {% if not shares %}
     <div class="px-2 text-xs text-slate-400">Пока нет. Открой папку и нажми «Расшарить».</div>
   {% endif %}
+  {% set mounted_disks = [] %}
+  {% for p in partitions %}{% if p.mountpoint and p.mountpoint.startswith(mount_root) %}{% set _ = mounted_disks.append(p.mountpoint[mount_root|length+1:]) %}{% endif %}{% endfor %}
   {% for s in shares %}
     {% set writable = s.write_list or (s.guest_ok and not s.read_only) %}
+    {% set srel = s.path[mount_root|length+1:] if s.path.startswith(mount_root) else s.path %}
+    {% set sdisk = srel.split('/')[0] %}
+    {% set online = sdisk in mounted_disks %}
     <button class="w-full rounded-lg hover:bg-slate-50 px-2 py-1.5 flex items-center gap-2 text-left"
             onclick="SW.openModal('/htmx/share-edit?name={{ s.name }}')">
-      <i class="ti ti-folder-share text-sky-600 text-lg"></i>
-      <span class="truncate flex-1 text-sm">{{ s.name }}</span>
+      <i class="ti ti-folder-share text-sky-600 text-lg shrink-0"></i>
+      <span class="flex-1 min-w-0">
+        <span class="block truncate text-sm">{{ s.name }}</span>
+        <span class="block text-[0.625rem] truncate {{ 'text-slate-400' if online else 'text-amber-600' }}">
+          <i class="ti ti-disc"></i> {{ sdisk }}{% if not online %} · отключён{% endif %}
+        </span>
+      </span>
       {% if writable %}
-        <span class="text-[0.625rem] bg-emerald-100 text-emerald-700 px-1.5 rounded">чт+зап</span>
+        <span class="text-[0.625rem] bg-emerald-100 text-emerald-700 px-1.5 rounded shrink-0">чт+зап</span>
       {% else %}
-        <span class="text-[0.625rem] bg-slate-100 text-slate-500 px-1.5 rounded">чтение</span>
+        <span class="text-[0.625rem] bg-slate-100 text-slate-500 px-1.5 rounded shrink-0">чтение</span>
       {% endif %}
     </button>
   {% endfor %}
