@@ -6,6 +6,13 @@ from .config import MOUNT_ROOT
 
 class BrowseError(Exception): ...
 
+# Служебные имена ФС, которые прячем в браузере (плюс всё, что начинается с точки).
+HIDDEN_EXACT = {"lost+found", "System Volume Information", "$RECYCLE.BIN", "RECYCLER",
+                "FOUND.000", "$Recycle.Bin"}
+
+def _is_hidden(name: str) -> bool:
+    return name.startswith(".") or name in HIDDEN_EXACT
+
 def _resolve_safe(rel_path: str) -> Path:
     base = MOUNT_ROOT.resolve()
     target = (base / rel_path.lstrip("/")).resolve()
@@ -25,6 +32,8 @@ def list_dir(rel_path: str) -> dict:
     try:
         with os.scandir(target) as it:
             for entry in it:
+                if _is_hidden(entry.name):
+                    continue
                 try:
                     st = entry.stat(follow_symlinks=False)
                 except OSError:
