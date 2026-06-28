@@ -248,6 +248,15 @@ async def htmx_move(request: Request, _: str = Depends(current_user),
     except fileops.FileOpError as e:
         return _resp(request, False, str(e), [])
 
+@app.post("/htmx/mkdirs", response_class=HTMLResponse)
+async def htmx_mkdirs(request: Request, _: str = Depends(current_user), dirs: list[str] = Form(default=[])):
+    for d in dirs:
+        try:
+            fileops.makedirs(d)
+        except fileops.FileOpError:
+            pass
+    return HTMLResponse("")  # silent — used by folder upload to pre-create (incl. empty) dirs
+
 @app.post("/htmx/upload", response_class=HTMLResponse)
 async def htmx_upload(request: Request, _: str = Depends(current_user),
                       dir: str = Form(...), file: UploadFile = File(...)):

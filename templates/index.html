@@ -265,15 +265,22 @@ const SW = {
   uploadEntries(entries, base) {
     base = (base == null ? this.path : base);
     if (!base) { this.toast("Сначала открой диск или папку для загрузки"); return; }
+    const dirs = new Set();
     const readAll = (rd) => new Promise((res) => { const a = []; const pump = () => rd.readEntries((b) => { if (!b.length) return res(a); a.push.apply(a, b); pump(); }, () => res(a)); pump(); });
     const walk = async (entry, prefix) => {
       if (entry.isFile) { const f = await new Promise((r) => entry.file(r, () => r(null))); return f ? [{file: f, rel: prefix + f.name}] : []; }
-      if (entry.isDirectory) { const es = await readAll(entry.createReader()); let out = []; for (const e of es) out = out.concat(await walk(e, prefix + entry.name + "/")); return out; }
+      if (entry.isDirectory) { dirs.add(prefix + entry.name); const es = await readAll(entry.createReader()); let out = []; for (const e of es) out = out.concat(await walk(e, prefix + entry.name + "/")); return out; }
       return [];
     };
     (async () => {
       let coll = [];
       for (const en of entries) coll = coll.concat(await walk(en, ""));
+      if (dirs.size) {  // создаём все папки, включая пустые, до загрузки файлов
+        const body = new URLSearchParams();
+        dirs.forEach((d) => body.append("dirs", base + "/" + d));
+        try { await fetch("/htmx/mkdirs", {method: "POST", body}); } catch (e) {}
+      }
+      if (!coll.length) { this.refreshBrowser(); if (dirs.size) this.toast("Папки созданы"); return; }
       this._runUploads(coll.map(({file, rel}) => {
         const parts = rel.split("/"); parts.pop(); const sub = parts.join("/");
         return {file, dir: sub ? base + "/" + sub : base, label: rel};

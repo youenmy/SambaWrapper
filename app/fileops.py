@@ -98,6 +98,12 @@ def save_upload(rel_dir: str, filename: str, fileobj) -> str:
         shutil.copyfileobj(fileobj, out, length=1024 * 1024)
     return str(dst.relative_to(MOUNT_ROOT.resolve()))
 
+def makedirs(rel_path: str) -> None:
+    target = _safe_target(rel_path)
+    if target == MOUNT_ROOT.resolve():
+        return
+    target.mkdir(parents=True, exist_ok=True)
+
 def resolve_file_for_download(rel_path: str) -> Path:
     target = _safe_target(rel_path)
     if not target.is_file():
