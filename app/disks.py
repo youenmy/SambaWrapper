@@ -120,20 +120,33 @@ def _mount_options(fstype: str) -> str:
         return f"uid={SERVICE_UID},gid={SERVICE_GID},umask=0022"
     return ""
 
-def unmount(mount_point: str) -> tuple[bool, str]:
+# UUIDs of disks the user manually disconnected — don't auto-remount them until
+# the disk is physically removed (so "Отключить" actually keeps it unmounted).
+_automount_suppressed: set[str] = set()
+
+def unmount(mount_point: str, force: bool = False) -> tuple[bool, str]:
     target_str = str(Path(mount_point).resolve())
     if not target_str.startswith(str(MOUNT_ROOT) + "/"):
         return False, "Можно отмонтировать только то, что в /mnt/sambawrapper"
-    r = sudo(["umount", target_str])
+    # capture which disk this is before unmounting, to suppress auto-remount
+    uuid = next((p.get("uuid") for p in list_partitions() if p.get("mountpoint") == target_str), None)
+    run(["sync"])  # flush pending writes so NTFS/exFAT не остаются «грязными»
+    argv = ["umount", "-l", target_str] if force else ["umount", target_str]
+    r = sudo(argv)
     if not r.ok:
+        err = (r.stderr or "").lower()
+        if "busy" in err:
+            return False, "Диск занят (открыт по сети или используется). Закрой его на других устройствах или отключи принудительно."
         return False, r.stderr.strip() or f"umount failed (rc={r.rc})"
-    # cleanup empty mount dir
-    sudo(["rmdir", target_str])
+    sudo(["rmdir", target_str])  # cleanup empty mount dir
+    if uuid:
+        _automount_suppressed.add(uuid)
     return True, ""
 
 def remember_mount(part: dict, mount_name: str, auto_mount: bool) -> None:
     if part.get("uuid"):
         db.upsert_mount_pref(part["uuid"], part.get("label"), mount_name, auto_mount)
+        _automount_suppressed.discard(part["uuid"])  # re-mounting re-arms auto-mount
 
 def _mounts_under_root() -> list[tuple[str, str]]:
     """(device, mountpoint) for everything mounted under MOUNT_ROOT, from /proc/mounts."""
@@ -287,11 +300,20 @@ def auto_mount_known() -> list[str]:
     saved mount point because the pref is keyed by the stable partition UUID.
     """
     msgs: list[str] = []
-    for part in list_partitions():
+    parts = list_partitions()
+    present = {p["uuid"] for p in parts if p.get("uuid")}
+    for part in parts:
         if not part.get("uuid") or part.get("mountpoint") or not part.get("auto_mount"):
             continue
+        if part["uuid"] in _automount_suppressed:
+            continue  # manually disconnected — wait until physically removed
         name = part.get("saved_mount_name") or suggest_mount_name(part)
         ok, res = mount_partition(part["path"], name, part["fstype"])
         msgs.append(f"automount {part['path']} -> {res}" if ok
                     else f"automount {part['path']} FAILED: {res}")
+    # re-arm: a suppressed disk that's no longer present was physically removed,
+    # so a future re-plug should auto-mount again.
+    for u in list(_automount_suppressed):
+        if u not in present:
+            _automount_suppressed.discard(u)
     return msgs

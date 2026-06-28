@@ -106,6 +106,29 @@ const SW = {
     document.getElementById("cf-no").onclick = close;
     document.getElementById("cf-yes").onclick = () => { close(); if (onYes) onYes(); };
   },
+  prompt(message, def, onOk, opts) {
+    opts = opts || {};
+    const host = document.getElementById("confirm-host");
+    const safe = String(message).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const dv = String(def == null ? "" : def).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    host.innerHTML = `<div class="bg-white rounded-xl p-5 w-full max-w-sm shadow-xl" onclick="event.stopPropagation()">
+      <p class="text-sm mb-3 whitespace-pre-line">${safe}</p>
+      <input id="cf-input" autocomplete="off" class="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4" value="${dv}">
+      <div class="flex justify-end gap-2">
+        <button id="cf-no" class="px-3 py-1.5 text-slate-500 rounded-lg hover:bg-slate-100">${opts.cancel || "Отмена"}</button>
+        <button id="cf-yes" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg">${opts.ok || "ОК"}</button>
+      </div>
+    </div>`;
+    host.classList.remove("hidden");
+    const inp = document.getElementById("cf-input");
+    const close = () => { host.classList.add("hidden"); host.innerHTML = ""; };
+    const submit = () => { const v = inp.value; close(); if (onOk) onOk(v); };
+    host.onclick = close;
+    document.getElementById("cf-no").onclick = close;
+    document.getElementById("cf-yes").onclick = submit;
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } else if (e.key === "Escape") close(); });
+    setTimeout(() => { inp.focus(); inp.select(); }, 30);
+  },
 
   toggleUserMenu() { document.getElementById("usermenu").classList.toggle("hidden"); },
 
@@ -154,13 +177,12 @@ const SW = {
     return this.sel ? [this.sel.path] : [];
   },
 
-  mkdir() { const n = prompt("Имя новой папки"); if (n) this.post("/htmx/mkdir", {path:this.path, name:n}); },
+  mkdir() { this.prompt("Имя новой папки", "", (n) => { if (n && n.trim()) this.post("/htmx/mkdir", {path:this.path, name:n.trim()}); }); },
   rename() {
     if (this.checked.size > 1) { this.toast("Переименование — по одному элементу"); return; }
     const t = this.checked.size === 1 ? {path:[...this.checked][0], name:[...this.checked][0].split("/").pop()} : this.sel;
     if (!t) { this.toast("Выбери элемент"); return; }
-    const n = prompt("Новое имя", t.name);
-    if (n && n !== t.name) this.post("/htmx/rename", {path:t.path, new_name:n});
+    this.prompt("Новое имя", t.name, (n) => { if (n && n.trim() && n.trim() !== t.name) this.post("/htmx/rename", {path:t.path, new_name:n.trim()}); });
   },
   del() {
     const paths = this._targets();
@@ -287,6 +309,24 @@ const SW = {
       this.toast("Проверка " + kname + "… это может занять время");
       this.post("/htmx/disk-check", {device});
     }, {ok: "Проверить"});
+  },
+  disconnectDisk(mountPoint, label) {
+    this.confirm("Отключить диск «" + label + "»?\nДанные будут сброшены на диск, после чего его можно безопасно извлечь.",
+      () => this._umount(mountPoint, false), {ok: "Отключить"});
+  },
+  _umount(mountPoint, force) {
+    const body = new URLSearchParams({mount_point: mountPoint});
+    if (force) body.append("force", "yes");
+    fetch("/htmx/umount", {method: "POST", body}).then(r => r.text()).then(html => {
+      this._toastHtml(html);
+      if (!force && /занят/.test(html)) {
+        this.confirm("Диск занят (открыт по сети). Отключить принудительно? Убедись, что на других устройствах он закрыт.",
+          () => this._umount(mountPoint, true), {ok: "Принудительно", danger: true});
+      } else {
+        this.refreshSidebar();
+        if (/отключ|извлек/i.test(html)) this.navigate("");
+      }
+    }).catch(() => this.toast("Ошибка отключения"));
   },
 
   passwordModal() {

@@ -118,7 +118,7 @@ async def htmx_browse(request: Request, _: str = Depends(current_user), path: st
                 if p.get("mountpoint") == str(MOUNT_ROOT / name):
                     ctx["disk"] = {
                         "name": name, "label": p.get("label"), "uuid": p.get("uuid"),
-                        "auto_mount": p.get("auto_mount"),
+                        "auto_mount": p.get("auto_mount"), "mountpoint": p.get("mountpoint"),
                     }
                     break
     except browse.BrowseError as e:
@@ -140,9 +140,11 @@ async def htmx_mount(request: Request, _: str = Depends(current_user),
                  ["refreshSidebar", "closeModal"] if ok else [])
 
 @app.post("/htmx/umount", response_class=HTMLResponse)
-async def htmx_umount(request: Request, _: str = Depends(current_user), mount_point: str = Form(...)):
-    ok, msg = disks.unmount(mount_point)
-    return _resp(request, ok, msg or "Отмонтировано", ["refreshSidebar", "refreshBrowser"])
+async def htmx_umount(request: Request, _: str = Depends(current_user),
+                      mount_point: str = Form(...), force: str = Form("no")):
+    ok, msg = disks.unmount(mount_point, force=(force == "yes"))
+    return _resp(request, ok, msg or "Диск отключён — можно безопасно извлекать",
+                 ["refreshSidebar", "refreshBrowser"])
 
 @app.post("/htmx/automount-toggle", response_class=HTMLResponse)
 async def htmx_automount_toggle(request: Request, _: str = Depends(current_user),
