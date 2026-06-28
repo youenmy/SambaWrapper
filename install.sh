@@ -2,7 +2,7 @@
 # SambaWrapper installer for Debian/Ubuntu.
 #
 #   Local:   sudo bash install.sh
-#   Remote:  curl -fsSL https://raw.githubusercontent.com/USER/SambaWrapper/main/install.sh | sudo bash
+#   Remote:  curl -fsSL https://raw.githubusercontent.com/youenmy/SambaWrapper/main/install.sh | sudo bash
 #
 # Interactive by default (asks port / DLNA / admin password via /dev/tty).
 # Non-interactive presets via env vars:
@@ -15,7 +15,7 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-REPO_URL="${SW_REPO:-https://github.com/CHANGEME/SambaWrapper.git}"
+REPO_URL="${SW_REPO:-https://github.com/youenmy/SambaWrapper.git}"
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo /nonexistent)"
 INSTALL_DIR="/opt/sambawrapper"
 DATA_DIR="/var/lib/sambawrapper"

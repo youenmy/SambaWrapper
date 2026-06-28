@@ -20,13 +20,13 @@
 Одной командой (Ubuntu 22.04+ / Debian 12+), интерактивно спросит порт, DLNA и пароль:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/USER/SambaWrapper/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/youenmy/SambaWrapper/main/install.sh | sudo bash
 ```
 
 Или из склонированного репозитория:
 
 ```bash
-git clone https://github.com/USER/SambaWrapper.git
+git clone https://github.com/youenmy/SambaWrapper.git
 cd SambaWrapper
 sudo bash install.sh
 ```
