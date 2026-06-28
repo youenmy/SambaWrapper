@@ -100,14 +100,21 @@ def mount_partition(path: str, mount_name: str, fstype: str) -> tuple[bool, str]
         argv += ["-t", "ntfs3"]
     argv += [path, target_str]
     r = sudo(argv)
-    if not r.ok:
-        # Fallback: ntfs-3g (FUSE) if kernel ntfs3 refused (dirty journal, etc.)
-        if fstype in ("ntfs", "ntfs3"):
+    if not r.ok and fstype in ("ntfs", "ntfs3"):
+        err = (r.stderr or "").lower()
+        # Auto-heal a dirty NTFS (после выдёргивания) и остаёмся на быстром ntfs3,
+        # вместо медленного ntfs-3g.
+        if any(k in err for k in ("dirty", "$mft", "was not", "unclean", "chkdsk")):
+            sudo(["ntfsfix", "-d", path])  # -d снимает «грязный» флаг, иначе ntfs3 не монтирует
+            r = sudo(argv)  # retry kernel ntfs3
+        if not r.ok:
+            # last resort: ntfs-3g (FUSE) — медленнее, но хоть как-то
             r2 = sudo(["mount", "-t", "ntfs-3g", "-o",
                        f"uid={SERVICE_UID},gid={SERVICE_GID},umask=0022,big_writes", path, target_str])
             if r2.ok:
                 return True, target_str
             return False, (r.stderr.strip() + " / ntfs-3g: " + r2.stderr.strip())
+    if not r.ok:
         return False, r.stderr.strip() or f"mount failed (rc={r.rc})"
     # Native filesystems store ownership on disk — hand the mount root to the
     # service user so it can manage files without root.
@@ -266,7 +273,7 @@ def check_repair(device: str) -> tuple[bool, str]:
             return False, "Раздел смонтирован системно — проверка запрещена"
     fs = part["fstype"]
     if fs in ("ntfs", "ntfs3"):
-        argv = ["ntfsfix", device]
+        argv = ["ntfsfix", "-d", device]
     elif fs in ("ext2", "ext3", "ext4"):
         argv = ["e2fsck", "-f", "-y", device]
     elif fs == "exfat":
@@ -300,6 +307,7 @@ def auto_mount_known() -> list[str]:
     saved mount point because the pref is keyed by the stable partition UUID.
     """
     msgs: list[str] = []
+    mounted: list[str] = []
     parts = list_partitions()
     present = {p["uuid"] for p in parts if p.get("uuid")}
     for part in parts:
@@ -309,6 +317,8 @@ def auto_mount_known() -> list[str]:
             continue  # manually disconnected — wait until physically removed
         name = part.get("saved_mount_name") or suggest_mount_name(part)
         ok, res = mount_partition(part["path"], name, part["fstype"])
+        if ok:
+            mounted.append(res)
         msgs.append(f"automount {part['path']} -> {res}" if ok
                     else f"automount {part['path']} FAILED: {res}")
     # re-arm: a suppressed disk that's no longer present was physically removed,
@@ -316,4 +326,4 @@ def auto_mount_known() -> list[str]:
     for u in list(_automount_suppressed):
         if u not in present:
             _automount_suppressed.discard(u)
-    return msgs
+    return msgs, mounted

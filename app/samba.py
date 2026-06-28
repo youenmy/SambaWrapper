@@ -90,6 +90,9 @@ def create_share(name: str, abs_path: str, mode: str, guest_write: bool,
         return False, f"Шарить можно только пути внутри {MOUNT_ROOT}"
     if not target.is_dir():
         return False, "Папка не существует или не директория"
+    for s in list_shares():  # запрет дублей на один путь
+        if s["name"] != name and Path(s["path"]).resolve() == target:
+            return False, f"Эта папка уже расшарена как «{s['name']}»"
     # guest-writable shares need the shared folder world-writable (see _build_share_conf)
     if mode == "guest" and guest_write:
         try:
@@ -172,6 +175,14 @@ def _rebuild_aggregate() -> str | None:
     body = "\n".join(f"include = {SAMBA_CONF_DIR}/{n}" for n in files) + "\n"
     r = sudo(["tee", str(SAMBA_CONF_DIR / AGGREGATE_NAME)], input_text=body)
     return None if r.ok else (r.stderr.strip() or "не удалось обновить aggregate")
+
+def close_shares_under(mountpoint: str) -> None:
+    """Сбросить устаревшие клиентские хендлы к шарам на только что (пере)смонтированном
+    диске — иначе Windows показывает папки, но не пускает внутрь (stale session)."""
+    mp = str(mountpoint)
+    for s in list_shares():
+        if s["path"] == mp or s["path"].startswith(mp + "/"):
+            sudo(["smbcontrol", "smbd", "close-share", s["name"]])
 
 def _reload_samba() -> tuple[bool, str]:
     r = sudo(["systemctl", "reload-or-restart", "smbd"])

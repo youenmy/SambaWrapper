@@ -23,8 +23,11 @@ async def lifespan(app: FastAPI):
     async def automount_loop():
         while True:
             try:
-                for m in await asyncio.to_thread(disks.auto_mount_known):
+                msgs, mounted = await asyncio.to_thread(disks.auto_mount_known)
+                for m in msgs:
                     log.info(m)
+                for mp in mounted:  # сбросить залипшие SMB-сессии к шарам нового диска
+                    await asyncio.to_thread(samba.close_shares_under, mp)
             except Exception as e:  # never let the loop die
                 log.warning("automount loop error: %s", e)
             await asyncio.sleep(AUTOMOUNT_INTERVAL)
@@ -144,8 +147,10 @@ async def htmx_mount(request: Request, _: str = Depends(current_user),
                      path: str = Form(...), mount_name: str = Form(...), fstype: str = Form(...),
                      uuid: str = Form(""), label: str = Form(""), auto_mount: str = Form("no")):
     ok, msg = disks.mount_partition(path, mount_name, fstype)
-    if ok and uuid:
-        disks.remember_mount({"uuid": uuid, "label": label or None}, mount_name, auto_mount == "yes")
+    if ok:
+        if uuid:
+            disks.remember_mount({"uuid": uuid, "label": label or None}, mount_name, auto_mount == "yes")
+        samba.close_shares_under(str(MOUNT_ROOT / mount_name))  # сбросить залипшие сессии
     return _resp(request, ok, msg if not ok else f"Смонтировано: {mount_name}",
                  ["refreshSidebar", "closeModal"] if ok else [])
 
