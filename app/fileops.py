@@ -87,7 +87,11 @@ def move(rel_src: str, rel_dest_dir: str) -> str:
 def save_upload(rel_dir: str, filename: str, fileobj) -> str:
     filename = _safe_name(filename)
     dest_dir = _safe_target(rel_dir)
-    if not dest_dir.is_dir():
+    if dest_dir == MOUNT_ROOT.resolve():
+        raise FileOpError("Выбери диск или папку для загрузки")
+    if not dest_dir.exists():
+        dest_dir.mkdir(parents=True, exist_ok=True)  # для загрузки папок целиком
+    elif not dest_dir.is_dir():
         raise FileOpError("Папка назначения не найдена")
     dst = dest_dir / filename
     with open(dst, "wb") as out:

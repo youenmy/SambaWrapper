@@ -228,7 +228,9 @@ const SW = {
     if (el) el.classList.remove("ring-2", "ring-sky-400");
     const ov = document.getElementById("drop-overlay"); if (ov) ov.style.display = "none";
     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
-      this.uploadFiles(e.dataTransfer.files, destRel);
+      const entries = this.dropEntries(e);
+      if (entries.length) this.uploadEntries(entries, destRel);
+      else this.uploadFiles(e.dataTransfer.files, destRel);
       this._drag = null;
       return;
     }
@@ -251,36 +253,63 @@ const SW = {
   uploadFiles(files, dir) {
     dir = (dir == null ? this.path : dir);
     if (!dir) { this.toast("Сначала открой диск или папку для загрузки"); return; }
-    files = Array.from(files || []);
-    if (!files.length) return;
+    this._runUploads(Array.from(files || []).map((f) => ({file: f, dir: dir, label: f.name})));
+  },
+  dropEntries(e) {  // вытащить записи (для папок) синхронно, до любого await
+    const items = e.dataTransfer && e.dataTransfer.items, out = [];
+    if (items && items.length && items[0].webkitGetAsEntry) {
+      for (let i = 0; i < items.length; i++) { const en = items[i].webkitGetAsEntry(); if (en) out.push(en); }
+    }
+    return out;
+  },
+  uploadEntries(entries, base) {
+    base = (base == null ? this.path : base);
+    if (!base) { this.toast("Сначала открой диск или папку для загрузки"); return; }
+    const readAll = (rd) => new Promise((res) => { const a = []; const pump = () => rd.readEntries((b) => { if (!b.length) return res(a); a.push.apply(a, b); pump(); }, () => res(a)); pump(); });
+    const walk = async (entry, prefix) => {
+      if (entry.isFile) { const f = await new Promise((r) => entry.file(r, () => r(null))); return f ? [{file: f, rel: prefix + f.name}] : []; }
+      if (entry.isDirectory) { const es = await readAll(entry.createReader()); let out = []; for (const e of es) out = out.concat(await walk(e, prefix + entry.name + "/")); return out; }
+      return [];
+    };
+    (async () => {
+      let coll = [];
+      for (const en of entries) coll = coll.concat(await walk(en, ""));
+      this._runUploads(coll.map(({file, rel}) => {
+        const parts = rel.split("/"); parts.pop(); const sub = parts.join("/");
+        return {file, dir: sub ? base + "/" + sub : base, label: rel};
+      }));
+    })();
+  },
+  _runUploads(list) {
+    if (!list.length) return;
     const tray = document.getElementById("upload-tray");
-    const list = document.getElementById("ut-list");
+    const listEl = document.getElementById("ut-list");
     tray.style.display = "block";
     this._activeUploads = (this._activeUploads || 0) + 1;
-    const rows = files.map((f) => {
+    const rows = list.map((it) => {
       const row = document.createElement("div");
-      row.innerHTML = `<div class="text-xs truncate mb-1">${this._esc(f.name)}</div>
+      row.innerHTML = `<div class="text-xs truncate mb-1">${this._esc(it.label || it.file.name)}</div>
         <div class="h-1.5 bg-slate-200 rounded overflow-hidden"><div class="ut-bar h-full bg-sky-500 transition-all" style="width:0%"></div></div>`;
-      list.appendChild(row); return row;
+      listEl.appendChild(row); return row;
     });
     const up = (i) => {
-      if (i >= files.length) {
+      if (i >= list.length) {
         this.refreshBrowser();
         this._activeUploads--;
         if (this._activeUploads <= 0) {
           document.getElementById("ut-title").textContent = "Загрузка завершена";
-          setTimeout(() => { if (this._activeUploads <= 0) { tray.style.display = "none"; list.innerHTML = ""; } }, 3000);
+          setTimeout(() => { if (this._activeUploads <= 0) { tray.style.display = "none"; listEl.innerHTML = ""; } }, 3000);
         }
         return;
       }
-      const f = files[i], bar = rows[i].querySelector(".ut-bar");
-      const fd = new FormData(); fd.append("dir", dir); fd.append("file", f);
+      const it = list[i], bar = rows[i].querySelector(".ut-bar");
+      const fd = new FormData(); fd.append("dir", it.dir); fd.append("file", it.file);
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/htmx/upload");
       xhr.upload.onprogress = (e) => { if (e.lengthComputable) bar.style.width = Math.round(e.loaded / e.total * 100) + "%"; };
       xhr.onload = () => { bar.style.width = "100%"; bar.classList.remove("bg-sky-500"); bar.classList.add("bg-emerald-500"); up(i + 1); };
       xhr.onerror = () => { bar.classList.remove("bg-sky-500"); bar.classList.add("bg-red-500"); up(i + 1); };
-      document.getElementById("ut-title").textContent = "Загрузка " + (i + 1) + "/" + files.length;
+      document.getElementById("ut-title").textContent = "Загрузка " + (i + 1) + "/" + list.length;
       xhr.send(fd);
     };
     up(0);
@@ -441,7 +470,11 @@ document.getElementById("modal-host").addEventListener("click", () => SW.closeMo
   br.addEventListener("dragleave", (e) => { if (!br.contains(e.relatedTarget)) ov.style.display = "none"; });
   br.addEventListener("drop", (e) => {
     ov.style.display = "none";
-    if (hasFiles(e)) { e.preventDefault(); SW.uploadFiles(e.dataTransfer.files, SW.path); }
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    const entries = SW.dropEntries(e);
+    if (entries.length) SW.uploadEntries(entries, SW.path);
+    else SW.uploadFiles(e.dataTransfer.files, SW.path);
   });
 })();
 </script>
