@@ -77,3 +77,7 @@ sudo bash uninstall.sh --purge   # удалить и шары, и /var/lib/samba
 ## Стек
 
 Python 3 · FastAPI · HTMX · Tailwind (CDN) · systemd · Samba · minidlna. Зависимости — в `requirements.txt`.
+
+## Лицензия
+
+Проприетарная — все права защищены, см. [LICENSE](LICENSE). Код опубликован только для просмотра; использование, копирование и распространение без письменного разрешения автора запрещены. Это **не** открытое ПО.
