@@ -47,6 +47,9 @@
         <span class="hidden md:inline">Выбери диск слева</span>
       </div>
     </main>
+    <div id="drop-overlay" style="display:none" class="absolute inset-0 md:left-64 z-20 bg-sky-500/10 border-2 border-dashed border-sky-400 flex items-center justify-center pointer-events-none">
+      <span class="text-sky-600 text-lg flex items-center gap-2"><i class="ti ti-upload text-2xl"></i> Отпустите файлы для загрузки</span>
+    </div>
   </div>
 </div>
 
@@ -55,7 +58,7 @@
 <div id="modal-host" class="hidden fixed inset-0 z-[90] bg-black/40 flex items-center justify-center p-4"></div>
 <div id="confirm-host" class="hidden fixed inset-0 z-[110] bg-black/40 flex items-center justify-center p-4"></div>
 <div id="ctxmenu" class="hidden fixed z-[95] w-48 bg-white border border-slate-200 rounded-lg shadow-lg p-1 text-sm"></div>
-<input type="file" id="uploader" class="hidden" onchange="SW.doUpload(this)">
+<input type="file" id="uploader" multiple class="hidden" onchange="SW.doUpload(this)">
 {% endblock %}
 
 {% block scripts %}
@@ -214,8 +217,14 @@ const SW = {
   },
   dragOver(e, el) { e.preventDefault(); el.classList.add("ring-2", "ring-sky-400"); },
   drop(e, destRel, el) {
-    e.preventDefault();
+    e.preventDefault(); e.stopPropagation();
     if (el) el.classList.remove("ring-2", "ring-sky-400");
+    const ov = document.getElementById("drop-overlay"); if (ov) ov.style.display = "none";
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+      this.uploadFiles(e.dataTransfer.files, destRel);
+      this._drag = null;
+      return;
+    }
     const srcs = (this._drag || []).filter(s => s !== destRel);
     this._drag = null;
     if (!srcs.length) return;
@@ -231,14 +240,22 @@ const SW = {
   download(rel) { window.location = "/download?path=" + encodeURIComponent(rel); },
 
   upload() { document.getElementById("uploader").click(); },
-  doUpload(input) {
-    const f = input.files[0]; if (!f) return;
-    const fd = new FormData(); fd.append("dir", this.path); fd.append("file", f);
-    this.toast("Загрузка «" + f.name + "»…");
-    fetch("/htmx/upload", {method:"POST", body:fd}).then(r => r.text()).then(html => {
-      this._toastHtml(html); this.refreshBrowser();
-    }).catch(() => this.toast("Ошибка загрузки"));
-    input.value = "";
+  doUpload(input) { this.uploadFiles(input.files, this.path); input.value = ""; },
+  uploadFiles(files, dir) {
+    dir = (dir == null ? this.path : dir);
+    if (!dir) { this.toast("Сначала открой диск или папку для загрузки"); return; }
+    files = Array.from(files || []);
+    if (!files.length) return;
+    this.toast("Загрузка: " + files.length + " файл(ов)…");
+    const up = (i) => {
+      if (i >= files.length) { this.refreshBrowser(); return; }
+      const fd = new FormData(); fd.append("dir", dir); fd.append("file", files[i]);
+      fetch("/htmx/upload", {method: "POST", body: fd}).then(r => r.text()).then(html => {
+        if (i === files.length - 1) this._toastHtml(html);
+        up(i + 1);
+      }).catch(() => { this.toast("Ошибка загрузки: " + files[i].name); up(i + 1); });
+    };
+    up(0);
   },
 
   mountModal(path, fstype, uuid, label, suggested, autoMount) {
@@ -385,5 +402,19 @@ document.addEventListener("click", (e) => {
   if (!e.target.closest("#userchip")) document.getElementById("usermenu").classList.add("hidden");
 });
 document.getElementById("modal-host").addEventListener("click", () => SW.closeModal());
+
+// drag&drop загрузка файлов с компьютера в текущую папку
+(function() {
+  const br = document.getElementById("browser");
+  const ov = document.getElementById("drop-overlay");
+  const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
+  br.addEventListener("dragenter", (e) => { if (hasFiles(e)) { e.preventDefault(); ov.style.display = "flex"; } });
+  br.addEventListener("dragover", (e) => { if (hasFiles(e)) { e.preventDefault(); ov.style.display = "flex"; } });
+  br.addEventListener("dragleave", (e) => { if (!br.contains(e.relatedTarget)) ov.style.display = "none"; });
+  br.addEventListener("drop", (e) => {
+    ov.style.display = "none";
+    if (hasFiles(e)) { e.preventDefault(); SW.uploadFiles(e.dataTransfer.files, SW.path); }
+  });
+})();
 </script>
 {% endblock %}
