@@ -58,7 +58,7 @@ echo ""
 
 echo "==> Устанавливаю системные пакеты"
 apt-get update -qq
-PKGS="samba samba-common-bin ntfs-3g exfatprogs python3 python3-venv python3-pip sudo rsync"
+PKGS="samba samba-common-bin ntfs-3g exfatprogs e2fsprogs dosfstools python3 python3-venv python3-pip sudo rsync"
 [[ "${SW_DLNA,,}" == y* ]] && PKGS="$PKGS minidlna"
 apt-get install -y --no-install-recommends $PKGS
 
