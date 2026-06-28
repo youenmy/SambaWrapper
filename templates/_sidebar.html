@@ -29,6 +29,15 @@
           </button>
         </div>
         <div class="pl-6 text-[0.625rem] text-slate-400 mt-0.5">{{ fsmap.get(p.fstype, p.fstype|upper) }} · {{ p.size_human }}{% if p.uuid %} · авто <span class="{{ 'text-emerald-600' if p.auto_mount else 'text-slate-500' }}">{{ 'вкл' if p.auto_mount else 'выкл' }}</span>{% endif %}</div>
+        {% for sh in p.shares %}
+          {% set sh_w = sh.write_list or (sh.guest_ok and not sh.read_only) %}
+          <button class="w-full rounded-md hover:bg-slate-100 pl-7 pr-1 py-1 mt-0.5 flex items-center gap-1.5 text-left"
+                  onclick="SW.openModal('/htmx/share-edit?name={{ sh.name }}')">
+            <i class="ti ti-folder-share text-sky-600 text-base shrink-0"></i>
+            <span class="flex-1 min-w-0 truncate text-[0.8125rem]">{{ sh.name }}</span>
+            <span class="text-[0.625rem] {{ 'bg-emerald-100 text-emerald-700' if sh_w else 'bg-slate-100 text-slate-500' }} px-1.5 rounded shrink-0">{{ 'чт+зап' if sh_w else 'чтение' }}</span>
+          </button>
+        {% endfor %}
       </div>
     {% elif p.mountpoint %}
       <div class="disk-row px-2 py-1.5 flex items-center gap-2 text-sm text-slate-400">
@@ -80,33 +89,18 @@
     </div>
   {% endfor %}
 
-  <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-slate-400">Шары</div>
-  {% if not shares %}
-    <div class="px-2 text-xs text-slate-400">Пока нет. Открой папку и нажми «Расшарить».</div>
-  {% endif %}
-  {% set mounted_disks = [] %}
-  {% for p in partitions %}{% if p.mountpoint and p.mountpoint.startswith(mount_root) %}{% set _ = mounted_disks.append(p.mountpoint[mount_root|length+1:]) %}{% endif %}{% endfor %}
-  {% for s in shares %}
-    {% set writable = s.write_list or (s.guest_ok and not s.read_only) %}
-    {% set srel = s.path[mount_root|length+1:] if s.path.startswith(mount_root) else s.path %}
-    {% set sdisk = srel.split('/')[0] %}
-    {% set online = sdisk in mounted_disks %}
+  {% if orphan_shares %}
+  <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-amber-600">Шары без активного диска</div>
+  {% for sh in orphan_shares %}
+    {% set sh_w = sh.write_list or (sh.guest_ok and not sh.read_only) %}
     <button class="w-full rounded-lg hover:bg-slate-50 px-2 py-1.5 flex items-center gap-2 text-left"
-            onclick="SW.openModal('/htmx/share-edit?name={{ s.name }}')">
-      <i class="ti ti-folder-share text-sky-600 text-lg shrink-0"></i>
-      <span class="flex-1 min-w-0">
-        <span class="block truncate text-sm">{{ s.name }}</span>
-        <span class="block text-[0.625rem] truncate {{ 'text-slate-400' if online else 'text-amber-600' }}">
-          <i class="ti ti-disc"></i> {{ sdisk }}{% if not online %} · отключён{% endif %}
-        </span>
-      </span>
-      {% if writable %}
-        <span class="text-[0.625rem] bg-emerald-100 text-emerald-700 px-1.5 rounded shrink-0">чт+зап</span>
-      {% else %}
-        <span class="text-[0.625rem] bg-slate-100 text-slate-500 px-1.5 rounded shrink-0">чтение</span>
-      {% endif %}
+            onclick="SW.openModal('/htmx/share-edit?name={{ sh.name }}')">
+      <i class="ti ti-folder-share text-amber-500 text-lg shrink-0"></i>
+      <span class="flex-1 min-w-0 truncate text-sm">{{ sh.name }}</span>
+      <span class="text-[0.625rem] {{ 'bg-emerald-100 text-emerald-700' if sh_w else 'bg-slate-100 text-slate-500' }} px-1.5 rounded shrink-0">{{ 'чт+зап' if sh_w else 'чтение' }}</span>
     </button>
   {% endfor %}
+  {% endif %}
 
   <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-slate-400">DLNA для телевизора</div>
   <div class="px-2 py-1.5 flex items-center gap-2">

@@ -81,13 +81,23 @@ async def index(request: Request, _: str = Depends(current_user)):
 
 @app.get("/htmx/sidebar", response_class=HTMLResponse)
 async def htmx_sidebar(request: Request, _: str = Depends(current_user)):
+    partitions = disks.list_partitions()
+    shares = samba.list_shares()
+    root = str(MOUNT_ROOT)
+    assigned = set()
+    for p in partitions:
+        mp = p.get("mountpoint")
+        if mp and mp.startswith(root + "/"):
+            p["shares"] = sorted(
+                [s for s in shares if s["path"] == mp or s["path"].startswith(mp + "/")],
+                key=lambda s: s["name"].lower())
+            assigned.update(s["name"] for s in p["shares"])
+    orphan_shares = sorted([s for s in shares if s["name"] not in assigned],
+                           key=lambda s: s["name"].lower())
     return templates.TemplateResponse("_sidebar.html", {
-        "request": request,
-        "partitions": disks.list_partitions(),
-        "shares": samba.list_shares(),
-        "stale": disks.list_stale_mounts(),
-        "dlna": dlna.status(),
-        "mount_root": str(MOUNT_ROOT),
+        "request": request, "partitions": partitions, "shares": shares,
+        "orphan_shares": orphan_shares, "stale": disks.list_stale_mounts(),
+        "dlna": dlna.status(), "mount_root": root,
     })
 
 @app.post("/htmx/stale-clean", response_class=HTMLResponse)
