@@ -38,7 +38,7 @@ Cmnd_Alias SAMBAWRAPPER_CMDS = \
     /usr/bin/smbcontrol smbd close-share *, \
     /usr/bin/pdbedit -L, \
     /usr/bin/smbpasswd *, \
-    /usr/sbin/useradd *, \
-    /usr/sbin/userdel *
+    /usr/sbin/useradd --system --no-create-home --shell /usr/sbin/nologin *, \
+    /usr/sbin/userdel [a-z_]*
 
 sambawrapper ALL=(root) NOPASSWD: SAMBAWRAPPER_CMDS

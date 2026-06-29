@@ -293,7 +293,7 @@ const SW = {
     this._activeUploads = (this._activeUploads || 0) + 1;
     const rows = list.map((it) => {
       const row = document.createElement("div");
-      row.innerHTML = `<div class="text-xs truncate mb-1">${this._esc(it.label || it.file.name)}</div>
+      row.innerHTML = `<div class="text-xs truncate mb-1">${this._escHtml(it.label || it.file.name)}</div>
         <div class="h-1.5 bg-slate-200 rounded overflow-hidden"><div class="ut-bar h-full bg-sky-500 transition-all" style="width:0%"></div></div>`;
       listEl.appendChild(row); return row;
     });
@@ -453,7 +453,7 @@ const SW = {
     try { document.execCommand("copy"); done(); } catch (e) { this.toast(text); }
     ta.remove();
   },
-  toast(msg) { this._toastHtml(`<div class="toast-msg rounded-lg px-4 py-3 text-sm shadow-lg bg-slate-800 text-white">${msg}</div>`); },
+  toast(msg) { this._toastHtml(`<div class="toast-msg rounded-lg px-4 py-3 text-sm shadow-lg bg-slate-800 text-white">${this._escHtml(msg)}</div>`); },
   _toastHtml(html) {
     const host = document.getElementById("toast-host");
     const tmp = document.createElement("div"); tmp.innerHTML = html;
@@ -461,6 +461,7 @@ const SW = {
     host.appendChild(node); setTimeout(() => node.remove(), 4000);
   },
   _esc(s) { return String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'"); },
+  _escHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); },
 };
 window.SW = SW;
 SW._syncTheme();

@@ -90,6 +90,8 @@ def create_share(name: str, abs_path: str, mode: str, guest_write: bool,
         return False, f"Шарить можно только пути внутри {MOUNT_ROOT}"
     if not target.is_dir():
         return False, "Папка не существует или не директория"
+    if any(ord(c) < 32 for c in str(target)):  # перевод строки и пр. сломали бы smb.conf
+        return False, "Путь содержит недопустимые символы"
     for s in list_shares():  # запрет дублей на один путь
         if s["name"] != name and Path(s["path"]).resolve() == target:
             return False, f"Эта папка уже расшарена как «{s['name']}»"

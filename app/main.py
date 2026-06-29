@@ -58,6 +58,7 @@ async def login_form(request: Request, err: str | None = None):
 @app.post("/login")
 async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
     if not auth.verify_password(username, password):
+        await asyncio.sleep(1)  # притормаживаем перебор паролей
         return RedirectResponse("/login?err=1", status_code=303)
     request.session["user"] = username
     return RedirectResponse("/", status_code=303)

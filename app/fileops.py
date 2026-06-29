@@ -21,15 +21,28 @@ def _safe_target(rel_path: str) -> Path:
 
 def _safe_name(name: str) -> str:
     name = (name or "").strip()
-    if not name or name in (".", "..") or "/" in name or "\\" in name or "\0" in name:
+    if not name or name in (".", "..") or "/" in name or "\\" in name:
+        raise FileOpError("Недопустимое имя")
+    if any(ord(c) < 32 for c in name):  # перевод строки/таб/прочие control — может ломать smb.conf
         raise FileOpError("Недопустимое имя")
     if len(name) > 255:
         raise FileOpError("Слишком длинное имя")
     return name
 
+def _under_real_mount(target: Path) -> bool:
+    """Верхний сегмент пути должен быть реально смонтированным диском, а не
+    случайной папкой в корне MOUNT_ROOT (она была бы на системном диске)."""
+    try:
+        parts = target.relative_to(MOUNT_ROOT.resolve()).parts
+    except ValueError:
+        return False
+    return bool(parts) and os.path.ismount(str(MOUNT_ROOT.resolve() / parts[0]))
+
 def mkdir(rel_parent: str, name: str) -> str:
     name = _safe_name(name)
     parent = _safe_target(rel_parent)
+    if not _under_real_mount(parent / name):
+        raise FileOpError("Папки создаются внутри подключённого диска")
     if not parent.is_dir():
         raise FileOpError("Родительская папка не найдена")
     target = parent / name
@@ -87,8 +100,8 @@ def move(rel_src: str, rel_dest_dir: str) -> str:
 def save_upload(rel_dir: str, filename: str, fileobj) -> str:
     filename = _safe_name(filename)
     dest_dir = _safe_target(rel_dir)
-    if dest_dir == MOUNT_ROOT.resolve():
-        raise FileOpError("Выбери диск или папку для загрузки")
+    if not _under_real_mount(dest_dir):
+        raise FileOpError("Загружать можно только на подключённый диск")
     if not dest_dir.exists():
         dest_dir.mkdir(parents=True, exist_ok=True)  # для загрузки папок целиком
     elif not dest_dir.is_dir():
@@ -100,8 +113,8 @@ def save_upload(rel_dir: str, filename: str, fileobj) -> str:
 
 def makedirs(rel_path: str) -> None:
     target = _safe_target(rel_path)
-    if target == MOUNT_ROOT.resolve():
-        return
+    if not _under_real_mount(target):
+        return  # не создаём «псевдодиски» в корне (это был бы системный диск)
     target.mkdir(parents=True, exist_ok=True)
 
 def resolve_file_for_download(rel_path: str) -> Path:
