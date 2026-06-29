@@ -22,9 +22,7 @@
           <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
                   onclick="SW.openModal('/htmx/users')"><i class="ti ti-users text-slate-500"></i>Пользователи Samba</button>
           <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
-                  onclick="SW.passwordModal()"><i class="ti ti-key text-slate-500"></i>Сменить пароль</button>
-          <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
-                  onclick="SW.portModal()"><i class="ti ti-plug text-slate-500"></i>Порт веб-интерфейса</button>
+                  onclick="SW.openModal('/htmx/settings')"><i class="ti ti-settings text-slate-500"></i>Настройки</button>
           <form method="post" action="/logout">
             <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"><i class="ti ti-logout text-slate-500"></i>Выйти</button>
           </form>
@@ -441,6 +439,20 @@ const SW = {
     menu.classList.remove("hidden");
   },
 
+  copyShare(name) {
+    const path = "\\\\" + location.hostname + "\\" + name;
+    const done = () => this.toast("Скопировано: " + path);
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(path).then(done).catch(() => this._copyFallback(path, done));
+    } else { this._copyFallback(path, done); }
+  },
+  _copyFallback(text, done) {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) { this.toast(text); }
+    ta.remove();
+  },
   toast(msg) { this._toastHtml(`<div class="toast-msg rounded-lg px-4 py-3 text-sm shadow-lg bg-slate-800 text-white">${msg}</div>`); },
   _toastHtml(html) {
     const host = document.getElementById("toast-host");

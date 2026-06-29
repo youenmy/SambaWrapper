@@ -1,0 +1,32 @@
+<div class="bg-white rounded-xl p-5 w-full max-w-md" onclick="event.stopPropagation()">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="font-medium flex items-center gap-2"><i class="ti ti-settings text-slate-500"></i>Настройки</h3>
+    <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+  </div>
+
+  <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Учётная запись веб-интерфейса</div>
+  <form hx-post="/htmx/admin-account" hx-target="#toast-host" hx-swap="beforeend" class="space-y-3 mb-6">
+    <label class="block text-sm text-slate-500">Логин
+      <input name="username" required pattern="[A-Za-z0-9_.\-]{2,32}" value="{{ username }}"
+             class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"></label>
+    <label class="block text-sm text-slate-500">Новый пароль <span class="text-slate-400">(пусто — не менять)</span>
+      <input type="password" name="password" minlength="8" autocomplete="new-password" placeholder="••••••••"
+             class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"></label>
+    <div class="flex justify-end"><button class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm">Сохранить</button></div>
+  </form>
+
+  <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Порт веб-интерфейса</div>
+  <form hx-post="/htmx/set-port" hx-target="#toast-host" hx-swap="beforeend" class="flex gap-2 mb-1">
+    <input type="number" name="port" min="1024" max="65535" required value="{{ port }}"
+           class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+    <button class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm">Сменить</button>
+  </form>
+  <p class="text-[0.6875rem] text-slate-400 mb-6">После смены порта сервис перезапустится — переподключись на новый адрес.</p>
+
+  <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Сервер</div>
+  <div class="text-sm text-slate-500 space-y-1">
+    <div>Адрес: <code class="text-slate-700">{{ srv.ip }}</code> · подключение по SMB: <code class="text-slate-700">\\{{ srv.ip }}</code></div>
+    <div>Имя хоста: <code class="text-slate-700">{{ srv.host }}</code></div>
+    <div>Аптайм: {{ srv.uptime }} · SambaWrapper v{{ version }}</div>
+  </div>
+</div>

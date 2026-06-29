@@ -3,7 +3,10 @@ import asyncio
 import contextlib
 import json
 import logging
+import socket
 from pathlib import Path
+
+APP_VERSION = "1.0"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -360,6 +363,27 @@ async def htmx_admin_passwd(request: Request, _: str = Depends(current_user), pa
     auth.set_password(password)
     return _resp(request, True, "Пароль админки обновлён", ["closeModal"])
 
+
+@app.get("/htmx/settings", response_class=HTMLResponse)
+async def htmx_settings(request: Request, _: str = Depends(current_user)):
+    return templates.TemplateResponse("_settings.html", {
+        "request": request, "username": auth.get_username(),
+        "port": portcfg.current_port(), "srv": _server_info(), "version": APP_VERSION,
+    })
+
+@app.post("/htmx/admin-account", response_class=HTMLResponse)
+async def htmx_admin_account(request: Request, _: str = Depends(current_user),
+                            username: str = Form(...), password: str = Form("")):
+    ok, msg = auth.set_username(username)
+    if not ok:
+        return _resp(request, False, msg, [])
+    if password.strip():
+        if len(password) < 8:
+            return _resp(request, False, "Пароль: минимум 8 символов", [])
+        auth.set_password(password)
+    request.session["user"] = auth.get_username()  # keep session valid after rename
+    return _resp(request, True, "Учётная запись обновлена", ["closeModal"])
+
 @app.post("/htmx/set-port", response_class=HTMLResponse)
 async def htmx_set_port(request: Request, _: str = Depends(current_user), port: int = Form(...)):
     ok, msg = portcfg.set_port(port)
@@ -389,6 +413,27 @@ async def health():
 
 
 # ---------- helpers ----------
+
+def _server_info() -> dict:
+    try:
+        host = socket.gethostname()
+    except Exception:
+        host = "?"
+    ip = "?"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1)); ip = s.getsockname()[0]; s.close()
+    except Exception:
+        pass
+    up = ""
+    try:
+        with open("/proc/uptime") as f:
+            secs = float(f.read().split()[0])
+        d, h, m = int(secs // 86400), int(secs % 86400 // 3600), int(secs % 3600 // 60)
+        up = (f"{d}д " if d else "") + f"{h}ч {m}м"
+    except Exception:
+        pass
+    return {"host": host, "ip": ip, "uptime": up}
 
 def _toast(request: Request, ok: bool, msg: str) -> HTMLResponse:
     return templates.TemplateResponse("_toast.html", {"request": request, "ok": ok, "msg": msg})

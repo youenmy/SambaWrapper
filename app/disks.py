@@ -64,11 +64,23 @@ def list_partitions() -> list[dict]:
                 "hotplug": bool(n.get("hotplug")),
                 "mountable": fstype in MOUNTABLE_FS,
             })
-    # enrich with stored auto-mount preference (by partition UUID)
+    # enrich with stored auto-mount preference (by partition UUID) + free space
     for part in result:
         pref = db.get_mount_pref(part["uuid"]) if part.get("uuid") else None
         part["auto_mount"] = bool(pref and pref["auto_mount"])
         part["saved_mount_name"] = pref["mount_name"] if pref else None
+        part["free_human"] = None
+        part["used_pct"] = None
+        if part.get("mountpoint"):
+            try:
+                st = os.statvfs(part["mountpoint"])
+                total = st.f_blocks * st.f_frsize
+                free = st.f_bavail * st.f_frsize
+                if total:
+                    part["free_human"] = _human(free)
+                    part["used_pct"] = round((total - free) / total * 100)
+            except OSError:
+                pass
     return result
 
 def _human(n: int) -> str:

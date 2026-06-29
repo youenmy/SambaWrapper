@@ -28,15 +28,22 @@
             <i class="ti ti-eject text-base"></i>
           </button>
         </div>
-        <div class="pl-6 text-[0.625rem] text-slate-400 mt-0.5">{{ fsmap.get(p.fstype, p.fstype|upper) }} · {{ p.size_human }}{% if p.uuid %} · авто <span class="{{ 'text-emerald-600' if p.auto_mount else 'text-slate-500' }}">{{ 'вкл' if p.auto_mount else 'выкл' }}</span>{% endif %}</div>
+        <div class="pl-6 mt-0.5">
+          <div class="text-[0.625rem] text-slate-400">{{ fsmap.get(p.fstype, p.fstype|upper) }} · {{ p.size_human }}{% if p.free_human %} · своб. {{ p.free_human }}{% endif %}{% if p.uuid %} · авто <span class="{{ 'text-emerald-600' if p.auto_mount else 'text-slate-500' }}">{{ 'вкл' if p.auto_mount else 'выкл' }}</span>{% endif %}</div>
+          {% if p.used_pct is not none %}
+          <div class="h-1 bg-slate-200 rounded mt-1 mr-2 overflow-hidden"><div class="h-full {{ 'bg-red-500' if p.used_pct >= 90 else 'bg-sky-500' }}" style="width:{{ p.used_pct }}%"></div></div>
+          {% endif %}
+        </div>
         {% for sh in p.shares %}
           {% set sh_w = sh.write_list or (sh.guest_ok and not sh.read_only) %}
-          <button class="w-full rounded-md hover:bg-slate-100 pl-7 pr-1 py-1 mt-0.5 flex items-center gap-1.5 text-left"
-                  onclick="SW.openModal('/htmx/share-edit?name={{ sh.name }}')">
-            <i class="ti ti-folder-share text-sky-600 text-base shrink-0"></i>
-            <span class="flex-1 min-w-0 truncate text-[0.8125rem]">{{ sh.name }}</span>
+          <div class="rounded-md hover:bg-slate-100 pl-7 pr-1 py-1 mt-0.5 flex items-center gap-1.5">
+            <button class="flex items-center gap-1.5 flex-1 min-w-0 text-left" onclick="SW.openModal('/htmx/share-edit?name={{ sh.name }}')">
+              <i class="ti ti-folder-share text-sky-600 text-base shrink-0"></i>
+              <span class="flex-1 min-w-0 truncate text-[0.8125rem]">{{ sh.name }}</span>
+            </button>
             <span class="text-[0.625rem] {{ 'bg-emerald-100 text-emerald-700' if sh_w else 'bg-slate-100 text-slate-500' }} px-1.5 rounded shrink-0">{{ 'чт+зап' if sh_w else 'чтение' }}</span>
-          </button>
+            <button title="Копировать сетевой путь" class="text-slate-400 hover:text-sky-600 shrink-0" onclick="SW.copyShare({{ sh.name|tojson|forceescape }})"><i class="ti ti-copy text-base"></i></button>
+          </div>
         {% endfor %}
       </div>
     {% elif p.mountpoint %}

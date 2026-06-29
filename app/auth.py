@@ -5,8 +5,22 @@ from fastapi import Request, HTTPException
 from . import db
 from .config import INITIAL_PASSWORD_FILE, SESSION_SECRET_FILE, DATA_DIR
 
-ADMIN_USERNAME = "admin"
+ADMIN_USERNAME = "admin"          # дефолт до первой смены
 SETTING_PWHASH = "admin_password_hash"
+SETTING_USERNAME = "admin_username"
+
+import re as _re
+SAFE_LOGIN = _re.compile(r"^[A-Za-z0-9_.-]{2,32}$")
+
+def get_username() -> str:
+    return db.get_setting(SETTING_USERNAME) or ADMIN_USERNAME
+
+def set_username(new: str) -> tuple[bool, str]:
+    new = (new or "").strip()
+    if not SAFE_LOGIN.match(new):
+        return False, "Логин: 2–32 символа, буквы/цифры/._-"
+    db.set_setting(SETTING_USERNAME, new)
+    return True, ""
 
 def _hash(pw: str) -> str:
     return bcrypt.hashpw(pw.encode("utf-8")[:72], bcrypt.gensalt()).decode("utf-8")
@@ -50,7 +64,7 @@ def ensure_session_secret() -> str:
     return secret
 
 def verify_password(username: str, password: str) -> bool:
-    if username != ADMIN_USERNAME:
+    if (username or "").strip() != get_username():
         return False
     hashed = db.get_setting(SETTING_PWHASH)
     if not hashed:
