@@ -6,7 +6,7 @@ import logging
 import socket
 from pathlib import Path
 
-APP_VERSION = "1.0"
+APP_VERSION = "1.1"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
