@@ -35,6 +35,10 @@ Cmnd_Alias SAMBAWRAPPER_CMDS = \
     /bin/systemctl restart minidlna, \
     /usr/bin/systemctl restart minidlna, \
     /usr/bin/tee /etc/minidlna.conf, \
+    /bin/systemctl enable --now transmission-daemon, \
+    /usr/bin/systemctl enable --now transmission-daemon, \
+    /bin/systemctl disable --now transmission-daemon, \
+    /usr/bin/systemctl disable --now transmission-daemon, \
     /usr/bin/smbcontrol smbd close-share *, \
     /usr/bin/pdbedit -L, \
     /usr/bin/smbpasswd *, \

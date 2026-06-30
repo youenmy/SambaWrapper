@@ -1,0 +1,45 @@
+<div class="bg-white rounded-xl p-5 w-full max-w-md max-h-[80vh] flex flex-col" onclick="event.stopPropagation()">
+  <div class="flex items-center justify-between mb-3 shrink-0">
+    <h3 class="font-medium flex items-center gap-2"><i class="ti ti-folder text-sky-600"></i>Куда сохранять</h3>
+    <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+  </div>
+
+  {% if not items %}
+    <p class="text-sm text-amber-600">Нет смонтированных дисков. Подключи накопитель слева.</p>
+  {% else %}
+    <div class="flex-1 overflow-y-auto -mx-1 px-1 border border-slate-200 rounded-lg divide-y divide-slate-100">
+      {% for it in items %}
+        <button class="w-full flex items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-sky-50 tr-dest-row"
+                data-abs="{{ it.abs }}" style="padding-left:{{ 0.5 + it.depth * 1.25 }}rem"
+                onclick="SW.chooseTrDest({{ it.abs|tojson|forceescape }}, {{ it.rel|tojson|forceescape }})">
+          {% if it.depth == 0 %}
+            <i class="ti ti-disc text-sky-600 shrink-0"></i><span class="truncate font-medium">{{ it.name }}</span>
+          {% else %}
+            <i class="ti ti-folder text-slate-400 shrink-0"></i><span class="truncate">{{ it.name }}</span>
+          {% endif %}
+          <i class="ti ti-check text-emerald-600 ml-auto shrink-0 tr-dest-check hidden"></i>
+        </button>
+      {% endfor %}
+    </div>
+
+    <label class="flex items-center gap-2 mt-3 text-sm text-slate-600 shrink-0 cursor-pointer">
+      <input type="checkbox" id="tr-dest-default" class="rounded border-slate-300">
+      Запомнить как путь по умолчанию
+    </label>
+    <p class="text-[0.6875rem] text-slate-400 mt-1 shrink-0">Выбери папку — она сразу подставится. С галочкой запомнится для будущих торрентов.</p>
+  {% endif %}
+
+  <script>
+    (function () {
+      var cur = (window.SW && SW.trDir) || "";
+      document.querySelectorAll("#modal-host .tr-dest-row").forEach(function (r) {
+        if (r.dataset.abs === cur) {
+          r.classList.add("bg-sky-50");
+          var c = r.querySelector(".tr-dest-check"); if (c) c.classList.remove("hidden");
+        }
+      });
+      var cb = document.getElementById("tr-dest-default");
+      if (cb) cb.checked = !!localStorage.getItem("sw.trDirDefault");
+    })();
+  </script>
+</div>

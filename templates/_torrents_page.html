@@ -1,0 +1,70 @@
+<div class="flex items-center gap-2 px-3 h-12 border-b border-slate-200 shrink-0">
+  <i class="ti ti-download text-sky-600 text-lg"></i>
+  <span class="font-medium text-sm">Торрент-клиент</span>
+  {% if st.installed and st.active %}
+    <span class="text-[0.6875rem] text-emerald-600 flex items-center gap-1"><i class="ti ti-circle-filled text-[0.5rem]"></i>работает</span>
+    <button class="tbb ml-auto text-red-600" onclick="SW.post('/htmx/torrent-toggle',{enable:'no'})"><i class="ti ti-player-stop"></i>Выключить демон</button>
+  {% elif st.installed %}
+    <span class="text-[0.6875rem] text-slate-400 flex items-center gap-1"><i class="ti ti-circle text-[0.5rem]"></i>выключен</span>
+  {% endif %}
+</div>
+
+{% if not st.installed %}
+  <div class="p-6 text-sm text-slate-500">
+    Пакет <code>transmission-daemon</code> не установлен. Поставь его (<code>apt install transmission-daemon transmission-cli</code>) и обнови страницу.
+  </div>
+{% elif not st.active %}
+  <div class="m-auto text-center text-slate-400 text-sm flex flex-col items-center gap-3 px-4">
+    <i class="ti ti-download-off text-3xl"></i>
+    <span>Торрент-демон выключен.</span>
+    <button class="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-sm"
+            onclick="SW.post('/htmx/torrent-toggle',{enable:'yes'})">Включить торрент-клиент</button>
+  </div>
+{% elif not dirs %}
+  <div class="p-6 text-sm text-amber-600">Нет смонтированных дисков — некуда качать. Подключи диск слева.</div>
+{% else %}
+
+<div class="flex items-center gap-2 px-3 h-12 border-b border-slate-100 shrink-0 flex-wrap">
+  <button title="Вставить из буфера обмена" class="text-slate-400 hover:text-sky-600 shrink-0" onclick="SW.pasteMagnet()">
+    <i class="ti ti-clipboard-text text-lg"></i>
+  </button>
+  <input id="tr-magnet" type="text" placeholder="magnet:?xt=... или http(s)-ссылка на .torrent"
+         onkeydown="if(event.key==='Enter')SW.torrentAdd()"
+         class="flex-1 min-w-[12rem] border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-mono">
+  <input type="hidden" id="tr-dir">
+  <button id="tr-dest-btn" title="Выбрать папку для сохранения" onclick="SW.openTorrentDest()"
+          class="flex items-center gap-1.5 border border-slate-300 rounded-lg px-3 py-1.5 text-sm hover:bg-slate-50 max-w-[16rem]">
+    <i class="ti ti-folder text-sky-600 shrink-0"></i>
+    <span id="tr-dest-label" class="truncate text-slate-500">Куда сохранить…</span>
+  </button>
+  <button class="px-3 py-1.5 bg-sky-600 text-white rounded-lg text-sm whitespace-nowrap" onclick="SW.torrentAdd()">
+    <i class="ti ti-plus"></i> Добавить
+  </button>
+  <label class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm cursor-pointer hover:bg-slate-50 whitespace-nowrap">
+    <i class="ti ti-file-upload"></i> .torrent
+    <input type="file" accept=".torrent" class="hidden" onchange="SW.torrentUpload(this)">
+  </label>
+  <script>window.SW_TR_DIRS = {{ dirs|tojson }}; window.SW && SW.initTrDest();</script>
+</div>
+
+<div class="flex-1 overflow-auto">
+  <table class="w-full text-sm border-collapse">
+    <thead class="sticky top-0 bg-slate-50 text-[0.6875rem] uppercase tracking-wide text-slate-400">
+      <tr>
+        <th class="text-left font-medium px-3 py-2">Имя</th>
+        <th class="text-left font-medium px-2 py-2 w-56">Прогресс</th>
+        <th class="text-left font-medium px-2 py-2 w-28">Статус</th>
+        <th class="text-right font-medium px-2 py-2 w-20">Размер</th>
+        <th class="text-right font-medium px-2 py-2 w-24">↓</th>
+        <th class="text-right font-medium px-2 py-2 w-24">↑</th>
+        <th class="text-right font-medium px-2 py-2 w-20">Осталось</th>
+        <th class="px-2 py-2 w-24"></th>
+      </tr>
+    </thead>
+    <tbody hx-get="/htmx/torrents-list" hx-trigger="load, every 2s" hx-swap="innerHTML">
+      <tr><td colspan="8" class="text-center text-slate-400 py-6">Загрузка…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+{% endif %}

@@ -126,4 +126,17 @@
     {% endif %}
   </div>
 
+  <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-slate-400">Торренты</div>
+  <button class="w-full px-2 py-1.5 flex items-center gap-2 rounded-lg hover:bg-slate-50 text-left"
+          onclick="SW.openTorrents()">
+    <i class="ti ti-download {{ 'text-sky-600' if torrent.active else 'text-slate-400' }} text-lg"></i>
+    <span class="flex-1 min-w-0">
+      <span class="text-sm block">Торрент-клиент</span>
+      <span class="text-[0.6875rem] {{ 'text-emerald-600' if torrent.active else 'text-slate-400' }}">
+        {% if not torrent.installed %}не установлен{% elif torrent.active %}работает{% if torrent.count %} · {{ torrent.count }}{% endif %}{% else %}выключен{% endif %}
+      </span>
+    </span>
+    <i class="ti ti-chevron-right text-slate-300"></i>
+  </button>
+
 </div>

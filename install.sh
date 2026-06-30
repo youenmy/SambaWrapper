@@ -50,6 +50,7 @@ echo "  │   SambaWrapper — установка            │"
 echo "  └──────────────────────────────────────┘"
 ask SW_PORT "Порт веб-интерфейса"                          "8080"
 ask SW_DLNA "Поставить DLNA-медиасервер (включишь в UI)?"  "y"
+ask SW_TORRENT "Поставить торрент-клиент (включишь в UI)?"  "y"
 if [[ -z "${SW_ADMIN_PASS:-}" && -e /dev/tty ]]; then
     read -r -s -p "  Пароль админа (Enter — сгенерировать): " SW_ADMIN_PASS </dev/tty || SW_ADMIN_PASS=""
     echo ""
@@ -58,8 +59,9 @@ echo ""
 
 echo "==> Устанавливаю системные пакеты"
 apt-get update -qq
-PKGS="samba samba-common-bin ntfs-3g exfatprogs e2fsprogs dosfstools python3 python3-venv python3-pip sudo rsync"
+PKGS="samba samba-common-bin ntfs-3g exfatprogs e2fsprogs dosfstools python3 python3-venv python3-pip sudo rsync ffmpeg"
 [[ "${SW_DLNA,,}" == y* ]] && PKGS="$PKGS minidlna"
+[[ "${SW_TORRENT,,}" == y* ]] && PKGS="$PKGS transmission-daemon transmission-cli"
 apt-get install -y --no-install-recommends $PKGS
 
 echo "==> Создаю сервисного пользователя"
@@ -129,6 +131,39 @@ notify_interval=895
 root_container=B
 EOF
     systemctl disable --now minidlna 2>/dev/null || true
+fi
+
+# --- Torrent client (transmission-daemon, runs as our service user; OFF by default) ---
+if [[ "${SW_TORRENT,,}" == y* ]]; then
+    echo "==> Готовлю торрент-клиент (transmission) — выключен по умолчанию, включишь в интерфейсе"
+    TR_CFG="${DATA_DIR}/transmission"
+    # держим демон выключенным, пока пишем конфиг (он переписывает settings.json при остановке)
+    systemctl disable --now transmission-daemon 2>/dev/null || true
+    mkdir -p "${TR_CFG}"
+    cat > "${TR_CFG}/settings.json" <<EOF
+{
+    "rpc-enabled": true,
+    "rpc-bind-address": "127.0.0.1",
+    "rpc-port": 9091,
+    "rpc-whitelist-enabled": false,
+    "rpc-authentication-required": false,
+    "download-dir": "${MOUNT_ROOT}",
+    "incomplete-dir-enabled": false,
+    "watch-dir-enabled": false,
+    "umask": 2
+}
+EOF
+    chown -R "${SERVICE_USER}:${SERVICE_USER}" "${TR_CFG}"
+    # запускаем демон под нашим пользователем и с нашим конфигом → скачанное принадлежит ${SERVICE_USER}
+    mkdir -p /etc/systemd/system/transmission-daemon.service.d
+    cat > /etc/systemd/system/transmission-daemon.service.d/sambawrapper.conf <<EOF
+[Service]
+User=${SERVICE_USER}
+Group=${SERVICE_USER}
+ExecStart=
+ExecStart=/usr/bin/transmission-daemon -f --log-level=error --config-dir ${TR_CFG}
+EOF
+    systemctl daemon-reload
 fi
 
 # wait for the initial password file (only created when no password was preset)

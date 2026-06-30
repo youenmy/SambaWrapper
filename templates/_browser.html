@@ -63,7 +63,7 @@
          draggable="true" ondragstart="SW.dragStart(event, {{ rel|tojson|forceescape }})"
          {% if e.is_dir %}ondragover="SW.dragOver(event, this)" ondragleave="this.classList.remove('ring-2','ring-sky-400')" ondrop="SW.drop(event, {{ rel|tojson|forceescape }}, this)"{% endif %}
          onclick="SW.select({{ rel|tojson|forceescape }}, {{ e.name|tojson|forceescape }}, {{ e.is_dir|tojson|forceescape }})"
-         ondblclick="{% if e.is_dir %}SW.navigate({{ rel|tojson|forceescape }}){% else %}SW.download({{ rel|tojson|forceescape }}){% endif %}"
+         ondblclick="{% if e.is_dir %}SW.navigate({{ rel|tojson|forceescape }}){% else %}SW.openFile({{ rel|tojson|forceescape }}, {{ e.name|tojson|forceescape }}){% endif %}"
          oncontextmenu="SW.ctx(event, {{ rel|tojson|forceescape }}, {{ e.name|tojson|forceescape }}, {{ e.is_dir|tojson|forceescape }})">
       <input type="checkbox" class="fchk" onclick="event.stopPropagation(); SW.toggleCheck({{ rel|tojson|forceescape }}, this.checked)">
       {% if e.is_dir %}

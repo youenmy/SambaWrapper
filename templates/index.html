@@ -245,6 +245,193 @@ const SW = {
   shareCurrent() { if (!this.path) { this.toast("Открой папку внутри диска"); return; }
                    this.share(this.path, this.path.split("/").pop()); },
   download(rel) { window.location = "/download?path=" + encodeURIComponent(rel); },
+  _mediaKind(name) {
+    const ext = (String(name).split(".").pop() || "").toLowerCase();
+    if (["mp4","webm","ogv","m4v","mov","mkv","avi","mpg","mpeg","ts","wmv","flv"].includes(ext)) return "video";
+    if (["mp3","m4a","aac","ogg","oga","opus","flac","wav","wma"].includes(ext)) return "audio";
+    if (["jpg","jpeg","png","gif","webp","bmp","svg","avif"].includes(ext)) return "image";
+    return "";
+  },
+  // двойной клик по медиа — проигрывание в браузере; остальное — скачивание
+  openFile(rel, name) {
+    const kind = this._mediaKind(name);
+    if (kind) this.playMedia(rel, name, kind);
+    else this.download(rel);
+  },
+  playMedia(rel, name, kind) {
+    if (kind === "video") return this._playVideo(rel, name);
+    const url = "/stream?path=" + encodeURIComponent(rel);
+    const dl = "/download?path=" + encodeURIComponent(rel);
+    const errMsg = `<div class="text-sm text-slate-300 text-center py-8 px-4">Браузер не смог воспроизвести этот файл.<br><a href="${dl}" class="text-sky-400 underline">Скачать файл</a></div>`;
+    const media = kind === "audio"
+      ? `<audio src="${url}" controls autoplay class="w-full" onerror="this.outerHTML='${errMsg.replace(/'/g, "\\'")}'"></audio>`
+      : `<img src="${url}" class="max-h-[72vh] max-w-full rounded-lg object-contain">`;
+    this._mediaModal(name, dl, `<div class="flex items-center justify-center min-h-[8rem]">${media}</div>`);
+  },
+  _playVideo(rel, name) {
+    if (!document.getElementById("sw-fs-style")) {
+      const st = document.createElement("style"); st.id = "sw-fs-style";
+      st.textContent = "#sw-player:fullscreen{max-width:none;width:100%;height:100%;border-radius:0;justify-content:center}" +
+                       "#sw-player:fullscreen .sw-hdr{display:none}" +
+                       "#sw-player:fullscreen .sw-video{max-height:88vh}";
+      document.head.appendChild(st);
+    }
+    const dl = "/download?path=" + encodeURIComponent(rel);
+    const m = document.getElementById("modal-host");
+    m.innerHTML = `<div id="sw-player" class="bg-slate-900 text-slate-200 rounded-xl p-3 w-full max-w-4xl flex flex-col gap-2" onclick="event.stopPropagation()">
+      <div class="sw-hdr flex items-center gap-2">
+        <i class="ti ti-player-play text-sky-400"></i>
+        <span class="font-medium text-sm truncate flex-1">${this._escHtml(name)}</span>
+        <a href="${dl}" class="text-slate-400 hover:text-sky-400" title="Скачать"><i class="ti ti-download text-lg"></i></a>
+        <button class="text-slate-400 hover:text-white" onclick="SW.closeModal()"><i class="ti ti-x text-lg"></i></button>
+      </div>
+      <video id="sw-vid" autoplay playsinline class="sw-video max-h-[64vh] max-w-full w-full rounded-lg bg-black"
+             onclick="SW.plToggle()" onerror="document.getElementById('sw-pl-err').classList.remove('hidden')"></video>
+      <div id="sw-pl-err" class="hidden text-sm text-slate-300 text-center py-2">Не удалось воспроизвести (возможно, видео в H.265/экзотическом кодеке). <a href="${dl}" class="text-sky-400 underline">Скачать</a></div>
+      <div class="flex items-center gap-2 text-xs text-slate-400 select-none px-0.5">
+        <span id="sw-cur" class="tabular-nums w-12 text-right">0:00</span>
+        <div id="sw-seek" class="flex-1 h-2 bg-slate-700 rounded cursor-pointer relative" onclick="SW.seekTo(event)" title="Клик — перемотка">
+          <div id="sw-fill" class="h-full bg-sky-500 rounded" style="width:0%"></div>
+        </div>
+        <span id="sw-dur" class="tabular-nums w-12">--:--</span>
+      </div>
+      <div class="flex items-center gap-3 text-slate-300 px-0.5 pb-0.5">
+        <button onclick="SW.plToggle()" class="hover:text-white" title="Воспроизведение/пауза"><i id="sw-pl-icon" class="ti ti-player-pause-filled text-xl"></i></button>
+        <button onclick="SW.plMute()" class="hover:text-white" title="Звук"><i id="sw-vol-icon" class="ti ti-volume text-lg"></i></button>
+        <input id="sw-vol" type="range" min="0" max="1" step="0.05" value="1" oninput="SW.plVolume(this.value)" class="w-24 accent-sky-500 cursor-pointer">
+        <button onclick="SW.plFullscreen()" class="hover:text-white ml-auto" title="Полный экран"><i class="ti ti-maximize text-lg"></i></button>
+      </div>
+    </div>`;
+    m.classList.remove("hidden");
+    this._pl = {rel: rel, duration: 0, offset: 0};
+    const v = document.getElementById("sw-vid");
+    v.src = "/transcode?path=" + encodeURIComponent(rel) + "&ss=0";
+    v.addEventListener("timeupdate", () => this._plTick());
+    v.addEventListener("play", () => { const i = document.getElementById("sw-pl-icon"); if (i) i.className = "ti ti-player-pause-filled text-xl"; });
+    v.addEventListener("pause", () => { const i = document.getElementById("sw-pl-icon"); if (i) i.className = "ti ti-player-play-filled text-xl"; });
+    fetch("/media-info?path=" + encodeURIComponent(rel)).then((r) => r.json()).then((d) => {
+      this._pl.duration = d.duration || 0;
+      const el = document.getElementById("sw-dur"); if (el) el.textContent = this._fmtT(this._pl.duration);
+    }).catch(() => {});
+  },
+  _mediaModal(name, dl, inner) {
+    const m = document.getElementById("modal-host");
+    m.innerHTML = `<div class="bg-white rounded-xl p-4 w-full max-w-4xl flex flex-col gap-3" onclick="event.stopPropagation()">
+      <div class="flex items-center gap-2">
+        <i class="ti ti-player-play text-sky-600"></i>
+        <span class="font-medium text-sm truncate flex-1">${this._escHtml(name)}</span>
+        <a href="${dl}" class="text-slate-400 hover:text-sky-600" title="Скачать"><i class="ti ti-download text-lg"></i></a>
+        <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x text-lg"></i></button>
+      </div>${inner}
+    </div>`;
+    m.classList.remove("hidden");
+  },
+  plToggle() { const v = document.getElementById("sw-vid"); if (!v) return; if (v.paused) v.play().catch(() => {}); else v.pause(); },
+  plVolume(val) {
+    const v = document.getElementById("sw-vid"); if (!v) return;
+    v.volume = parseFloat(val); v.muted = v.volume <= 0; this._volIcon();
+  },
+  plMute() {
+    const v = document.getElementById("sw-vid"), sl = document.getElementById("sw-vol"); if (!v) return;
+    v.muted = !v.muted;
+    if (!v.muted && v.volume === 0) { v.volume = 0.5; }
+    if (sl) sl.value = v.muted ? 0 : v.volume;
+    this._volIcon();
+  },
+  _volIcon() {
+    const v = document.getElementById("sw-vid"), i = document.getElementById("sw-vol-icon"); if (!v || !i) return;
+    i.className = (v.muted || v.volume === 0) ? "ti ti-volume-off text-lg" : (v.volume < 0.5 ? "ti ti-volume-2 text-lg" : "ti ti-volume text-lg");
+  },
+  plFullscreen() {
+    const p = document.getElementById("sw-player"); if (!p) return;
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    (p.requestFullscreen || p.webkitRequestFullscreen || p.msRequestFullscreen || function () {}).call(p);
+  },
+  _plTick() {
+    const pl = this._pl, v = document.getElementById("sw-vid");
+    if (!pl || !v) return;
+    const real = pl.offset + (v.currentTime || 0);
+    const fill = document.getElementById("sw-fill");
+    if (fill && pl.duration) fill.style.width = Math.min(100, real / pl.duration * 100) + "%";
+    const cur = document.getElementById("sw-cur"); if (cur) cur.textContent = this._fmtT(real);
+  },
+  seekTo(e) {
+    const pl = this._pl; if (!pl || !pl.duration) return;
+    const bar = document.getElementById("sw-seek"), v = document.getElementById("sw-vid");
+    const rect = bar.getBoundingClientRect();
+    let frac = (e.clientX - rect.left) / rect.width; frac = Math.max(0, Math.min(0.999, frac));
+    const t = frac * pl.duration; pl.offset = t;
+    v.src = "/transcode?path=" + encodeURIComponent(pl.rel) + "&ss=" + Math.floor(t);
+    v.load(); v.play().catch(() => {});
+    this._plTick();
+  },
+  _fmtT(s) {
+    s = Math.max(0, Math.floor(s || 0));
+    const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+    return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0");
+  },
+
+  openTorrents() {
+    this.path = "";
+    htmx.ajax("GET", "/htmx/torrents-page", {target: "#browser", swap: "innerHTML"}).then(() => this._markActiveDisk());
+    this.closeSidebar();
+  },
+  pasteMagnet() {
+    const inp = document.getElementById("tr-magnet");
+    if (!inp) return;
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      this.toast("Буфер недоступен — вставь вручную (Ctrl+V)"); inp.focus(); return;
+    }
+    navigator.clipboard.readText()
+      .then((t) => { inp.value = (t || "").trim(); inp.focus(); })
+      .catch(() => { this.toast("Нет доступа к буферу обмена"); inp.focus(); });
+  },
+  initTrDest() {
+    const dirs = window.SW_TR_DIRS || [];
+    if (!dirs.length) return;
+    const def = localStorage.getItem("sw.trDirDefault");
+    const chosen = dirs.find((d) => d.abs === def) || dirs[0];
+    this.setTrDest(chosen.abs, chosen.label, false);
+  },
+  setTrDest(abs, label, saveDefault) {
+    this.trDir = abs;
+    const inp = document.getElementById("tr-dir"); if (inp) inp.value = abs;
+    const lbl = document.getElementById("tr-dest-label");
+    if (lbl) { lbl.textContent = label; lbl.classList.remove("text-slate-500"); lbl.classList.add("text-slate-800"); }
+    if (saveDefault) localStorage.setItem("sw.trDirDefault", abs);
+  },
+  openTorrentDest() { this.openModal("/htmx/torrent-dest"); },
+  chooseTrDest(abs, label) {
+    const cb = document.getElementById("tr-dest-default");
+    const remember = !!(cb && cb.checked);
+    this.setTrDest(abs, label, remember);
+    if (!remember) localStorage.removeItem("sw.trDirDefault");
+    this.closeModal();
+  },
+  torrentAdd() {
+    const spec = (document.getElementById("tr-magnet") || {}).value || "";
+    const dir = (document.getElementById("tr-dir") || {}).value || "";
+    if (!spec.trim()) { this.toast("Вставь magnet-ссылку или URL"); return; }
+    this.post("/htmx/torrent-add", {spec: spec.trim(), download_dir: dir});
+    document.getElementById("tr-magnet").value = "";
+  },
+  torrentUpload(input) {
+    const f = input.files && input.files[0];
+    const dir = (document.getElementById("tr-dir") || {}).value || "";
+    input.value = "";
+    if (!f) return;
+    const body = new FormData(); body.append("download_dir", dir); body.append("file", f);
+    fetch("/htmx/torrent-upload", {method: "POST", body})
+      .then((r) => r.text())
+      .then((html) => { document.getElementById("toast-host").insertAdjacentHTML("beforeend", html); })
+      .catch(() => this.toast("Не удалось загрузить .torrent"));
+  },
+  torrentRemove(id, name, withData) {
+    this.confirm(
+      withData ? `Удалить торрент «${name}» вместе со скачанными файлами?` : `Убрать торрент «${name}» из списка? Файлы останутся на диске.`,
+      () => this.post("/htmx/torrent-action", {id, action: withData ? "remove-data" : "remove"}),
+      {ok: "Удалить", danger: !!withData});
+  },
 
   upload() { document.getElementById("uploader").click(); },
   doUpload(input) { this.uploadFiles(input.files, this.path); input.value = ""; },
@@ -426,7 +613,10 @@ const SW = {
     evt.preventDefault(); this.select(rel, name, isDir);
     const items = [];
     if (isDir) items.push(["ti-folder-open","Открыть",`SW.navigate('${this._esc(rel)}')`]);
-    else items.push(["ti-download","Скачать",`SW.download('${this._esc(rel)}')`]);
+    else {
+      if (this._mediaKind(name)) items.push(["ti-player-play","Воспроизвести",`SW.openFile('${this._esc(rel)}','${this._esc(name)}')`]);
+      items.push(["ti-download","Скачать",`SW.download('${this._esc(rel)}')`]);
+    }
     items.push(["ti-edit","Переименовать","SW.rename()"]);
     items.push(["ti-arrows-move","Переместить","SW.move()"]);
     if (isDir) items.push(["ti-share","Расшарить",`SW.share('${this._esc(rel)}','${this._esc(name)}')`]);
@@ -470,6 +660,7 @@ document.body.addEventListener("refreshBrowser", () => SW.refreshBrowser());
 document.body.addEventListener("refreshSidebar", () => SW.refreshSidebar());
 document.body.addEventListener("closeModal", () => SW.closeModal());
 document.body.addEventListener("reloadUsers", () => SW.openModal("/htmx/users"));
+document.body.addEventListener("reloadTorrents", () => SW.openTorrents());
 document.body.addEventListener("htmx:afterSwap", (e) => {
   if (e.target && (e.target.id === "sidebar" || e.target.id === "browser")) SW._markActiveDisk();
 });
