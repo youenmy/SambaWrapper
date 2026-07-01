@@ -507,9 +507,11 @@ async def htmx_torrent_add(request: Request, _: str = Depends(current_user),
 async def htmx_torrent_upload(request: Request, _: str = Depends(current_user),
                              download_dir: str = Form(...), file: UploadFile = File(...)):
     try:
-        content = await file.read()
+        content = await file.read(10 * 1024 * 1024 + 1)  # .torrent больше 10 МБ не бывает
     finally:
         await file.close()
+    if len(content) > 10 * 1024 * 1024:
+        return _resp(request, False, "Файл слишком большой для .torrent", [])
     ok, msg = await asyncio.to_thread(torrent.add_file, content, download_dir)
     return _resp(request, ok, msg, [])
 

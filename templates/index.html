@@ -612,18 +612,26 @@ const SW = {
   ctx(evt, rel, name, isDir) {
     evt.preventDefault(); this.select(rel, name, isDir);
     const items = [];
-    if (isDir) items.push(["ti-folder-open","Открыть",`SW.navigate('${this._esc(rel)}')`]);
+    if (isDir) items.push(["ti-folder-open","Открыть",() => SW.navigate(rel)]);
     else {
-      if (this._mediaKind(name)) items.push(["ti-player-play","Воспроизвести",`SW.openFile('${this._esc(rel)}','${this._esc(name)}')`]);
-      items.push(["ti-download","Скачать",`SW.download('${this._esc(rel)}')`]);
+      if (this._mediaKind(name)) items.push(["ti-player-play","Воспроизвести",() => SW.openFile(rel, name)]);
+      items.push(["ti-download","Скачать",() => SW.download(rel)]);
     }
-    items.push(["ti-edit","Переименовать","SW.rename()"]);
-    items.push(["ti-arrows-move","Переместить","SW.move()"]);
-    if (isDir) items.push(["ti-share","Расшарить",`SW.share('${this._esc(rel)}','${this._esc(name)}')`]);
-    items.push(["ti-trash","Удалить","SW.del()","text-red-600"]);
+    items.push(["ti-edit","Переименовать",() => SW.rename()]);
+    items.push(["ti-arrows-move","Переместить",() => SW.move()]);
+    if (isDir) items.push(["ti-share","Расшарить",() => SW.share(rel, name)]);
+    items.push(["ti-trash","Удалить",() => SW.del(),"text-red-600"]);
     const menu = document.getElementById("ctxmenu");
-    menu.innerHTML = items.map(([ic,label,act,cls]) =>
-      `<button class="w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-100 ${cls||''}" onclick="document.getElementById('ctxmenu').classList.add('hidden');${act}"><i class="ti ${ic} text-slate-500"></i>${label}</button>`).join("");
+    // строим кнопки через DOM, а не innerHTML: имя файла (в т.ч. из чужого
+    // торрента) не должно попадать в HTML-атрибут как текст
+    menu.innerHTML = "";
+    items.forEach(([ic, label, act, cls]) => {
+      const b = document.createElement("button");
+      b.className = `w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-slate-100 ${cls || ""}`;
+      b.innerHTML = `<i class="ti ${ic} text-slate-500"></i>${label}`;  // ic/label — свои константы
+      b.onclick = () => { menu.classList.add("hidden"); act(); };
+      menu.appendChild(b);
+    });
     menu.style.left = Math.min(evt.clientX, window.innerWidth-200) + "px";
     menu.style.top = Math.min(evt.clientY, window.innerHeight-260) + "px";
     menu.classList.remove("hidden");
@@ -650,7 +658,6 @@ const SW = {
     const node = tmp.firstElementChild; if (!node) return;
     host.appendChild(node); setTimeout(() => node.remove(), 4000);
   },
-  _esc(s) { return String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'"); },
   _escHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); },
 };
 window.SW = SW;
