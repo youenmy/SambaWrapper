@@ -8,10 +8,8 @@
       <i class="ti ti-folder-open text-sky-600 text-xl"></i> <span class="truncate">SambaWrapper</span>
     </div>
     <div class="flex items-center gap-1">
-      <label class="flex items-center gap-1.5 text-sm px-2.5 py-1.5 rounded-lg hover:bg-slate-100 cursor-pointer select-none">
-        <input type="checkbox" id="theme-chk" onchange="SW.setTheme(this.checked)">
-        <i class="ti ti-moon text-base"></i><span class="hidden sm:inline">Тёмная</span>
-      </label>
+      <button id="theme-btn" title="Сменить тему" class="px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800"
+              onclick="SW.toggleTheme()"><i id="theme-icon" class="ti ti-moon text-lg"></i></button>
       <div class="relative">
         <button id="userchip" class="flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg hover:bg-slate-100"
                 onclick="event.stopPropagation();SW.toggleUserMenu()">
@@ -96,6 +94,7 @@ const SW = {
   closeModal() {
     const m = document.getElementById("modal-host");
     m.classList.add("hidden"); m.innerHTML = "";
+    if (this._pl) { clearInterval(this._pl.subPoll); this._pl = null; document.removeEventListener("keydown", this._plKeydown); }
   },
   confirm(message, onYes, opts) {
     opts = opts || {};
@@ -140,13 +139,16 @@ const SW = {
 
   toggleUserMenu() { document.getElementById("usermenu").classList.toggle("hidden"); },
 
-  setTheme(on) {
+  toggleTheme() {
+    const on = !document.documentElement.classList.contains("dark");
     document.documentElement.classList.toggle("dark", on);
     localStorage.setItem("sw.theme", on ? "dark" : "light");
+    this._syncTheme();
   },
   _syncTheme() {
-    const c = document.getElementById("theme-chk");
-    if (c) c.checked = document.documentElement.classList.contains("dark");
+    const i = document.getElementById("theme-icon");
+    if (i) i.className = document.documentElement.classList.contains("dark")
+      ? "ti ti-sun text-lg" : "ti ti-moon text-lg";
   },
   toggleSidebar() {
     document.getElementById("sidebar").classList.toggle("-translate-x-full");
@@ -271,48 +273,142 @@ const SW = {
   _playVideo(rel, name) {
     if (!document.getElementById("sw-fs-style")) {
       const st = document.createElement("style"); st.id = "sw-fs-style";
-      st.textContent = "#sw-player:fullscreen{max-width:none;width:100%;height:100%;border-radius:0;justify-content:center}" +
+      st.textContent = "#sw-player:fullscreen{max-width:none;width:100%;height:100%;border-radius:0;padding:0;background:#000}" +
                        "#sw-player:fullscreen .sw-hdr{display:none}" +
-                       "#sw-player:fullscreen .sw-video{max-height:88vh}";
+                       "#sw-player:fullscreen .sw-video{flex:1;min-height:0;max-height:none;height:100%;border-radius:0;object-fit:contain}" +
+                       "#sw-player:fullscreen .sw-bar{padding:0.4rem 1rem 0.6rem}";
       document.head.appendChild(st);
     }
     const dl = "/download?path=" + encodeURIComponent(rel);
     const m = document.getElementById("modal-host");
-    m.innerHTML = `<div id="sw-player" class="bg-slate-900 text-slate-200 rounded-xl p-3 w-full max-w-4xl flex flex-col gap-2" onclick="event.stopPropagation()">
+    m.innerHTML = `<div id="sw-player" class="relative bg-slate-900 text-slate-200 rounded-xl p-3 w-full max-w-4xl flex flex-col gap-2 border border-slate-600 shadow-2xl" onclick="event.stopPropagation()">
       <div class="sw-hdr flex items-center gap-2">
         <i class="ti ti-player-play text-sky-400"></i>
         <span class="font-medium text-sm truncate flex-1">${this._escHtml(name)}</span>
         <a href="${dl}" class="text-slate-400 hover:text-sky-400" title="Скачать"><i class="ti ti-download text-lg"></i></a>
         <button class="text-slate-400 hover:text-white" onclick="SW.closeModal()"><i class="ti ti-x text-lg"></i></button>
       </div>
-      <video id="sw-vid" autoplay playsinline class="sw-video max-h-[64vh] max-w-full w-full rounded-lg bg-black"
-             onclick="SW.plToggle()" onerror="document.getElementById('sw-pl-err').classList.remove('hidden')"></video>
+      <video id="sw-vid" autoplay playsinline crossorigin="use-credentials" class="sw-video max-h-[64vh] max-w-full w-full rounded-lg bg-black"
+             onclick="SW.plClick()" ondblclick="SW.plDblClick()" onerror="document.getElementById('sw-pl-err').classList.remove('hidden')">
+        <track id="sw-track" kind="subtitles" label="Субтитры">
+      </video>
       <div id="sw-pl-err" class="hidden text-sm text-slate-300 text-center py-2">Не удалось воспроизвести (возможно, видео в H.265/экзотическом кодеке). <a href="${dl}" class="text-sky-400 underline">Скачать</a></div>
-      <div class="flex items-center gap-2 text-xs text-slate-400 select-none px-0.5">
+      <div class="sw-bar flex items-center gap-2 text-xs text-slate-400 select-none px-0.5">
         <span id="sw-cur" class="tabular-nums w-12 text-right">0:00</span>
         <div id="sw-seek" class="flex-1 h-2 bg-slate-700 rounded cursor-pointer relative" onclick="SW.seekTo(event)" title="Клик — перемотка">
           <div id="sw-fill" class="h-full bg-sky-500 rounded" style="width:0%"></div>
         </div>
         <span id="sw-dur" class="tabular-nums w-12">--:--</span>
       </div>
-      <div class="flex items-center gap-3 text-slate-300 px-0.5 pb-0.5">
+      <div class="sw-bar flex items-center gap-3 text-slate-300 px-0.5 pb-0.5">
         <button onclick="SW.plToggle()" class="hover:text-white" title="Воспроизведение/пауза"><i id="sw-pl-icon" class="ti ti-player-pause-filled text-xl"></i></button>
         <button onclick="SW.plMute()" class="hover:text-white" title="Звук"><i id="sw-vol-icon" class="ti ti-volume text-lg"></i></button>
         <input id="sw-vol" type="range" min="0" max="1" step="0.05" value="1" oninput="SW.plVolume(this.value)" class="w-24 accent-sky-500 cursor-pointer">
+        <button id="sw-tracks-btn" onclick="SW.plTracksMenu()" class="hover:text-white hidden" title="Аудио и субтитры"><i class="ti ti-adjustments-horizontal text-lg"></i></button>
         <button onclick="SW.plFullscreen()" class="hover:text-white ml-auto" title="Полный экран"><i class="ti ti-maximize text-lg"></i></button>
       </div>
+      <div id="sw-tracks-pop" class="hidden absolute bottom-14 right-3 z-10 bg-slate-800 border border-slate-600 rounded-lg shadow-xl p-2 w-64 max-h-72 overflow-y-auto text-sm" onclick="event.stopPropagation()"></div>
     </div>`;
     m.classList.remove("hidden");
-    this._pl = {rel: rel, duration: 0, offset: 0};
+    this._pl = {rel: rel, duration: 0, offset: 0, audio: 0, sub: null, tracks: {audio: [], subs: []}};
+    document.addEventListener("keydown", this._plKeydown);
     const v = document.getElementById("sw-vid");
-    v.src = "/transcode?path=" + encodeURIComponent(rel) + "&ss=0";
+    v.addEventListener("wheel", (e) => { e.preventDefault(); this._volStep(e.deltaY < 0 ? 0.05 : -0.05); }, {passive: false});
+    v.src = this._plSrc(0);
     v.addEventListener("timeupdate", () => this._plTick());
     v.addEventListener("play", () => { const i = document.getElementById("sw-pl-icon"); if (i) i.className = "ti ti-player-pause-filled text-xl"; });
     v.addEventListener("pause", () => { const i = document.getElementById("sw-pl-icon"); if (i) i.className = "ti ti-player-play-filled text-xl"; });
     fetch("/media-info?path=" + encodeURIComponent(rel)).then((r) => r.json()).then((d) => {
-      this._pl.duration = d.duration || 0;
-      const el = document.getElementById("sw-dur"); if (el) el.textContent = this._fmtT(this._pl.duration);
+      const pl = this._pl; if (!pl) return;
+      pl.duration = d.duration || 0;
+      pl.tracks = {audio: d.audio || [], subs: d.subs || []};
+      const el = document.getElementById("sw-dur"); if (el) el.textContent = this._fmtT(pl.duration);
+      const btn = document.getElementById("sw-tracks-btn");
+      if (btn && (pl.tracks.audio.length > 1 || pl.tracks.subs.length)) btn.classList.remove("hidden");
     }).catch(() => {});
+  },
+  _plSrc(t) {
+    const pl = this._pl;
+    return "/transcode?path=" + encodeURIComponent(pl.rel) + "&ss=" + Math.floor(t) + "&audio=" + pl.audio;
+  },
+  _plRestart(t) {
+    const pl = this._pl, v = document.getElementById("sw-vid");
+    if (!pl || !v) return;
+    t = Math.max(0, pl.duration ? Math.min(pl.duration - 1, t) : t);
+    pl.offset = t;
+    // замораживаем текущую высоту кадра, пока грузится новый поток —
+    // иначе окно плеера схлопывается на мгновение при каждой перемотке
+    if (v.clientHeight) {
+      v.style.height = v.clientHeight + "px";
+      v.addEventListener("loadeddata", () => { v.style.height = ""; }, {once: true});
+    }
+    v.src = this._plSrc(t);
+    this._plSyncTrack();
+    v.load(); v.play().catch(() => {});
+    this._plTick();
+  },
+  _plSyncTrack() {
+    const pl = this._pl, tr = document.getElementById("sw-track");
+    if (!pl || !tr) return;
+    if (pl.sub === null) {
+      tr.removeAttribute("src");
+      if (tr.track) tr.track.mode = "disabled";
+    } else {
+      tr.src = "/subs?path=" + encodeURIComponent(pl.rel) + "&idx=" + pl.sub + "&ss=" + Math.floor(pl.offset);
+      if (tr.track) tr.track.mode = "showing";
+    }
+  },
+  plTracksMenu() {
+    const pop = document.getElementById("sw-tracks-pop");
+    if (!pop || !this._pl) return;
+    if (!pop.classList.contains("hidden")) { pop.classList.add("hidden"); return; }
+    this._plRenderTracks();
+    pop.classList.remove("hidden");
+  },
+  // содержимое меню перерисовывается на месте — выбор НЕ закрывает попап,
+  // чтобы можно было перебирать дорожки/субтитры подряд
+  _plRenderTracks() {
+    const pop = document.getElementById("sw-tracks-pop"), pl = this._pl;
+    if (!pop || !pl) return;
+    pop.innerHTML = "";
+    const mk = (label, checked, fn) => {
+      const b = document.createElement("button");
+      b.className = "w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-700";
+      b.innerHTML = `<i class="ti ${checked ? "ti-check text-sky-400" : ""} w-4"></i>`;
+      b.appendChild(document.createTextNode(label));
+      b.onclick = () => { fn(); this._plRenderTracks(); };
+      pop.appendChild(b);
+    };
+    const hdr = (text) => {
+      const d = document.createElement("div");
+      d.className = "px-2 pt-1.5 pb-1 text-[0.6875rem] uppercase tracking-wide text-slate-500";
+      d.textContent = text; pop.appendChild(d);
+    };
+    if (pl.tracks.audio.length > 1) {
+      hdr("Аудиодорожка");
+      pl.tracks.audio.forEach((a) => mk(a.label + (a.codec ? ` (${a.codec})` : ""), pl.audio === a.i,
+        () => { if (pl.audio !== a.i) { pl.audio = a.i; this._plRestart(pl.offset + (document.getElementById("sw-vid").currentTime || 0)); } }));
+    }
+    if (pl.tracks.subs.length) {
+      hdr("Субтитры");
+      mk("Выключены", pl.sub === null, () => { clearInterval(pl.subPoll); pl.sub = null; this._plSyncTrack(); });
+      pl.tracks.subs.forEach((s) => mk(s.label, pl.sub === s.i, () => this._plEnableSub(s.i)));
+    }
+  },
+  _plEnableSub(i) {
+    const pl = this._pl; if (!pl) return;
+    clearInterval(pl.subPoll);
+    pl.sub = i;
+    const url = "/subs-prepare?path=" + encodeURIComponent(pl.rel) + "&idx=" + i;
+    const attempt = (first) => fetch(url).then((r) => r.json()).then((d) => {
+      if (!this._pl || this._pl.sub !== i) { clearInterval(pl.subPoll); return; }
+      if (d.ready) { clearInterval(pl.subPoll); this._plSyncTrack(); }
+      else if (first) {
+        this.toast("Субтитры готовятся (большой файл) — включатся сами");
+        pl.subPoll = setInterval(() => attempt(false), 5000);
+      }
+    }).catch(() => {});
+    attempt(true);
   },
   _mediaModal(name, dl, inner) {
     const m = document.getElementById("modal-host");
@@ -327,6 +423,16 @@ const SW = {
     m.classList.remove("hidden");
   },
   plToggle() { const v = document.getElementById("sw-vid"); if (!v) return; if (v.paused) v.play().catch(() => {}); else v.pause(); },
+  // одиночный клик по кадру — пауза (с задержкой, чтобы не мешать двойному),
+  // двойной — полный экран
+  plClick() {
+    clearTimeout(this._plClickT);
+    this._plClickT = setTimeout(() => this.plToggle(), 250);
+  },
+  plDblClick() {
+    clearTimeout(this._plClickT);
+    this.plFullscreen();
+  },
   plVolume(val) {
     const v = document.getElementById("sw-vid"); if (!v) return;
     v.volume = parseFloat(val); v.muted = v.volume <= 0; this._volIcon();
@@ -357,13 +463,37 @@ const SW = {
   },
   seekTo(e) {
     const pl = this._pl; if (!pl || !pl.duration) return;
-    const bar = document.getElementById("sw-seek"), v = document.getElementById("sw-vid");
+    const bar = document.getElementById("sw-seek");
     const rect = bar.getBoundingClientRect();
     let frac = (e.clientX - rect.left) / rect.width; frac = Math.max(0, Math.min(0.999, frac));
-    const t = frac * pl.duration; pl.offset = t;
-    v.src = "/transcode?path=" + encodeURIComponent(pl.rel) + "&ss=" + Math.floor(t);
-    v.load(); v.play().catch(() => {});
-    this._plTick();
+    this._seekAbs(frac * pl.duration);
+  },
+  _seekAbs(t) {
+    const pl = this._pl;
+    if (!pl || !pl.duration) return;
+    this._plRestart(t);
+  },
+  _plKeydown(e) {
+    const v = document.getElementById("sw-vid");
+    if (!v || !SW._pl) return;
+    if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    const pl = SW._pl, cur = pl.offset + (v.currentTime || 0);
+    switch (e.key) {
+      case " ": e.preventDefault(); SW.plToggle(); break;
+      case "f": case "F": case "а": case "А": e.preventDefault(); SW.plFullscreen(); break;
+      case "ArrowLeft": e.preventDefault(); SW._seekAbs(cur - 10); break;
+      case "ArrowRight": e.preventDefault(); SW._seekAbs(cur + 10); break;
+      case "ArrowUp": e.preventDefault(); SW._volStep(0.1); break;
+      case "ArrowDown": e.preventDefault(); SW._volStep(-0.1); break;
+    }
+  },
+  _volStep(d) {
+    const v = document.getElementById("sw-vid"), sl = document.getElementById("sw-vol");
+    if (!v) return;
+    v.volume = Math.max(0, Math.min(1, v.volume + d));
+    v.muted = v.volume <= 0;
+    if (sl) sl.value = v.volume;
+    this._volIcon();
   },
   _fmtT(s) {
     s = Math.max(0, Math.floor(s || 0));
@@ -407,6 +537,36 @@ const SW = {
     this.setTrDest(abs, label, remember);
     if (!remember) localStorage.removeItem("sw.trDirDefault");
     this.closeModal();
+  },
+  trSort: "name", trAsc: true, trSel: 0,
+  trSortBy(col) {
+    if (this.trSort === col) this.trAsc = !this.trAsc;
+    else { this.trSort = col; this.trAsc = true; }
+    this._trArrows();
+    const tb = document.getElementById("tr-tbody");
+    if (tb) htmx.trigger(tb, "refresh");
+  },
+  _trArrows() {
+    document.querySelectorAll(".tr-arr").forEach((s) => {
+      s.textContent = (s.dataset.s === this.trSort) ? (this.trAsc ? " ↑" : " ↓") : "";
+    });
+  },
+  trSelect(id, ev) {
+    if (ev && ev.target.closest("button, input, select, a")) return;
+    this.trSel = (this.trSel === id) ? 0 : id;
+    this._trMark();
+    const d = document.getElementById("tr-details");
+    if (d) { if (!this.trSel) d.innerHTML = ""; htmx.trigger(d, "refresh"); }
+  },
+  _trMark() {
+    document.querySelectorAll("#tr-tbody .tr-row").forEach((r) => {
+      r.classList.toggle("bg-sky-50", Number(r.dataset.tid) === this.trSel);
+    });
+  },
+  trPlay(rel, name) {
+    const kind = this._mediaKind(name);
+    if (kind) this.playMedia(rel, name, kind);
+    else this.download(rel);
   },
   torrentAdd() {
     const spec = (document.getElementById("tr-magnet") || {}).value || "";
@@ -670,6 +830,8 @@ document.body.addEventListener("reloadUsers", () => SW.openModal("/htmx/users"))
 document.body.addEventListener("reloadTorrents", () => SW.openTorrents());
 document.body.addEventListener("htmx:afterSwap", (e) => {
   if (e.target && (e.target.id === "sidebar" || e.target.id === "browser")) SW._markActiveDisk();
+  if (e.target && e.target.id === "tr-tbody") SW._trMark();
+  if (e.target && e.target.id === "browser") { SW.trSel = 0; SW._trArrows(); }
 });
 
 document.addEventListener("click", (e) => {

@@ -1,0 +1,49 @@
+<div class="bg-white rounded-xl p-5 w-full max-w-sm" onclick="event.stopPropagation()">
+  <div class="flex items-center justify-between mb-4">
+    <h3 class="font-medium flex items-center gap-2"><i class="ti ti-gauge text-sky-600"></i>Лимиты торрентов</h3>
+    <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+  </div>
+
+  {% if not lim %}
+    <p class="text-sm text-amber-600">Демон торрентов не отвечает.</p>
+  {% else %}
+  <form hx-post="/htmx/torrent-limits" hx-target="#toast-host" hx-swap="beforeend" class="space-y-4 text-sm">
+    <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400">Скорость (КБ/с)</div>
+    <div class="flex items-center gap-2">
+      <label class="flex items-center gap-1.5 w-24 shrink-0 cursor-pointer">
+        <input type="checkbox" name="down_on" value="yes" {% if lim.down_on %}checked{% endif %}>
+        <i class="ti ti-arrow-down text-sky-600"></i>Загрузка
+      </label>
+      <input type="number" name="down" min="0" value="{{ lim.down }}" class="flex-1 border border-slate-300 rounded-lg px-3 py-1.5">
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="flex items-center gap-1.5 w-24 shrink-0 cursor-pointer">
+        <input type="checkbox" name="up_on" value="yes" {% if lim.up_on %}checked{% endif %}>
+        <i class="ti ti-arrow-up text-emerald-600"></i>Раздача
+      </label>
+      <input type="number" name="up" min="0" value="{{ lim.up }}" class="flex-1 border border-slate-300 rounded-lg px-3 py-1.5">
+    </div>
+
+    <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 pt-1">Тихий режим <i class="ti ti-tortoise"></i> (кнопка-черепаха на панели)</div>
+    <div class="flex items-center gap-2">
+      <span class="w-24 shrink-0 text-slate-500"><i class="ti ti-arrow-down"></i> / <i class="ti ti-arrow-up"></i> КБ/с</span>
+      <input type="number" name="alt_down" min="0" value="{{ lim.alt_down }}" class="flex-1 border border-slate-300 rounded-lg px-3 py-1.5">
+      <input type="number" name="alt_up" min="0" value="{{ lim.alt_up }}" class="flex-1 border border-slate-300 rounded-lg px-3 py-1.5">
+    </div>
+
+    <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 pt-1">Раздача</div>
+    <div class="flex items-center gap-2">
+      <label class="flex items-center gap-1.5 flex-1 cursor-pointer">
+        <input type="checkbox" name="ratio_on" value="yes" {% if lim.ratio_on %}checked{% endif %}>
+        Останавливать при рейтинге
+      </label>
+      <input type="number" name="ratio" min="0" step="0.1" value="{{ lim.ratio }}" class="w-24 border border-slate-300 rounded-lg px-3 py-1.5">
+    </div>
+
+    <div class="flex justify-end gap-2 pt-1">
+      <button type="button" class="px-3 py-1.5 text-slate-500" onclick="SW.closeModal()">Отмена</button>
+      <button class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg">Сохранить</button>
+    </div>
+  </form>
+  {% endif %}
+</div>

@@ -36,12 +36,15 @@
         </div>
         {% for sh in p.shares %}
           {% set sh_w = sh.write_list or (sh.guest_ok and not sh.read_only) %}
+          {% set sh_rel = sh.path[mount_root|length+1:] %}
           <div class="rounded-md hover:bg-slate-100 pl-7 pr-1 py-1 mt-0.5 flex items-center gap-1.5">
-            <button class="flex items-center gap-1.5 flex-1 min-w-0 text-left" onclick="SW.openModal('/htmx/share-edit?name={{ sh.name }}')">
+            <button class="flex items-center gap-1.5 flex-1 min-w-0 text-left" title="Открыть папку"
+                    onclick="SW.navigate({{ sh_rel|tojson|forceescape }}); SW.closeSidebar()">
               <i class="ti ti-folder-share text-sky-600 text-base shrink-0"></i>
               <span class="flex-1 min-w-0 truncate text-[0.8125rem]">{{ sh.name }}</span>
             </button>
             <span class="text-[0.625rem] {{ 'bg-emerald-100 text-emerald-700' if sh_w else 'bg-slate-100 text-slate-500' }} px-1.5 rounded shrink-0">{{ 'чт+зап' if sh_w else 'чтение' }}</span>
+            <button title="Настройки шары" class="text-slate-400 hover:text-sky-600 shrink-0" onclick="SW.openModal('/htmx/share-edit?name={{ sh.name|urlencode }}')"><i class="ti ti-settings text-base"></i></button>
             <button title="Копировать сетевой путь" class="text-slate-400 hover:text-sky-600 shrink-0" onclick="SW.copyShare({{ sh.name|tojson|forceescape }})"><i class="ti ti-copy text-base"></i></button>
           </div>
         {% endfor %}
@@ -101,7 +104,7 @@
   {% for sh in orphan_shares %}
     {% set sh_w = sh.write_list or (sh.guest_ok and not sh.read_only) %}
     <button class="w-full rounded-lg hover:bg-slate-50 px-2 py-1.5 flex items-center gap-2 text-left"
-            onclick="SW.openModal('/htmx/share-edit?name={{ sh.name }}')">
+            onclick="SW.openModal('/htmx/share-edit?name={{ sh.name|urlencode }}')">
       <i class="ti ti-folder-share text-amber-500 text-lg shrink-0"></i>
       <span class="flex-1 min-w-0 truncate text-sm">{{ sh.name }}</span>
       <span class="text-[0.625rem] {{ 'bg-emerald-100 text-emerald-700' if sh_w else 'bg-slate-100 text-slate-500' }} px-1.5 rounded shrink-0">{{ 'чт+зап' if sh_w else 'чтение' }}</span>

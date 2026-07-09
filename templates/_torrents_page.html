@@ -44,27 +44,39 @@
     <i class="ti ti-file-upload"></i> .torrent
     <input type="file" accept=".torrent" class="hidden" onchange="SW.torrentUpload(this)">
   </label>
+  <button title="Тихий режим (медленные лимиты)" class="px-2 py-1.5 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
+          onclick="SW.post('/htmx/torrent-alt-speed',{})"><i class="ti ti-tortoise"></i></button>
+  <button title="Лимиты скорости и раздачи" class="px-2 py-1.5 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
+          onclick="SW.openModal('/htmx/torrent-limits')"><i class="ti ti-gauge"></i></button>
   <script>window.SW_TR_DIRS = {{ dirs|tojson }}; window.SW && SW.initTrDest();</script>
 </div>
 
-<div class="flex-1 overflow-auto">
+<div class="flex-1 overflow-auto min-h-0">
   <table class="w-full text-sm border-collapse">
-    <thead class="sticky top-0 bg-slate-50 text-[0.6875rem] uppercase tracking-wide text-slate-400">
+    <thead class="sticky top-0 bg-slate-50 text-[0.6875rem] uppercase tracking-wide text-slate-400 select-none">
       <tr>
-        <th class="text-left font-medium px-3 py-2">Имя</th>
-        <th class="text-left font-medium px-2 py-2 w-56">Прогресс</th>
-        <th class="text-left font-medium px-2 py-2 w-28">Статус</th>
-        <th class="text-right font-medium px-2 py-2 w-20">Размер</th>
-        <th class="text-right font-medium px-2 py-2 w-24">↓</th>
-        <th class="text-right font-medium px-2 py-2 w-24">↑</th>
-        <th class="text-right font-medium px-2 py-2 w-20">Осталось</th>
+        <th class="text-left font-medium px-3 py-2 cursor-pointer hover:text-slate-600" onclick="SW.trSortBy('name')">Имя<span data-s="name" class="tr-arr"></span></th>
+        <th class="text-left font-medium px-2 py-2 w-44 cursor-pointer hover:text-slate-600" onclick="SW.trSortBy('pct')">Прогресс<span data-s="pct" class="tr-arr"></span></th>
+        <th class="text-left font-medium px-2 py-2 w-24 cursor-pointer hover:text-slate-600" onclick="SW.trSortBy('status')">Статус<span data-s="status" class="tr-arr"></span></th>
+        <th class="text-right font-medium px-2 py-2 w-20 cursor-pointer hover:text-slate-600" onclick="SW.trSortBy('size')">Размер<span data-s="size" class="tr-arr"></span></th>
+        <th class="text-right font-medium px-2 py-2 w-14 cursor-pointer hover:text-slate-600" title="Сиды" onclick="SW.trSortBy('seeds')">С<span data-s="seeds" class="tr-arr"></span></th>
+        <th class="text-right font-medium px-2 py-2 w-14 cursor-pointer hover:text-slate-600" title="Пиры" onclick="SW.trSortBy('peers')">П<span data-s="peers" class="tr-arr"></span></th>
+        <th class="text-right font-medium px-2 py-2 w-16 cursor-pointer hover:text-slate-600" title="Рейтинг раздачи" onclick="SW.trSortBy('ratio')">Рейт.<span data-s="ratio" class="tr-arr"></span></th>
+        <th class="text-right font-medium px-2 py-2 w-24 cursor-pointer hover:text-slate-600" onclick="SW.trSortBy('down')">↓<span data-s="down" class="tr-arr"></span></th>
+        <th class="text-right font-medium px-2 py-2 w-24 cursor-pointer hover:text-slate-600" onclick="SW.trSortBy('up')">↑<span data-s="up" class="tr-arr"></span></th>
+        <th class="text-right font-medium px-2 py-2 w-20 cursor-pointer hover:text-slate-600" onclick="SW.trSortBy('eta')">Осталось<span data-s="eta" class="tr-arr"></span></th>
         <th class="px-2 py-2 w-24"></th>
       </tr>
     </thead>
-    <tbody hx-get="/htmx/torrents-list" hx-trigger="load, every 2s" hx-swap="innerHTML">
-      <tr><td colspan="8" class="text-center text-slate-400 py-6">Загрузка…</td></tr>
+    <tbody id="tr-tbody" hx-get="/htmx/torrents-list" hx-trigger="load, every 2s, refresh"
+           hx-vals="js:{sort: SW.trSort, dir: SW.trAsc ? 'asc' : 'desc'}" hx-swap="innerHTML">
+      <tr><td colspan="11" class="text-center text-slate-400 py-6">Загрузка…</td></tr>
     </tbody>
   </table>
 </div>
+
+<div id="tr-details" class="shrink-0 max-h-64 overflow-auto border-t border-slate-200 empty:hidden"
+     hx-get="/htmx/torrent-files" hx-trigger="every 3s, refresh" hx-swap="innerHTML"
+     hx-vals="js:{id: SW.trSel || 0}"></div>
 
 {% endif %}

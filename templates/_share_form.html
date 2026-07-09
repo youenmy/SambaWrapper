@@ -5,13 +5,13 @@
     </div>
     <form hx-post="/htmx/share-create" hx-target="#toast-host" hx-swap="beforeend" class="space-y-4">
         <input type="hidden" name="abs_path" value="{{ abs_path }}">
+        {% if editing %}<input type="hidden" name="old_name" value="{{ suggested_name }}">{% endif %}
         <div class="text-xs text-slate-500">Папка: <code class="text-slate-700">{{ abs_path }}</code></div>
 
         <label class="block">
             <span class="text-sm text-slate-500">Имя шары (как видна в сети)</span>
-            <input name="name" required pattern="[A-Za-z0-9_\-]{1,32}" value="{{ suggested_name }}"
-                   {{ "readonly" if editing else "" }}
-                   class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 {{ 'bg-slate-100' if editing else '' }}">
+            <input name="name" required maxlength="32" value="{{ suggested_name }}"
+                   class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2">
         </label>
 
         <fieldset class="space-y-2">

@@ -1,0 +1,53 @@
+<div class="px-3 py-2 flex items-center gap-3 bg-slate-50 border-b border-slate-100 sticky top-0">
+  <i class="ti ti-list-details text-sky-600"></i>
+  <span class="text-sm font-medium truncate flex-1" title="{{ t.name }}">{{ t.name }}</span>
+  <label class="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none shrink-0"
+         title="Качать с начала к концу — можно смотреть, пока качается">
+    <input type="checkbox" {% if t.seq %}checked{% endif %}
+           onchange="SW.post('/htmx/torrent-seq',{id:{{ t.id }},on:this.checked?'yes':'no'})">
+    последовательно
+  </label>
+  <button class="text-slate-400 hover:text-slate-700 shrink-0" title="Скрыть" onclick="SW.trSelect(0)"><i class="ti ti-x"></i></button>
+</div>
+
+<table class="w-full text-[0.8125rem] border-collapse">
+  <tbody>
+  {% for f in t.files %}
+    <tr class="border-b border-slate-100 {{ '' if f.wanted else 'opacity-45' }}">
+      <td class="pl-3 pr-1 py-1.5 w-6">
+        <input type="checkbox" {% if f.wanted %}checked{% endif %} title="Качать этот файл"
+               onchange="SW.post('/htmx/torrent-file-wanted',{id:{{ t.id }},idx:{{ f.i }},wanted:this.checked?'yes':'no'})">
+      </td>
+      <td class="px-1 py-1.5 max-w-0">
+        <span class="block truncate" title="{{ f.name }}">{{ f.base }}</span>
+      </td>
+      <td class="px-2 py-1.5 w-20 text-right text-slate-500 whitespace-nowrap">{{ f.size }}</td>
+      <td class="px-2 py-1.5 w-40">
+        <div class="flex items-center gap-2">
+          <div class="flex-1 h-1.5 bg-slate-200 rounded overflow-hidden"><div class="h-full {{ 'bg-emerald-500' if f.pct >= 100 else 'bg-sky-500' }}" style="width:{{ f.pct }}%"></div></div>
+          <span class="text-[0.6875rem] text-slate-500 w-9 text-right">{{ f.pct }}%</span>
+        </div>
+      </td>
+      <td class="px-2 py-1.5 w-28">
+        <select class="w-full border border-slate-200 rounded px-1 py-0.5 text-xs bg-transparent"
+                onchange="SW.post('/htmx/torrent-file-prio',{id:{{ t.id }},idx:{{ f.i }},prio:this.value})">
+          <option value="low" {% if f.prio == 'low' %}selected{% endif %}>низкий</option>
+          <option value="normal" {% if f.prio == 'normal' %}selected{% endif %}>обычный</option>
+          <option value="high" {% if f.prio == 'high' %}selected{% endif %}>высокий</option>
+        </select>
+      </td>
+      <td class="px-2 py-1.5 w-10 text-right">
+        {% if f.playable %}
+          <button title="{{ 'Воспроизвести' if f.pct >= 100 else 'Смотреть (начало уже скачано)' }}"
+                  class="{{ 'text-emerald-600 hover:text-emerald-500' if f.pct >= 100 else 'text-sky-500 hover:text-sky-400' }}"
+                  onclick="SW.trPlay({{ f.rel|tojson|forceescape }}, {{ f.base|tojson|forceescape }})">
+            <i class="ti ti-player-play-filled text-base"></i>
+          </button>
+        {% elif f.media %}
+          <i class="ti ti-player-play text-slate-300" title="Ещё не готово к просмотру"></i>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>

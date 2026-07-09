@@ -23,6 +23,13 @@
   </form>
   <p class="text-[0.6875rem] text-slate-400 mb-6">После смены порта сервис перезапустится — переподключись на новый адрес.</p>
 
+  <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Интерфейс</div>
+  <label class="flex items-center gap-2 text-sm text-slate-600 mb-6 cursor-pointer select-none">
+    <input type="checkbox" {% if show_system_disks %}checked{% endif %}
+           onchange="SW.post('/htmx/ui-pref',{show_system_disks:this.checked?'yes':'no'})">
+    Показывать системные диски в сайдбаре
+  </label>
+
   <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Сервер</div>
   <div class="text-sm text-slate-500 space-y-1">
     <div>Адрес: <code class="text-slate-700">{{ srv.ip }}</code> · подключение по SMB: <code class="text-slate-700">\\{{ srv.ip }}</code></div>

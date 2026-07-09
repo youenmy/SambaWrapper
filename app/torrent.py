@@ -36,7 +36,9 @@ _STATUS = {
 }
 
 _FIELDS = ["id", "name", "percentDone", "rateDownload", "rateUpload",
-           "status", "eta", "totalSize", "errorString", "downloadDir"]
+           "status", "eta", "totalSize", "errorString", "downloadDir",
+           "peersSendingToUs", "peersGettingFromUs", "uploadRatio",
+           "sequential_download"]
 
 
 class TorrentError(Exception):
@@ -160,6 +162,7 @@ def list_torrents() -> list[dict]:
     out = []
     for t in torrents:
         label, tone = _STATUS.get(t.get("status", 0), ("—", "slate"))
+        ratio = t.get("uploadRatio", 0) or 0
         out.append({
             "id": t.get("id"),
             "name": t.get("name", "?"),
@@ -172,9 +175,23 @@ def list_torrents() -> list[dict]:
             "running": t.get("status", 0) not in (0,),
             "error": (t.get("errorString") or "").strip(),
             "dir": t.get("downloadDir", ""),
+            "seeds": t.get("peersSendingToUs", 0),
+            "peers": t.get("peersGettingFromUs", 0),
+            "ratio": round(ratio, 2) if ratio >= 0 else 0.0,
+            "seq": bool(t.get("sequential_download")),
+            # сырые значения для сортировки
+            "_size": t.get("totalSize", 0), "_down": t.get("rateDownload", 0),
+            "_up": t.get("rateUpload", 0), "_eta": t.get("eta", -1),
         })
-    out.sort(key=lambda x: x["name"].lower())
     return out
+
+SORT_KEYS = {
+    "name": lambda t: t["name"].lower(), "pct": lambda t: t["pct"],
+    "status": lambda t: t["status"], "size": lambda t: t["_size"],
+    "seeds": lambda t: t["seeds"], "peers": lambda t: t["peers"],
+    "ratio": lambda t: t["ratio"], "down": lambda t: t["_down"],
+    "up": lambda t: t["_up"], "eta": lambda t: (t["_eta"] < 0, t["_eta"]),
+}
 
 
 def start(tid: int) -> tuple[bool, str]:
@@ -200,6 +217,114 @@ def remove(tid: int, delete_data: bool) -> tuple[bool, str]:
         return False, str(e)
     return True, "Удалён вместе с файлами" if delete_data else "Удалён из списка (файлы оставлены)"
 
+
+# ---------- per-torrent details ----------
+
+_MEDIA_EXT = {"mp4","mkv","avi","mov","m4v","webm","ogv","mpg","mpeg","ts","wmv","flv",
+              "mp3","flac","wav","m4a","aac","ogg","oga","opus","wma"}
+_PRIO = {-1: "low", 0: "normal", 1: "high"}
+
+def get_details(tid: int) -> dict | None:
+    try:
+        r = _rpc("torrent-get", {"ids": [tid], "fields":
+                 ["id", "name", "downloadDir", "files", "fileStats",
+                  "sequential_download", "percentDone", "status"]})
+    except TorrentError:
+        return None
+    ts = r.get("torrents", [])
+    if not ts:
+        return None
+    t = ts[0]
+    ddir = t.get("downloadDir", "")
+    root = str(MOUNT_ROOT)
+    files = []
+    seq = bool(t.get("sequential_download"))
+    for i, (f, st) in enumerate(zip(t.get("files", []), t.get("fileStats", []))):
+        length = f.get("length", 0) or 0
+        done = f.get("bytesCompleted", 0) or 0
+        pct = round(done / length * 100) if length else 0
+        name = f.get("name", "")
+        abs_path = os.path.join(ddir, name)
+        rel = abs_path[len(root) + 1:] if abs_path.startswith(root + "/") else None
+        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+        is_media = ext in _MEDIA_EXT
+        # можно запускать: файл готов, либо качается последовательно и
+        # начало уже на диске (минимум 32 МБ или 2% файла)
+        playable = bool(rel and is_media and (
+            pct >= 100 or (seq and done >= min(length, max(32 * 1024 * 1024, length * 0.02)))))
+        files.append({
+            "i": i, "name": name, "base": name.split("/")[-1],
+            "size": _human_size(length), "pct": pct,
+            "wanted": bool(st.get("wanted", True)),
+            "prio": _PRIO.get(st.get("priority", 0), "normal"),
+            "rel": rel, "media": is_media, "playable": playable,
+        })
+    return {"id": t.get("id"), "name": t.get("name", "?"), "seq": seq, "files": files}
+
+def set_sequential(tid: int, on: bool) -> tuple[bool, str]:
+    try:
+        _rpc("torrent-set", {"ids": [tid], "sequential_download": on})
+    except TorrentError as e:
+        return False, str(e)
+    return True, "Последовательная загрузка " + ("включена" if on else "выключена")
+
+def set_file_wanted(tid: int, idx: int, wanted: bool) -> tuple[bool, str]:
+    key = "files-wanted" if wanted else "files-unwanted"
+    try:
+        _rpc("torrent-set", {"ids": [tid], key: [idx]})
+    except TorrentError as e:
+        return False, str(e)
+    return True, "Файл включён в загрузку" if wanted else "Файл исключён из загрузки"
+
+def set_file_priority(tid: int, idx: int, prio: str) -> tuple[bool, str]:
+    key = {"low": "priority-low", "normal": "priority-normal", "high": "priority-high"}.get(prio)
+    if not key:
+        return False, "неизвестный приоритет"
+    try:
+        _rpc("torrent-set", {"ids": [tid], key: [idx]})
+    except TorrentError as e:
+        return False, str(e)
+    return True, "Приоритет обновлён"
+
+# ---------- session limits ----------
+
+def get_limits() -> dict | None:
+    try:
+        a = _rpc("session-get", {"fields": [
+            "speed-limit-down", "speed-limit-down-enabled",
+            "speed-limit-up", "speed-limit-up-enabled",
+            "alt-speed-down", "alt-speed-up", "alt-speed-enabled",
+            "seedRatioLimit", "seedRatioLimited"]})
+    except TorrentError:
+        return None
+    return {
+        "down": a.get("speed-limit-down", 0), "down_on": a.get("speed-limit-down-enabled", False),
+        "up": a.get("speed-limit-up", 0), "up_on": a.get("speed-limit-up-enabled", False),
+        "alt_down": a.get("alt-speed-down", 0), "alt_up": a.get("alt-speed-up", 0),
+        "alt_on": a.get("alt-speed-enabled", False),
+        "ratio": a.get("seedRatioLimit", 2.0), "ratio_on": a.get("seedRatioLimited", False),
+    }
+
+def set_limits(down: int, down_on: bool, up: int, up_on: bool,
+               alt_down: int, alt_up: int, ratio: float, ratio_on: bool) -> tuple[bool, str]:
+    try:
+        _rpc("session-set", {
+            "speed-limit-down": max(0, down), "speed-limit-down-enabled": down_on,
+            "speed-limit-up": max(0, up), "speed-limit-up-enabled": up_on,
+            "alt-speed-down": max(0, alt_down), "alt-speed-up": max(0, alt_up),
+            "seedRatioLimit": max(0.0, ratio), "seedRatioLimited": ratio_on,
+        })
+    except TorrentError as e:
+        return False, str(e)
+    return True, "Лимиты сохранены"
+
+def toggle_alt_speed() -> tuple[bool, str]:
+    try:
+        cur = _rpc("session-get", {"fields": ["alt-speed-enabled"]}).get("alt-speed-enabled", False)
+        _rpc("session-set", {"alt-speed-enabled": not cur})
+    except TorrentError as e:
+        return False, str(e)
+    return True, "Тихий режим включён" if not cur else "Тихий режим выключен"
 
 # ---------- formatting helpers ----------
 

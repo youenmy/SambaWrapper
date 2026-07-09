@@ -11,7 +11,18 @@ from pathlib import Path
 from .config import SAMBA_CONF_DIR, MOUNT_ROOT
 from .shell import sudo, run
 
-SAFE_SHARE_NAME = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+# Имя шары: любой юникод (кириллица, пробелы) до 32 символов, кроме символов,
+# ломающих smb.conf ([], перевод строки), имя файла конфига (/ \) и SMB-имена
+# (" : | < > + = ; , * ?), плюс % (макросы Samba). Без крайних пробелов/точек.
+_BAD_SHARE_CHARS = set('[]/\\:|<>+=;,"*?%')
+
+def _valid_share_name(name: str) -> bool:
+    return (1 <= len(name) <= 32
+            and name == name.strip()
+            and not name.startswith(".")
+            and all(ord(c) >= 32 and c not in _BAD_SHARE_CHARS for c in name))
+
+SHARE_NAME_RULES = "Имя шары: до 32 символов, без [ ] / \\ : | < > + = ; , \" * ? %"
 AGGREGATE_NAME = "sambawrapper-all.conf"
 # Disks are mounted owned by this (service) user, so Samba writes go through it too.
 SERVICE_USER = pwd.getpwuid(os.getuid()).pw_name
@@ -56,7 +67,7 @@ def _parse_share(p: Path) -> dict | None:
     }
 
 def get_share(name: str) -> dict | None:
-    if not SAFE_SHARE_NAME.match(name):
+    if not _valid_share_name(name):
         return None
     p = SAMBA_CONF_DIR / f"sambawrapper-{name}.conf"
     if not p.exists():
@@ -78,10 +89,13 @@ def share_user_perms(share: dict, all_users: list[str]) -> dict[str, str]:
     return perms
 
 def create_share(name: str, abs_path: str, mode: str, guest_write: bool,
-                 access_users: list[str], write_users: list[str]) -> tuple[bool, str]:
-    """mode: 'guest' (no auth) or 'users' (per-user access/write)."""
-    if not SAFE_SHARE_NAME.match(name):
-        return False, "Имя шары: A-Z a-z 0-9 _ - (1..32 символов)"
+                 access_users: list[str], write_users: list[str],
+                 old_name: str | None = None) -> tuple[bool, str]:
+    """mode: 'guest' (no auth) or 'users' (per-user access/write).
+    old_name — прежнее имя при переименовании (старый конфиг удаляется)."""
+    name = (name or "").strip()
+    if not _valid_share_name(name):
+        return False, SHARE_NAME_RULES
     target = Path(abs_path).resolve()
     base = MOUNT_ROOT.resolve()
     try:
@@ -93,7 +107,7 @@ def create_share(name: str, abs_path: str, mode: str, guest_write: bool,
     if any(ord(c) < 32 for c in str(target)):  # перевод строки и пр. сломали бы smb.conf
         return False, "Путь содержит недопустимые символы"
     for s in list_shares():  # запрет дублей на один путь
-        if s["name"] != name and Path(s["path"]).resolve() == target:
+        if s["name"] not in (name, old_name) and Path(s["path"]).resolve() == target:
             return False, f"Эта папка уже расшарена как «{s['name']}»"
     # guest-writable shares need the shared folder world-writable (see _build_share_conf)
     if mode == "guest" and guest_write:
@@ -113,13 +127,17 @@ def create_share(name: str, abs_path: str, mode: str, guest_write: bool,
     r = sudo(["tee", str(fname)], input_text=conf)
     if not r.ok:
         return False, r.stderr.strip() or "не удалось записать конфиг"
+    # переименование: новый конфиг записан — убираем старый и рвём его сессии
+    if old_name and old_name != name and _valid_share_name(old_name):
+        sudo(["rm", "-f", str(SAMBA_CONF_DIR / f"sambawrapper-{old_name}.conf")])
+        sudo(["smbcontrol", "smbd", "close-share", old_name])
     err = _rebuild_aggregate()
     if err:
         return False, err
     return _reload_samba()
 
 def delete_share(name: str) -> tuple[bool, str]:
-    if not SAFE_SHARE_NAME.match(name):
+    if not _valid_share_name(name):
         return False, "Невалидное имя шары"
     fname = SAMBA_CONF_DIR / f"sambawrapper-{name}.conf"
     if not fname.exists():

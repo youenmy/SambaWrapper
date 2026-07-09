@@ -1,9 +1,11 @@
 """FastAPI app: routes + HTMX endpoints (two-pane File Station UI)."""
 import asyncio
 import contextlib
+import hashlib
 import json
 import logging
 import mimetypes
+import re
 import socket
 from pathlib import Path
 
@@ -13,8 +15,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse,
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
-from . import auth, disks, browse, samba, fileops, portcfg, dlna, torrent, shell
-from .config import MOUNT_ROOT
+from . import auth, db, disks, browse, samba, fileops, portcfg, dlna, torrent, shell
+from .config import MOUNT_ROOT, DATA_DIR
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -92,6 +94,12 @@ async def htmx_sidebar(request: Request, _: str = Depends(current_user)):
     partitions = disks.list_partitions()
     shares = samba.list_shares()
     root = str(MOUNT_ROOT)
+    if db.get_setting("ui_show_system_disks") != "yes":
+        # прячем системные разделы: смонтированные вне нашего корня и
+        # несмонтируемые; кандидаты на подключение (USB и т.п.) остаются
+        partitions = [p for p in partitions
+                      if (p.get("mountpoint") or "").startswith(root + "/")
+                      or (not p.get("mountpoint") and p.get("mountable"))]
     assigned = set()
     for p in partitions:
         mp = p.get("mountpoint")
@@ -297,6 +305,8 @@ async def stream(request: Request, _: str = Depends(current_user), path: str = "
     mime, _enc = mimetypes.guess_type(f.name)
     return FileResponse(str(f), media_type=mime or "application/octet-stream")
 
+_TEXT_SUB_CODECS = {"subrip", "srt", "ass", "ssa", "webvtt", "mov_text", "text"}
+
 @app.get("/media-info")
 async def media_info(request: Request, _: str = Depends(current_user), path: str = ""):
     try:
@@ -304,35 +314,34 @@ async def media_info(request: Request, _: str = Depends(current_user), path: str
     except fileops.FileOpError as e:
         raise HTTPException(status_code=404, detail=str(e))
     r = await asyncio.to_thread(shell.run, [
-        "ffprobe", "-v", "error", "-show_entries", "format=duration",
-        "-of", "default=nw=1:nk=1", str(f)])
+        "ffprobe", "-v", "error", "-show_entries",
+        "format=duration:stream=index,codec_type,codec_name:stream_tags=language,title",
+        "-of", "json", str(f)])
+    dur, audio, subs = 0.0, [], []
     try:
-        dur = float(r.stdout.strip())
-    except (ValueError, AttributeError):
-        dur = 0.0
-    return {"duration": dur}
+        data = json.loads(r.stdout or "{}")
+        dur = float(data.get("format", {}).get("duration") or 0)
+        na = ns = 0
+        for s in data.get("streams", []):
+            tags = s.get("tags") or {}
+            label = tags.get("title") or tags.get("language") or ""
+            if s.get("codec_type") == "audio":
+                audio.append({"i": na, "label": label or f"Дорожка {na + 1}",
+                              "codec": s.get("codec_name", "")})
+                na += 1
+            elif s.get("codec_type") == "subtitle":
+                # браузер умеет только текстовые субтитры (не PGS/VobSub)
+                if s.get("codec_name") in _TEXT_SUB_CODECS:
+                    subs.append({"i": ns, "label": label or f"Субтитры {ns + 1}"})
+                ns += 1
+    except (ValueError, KeyError):
+        pass
+    return {"duration": dur, "audio": audio, "subs": subs}
 
-@app.get("/transcode")
-async def transcode(request: Request, _: str = Depends(current_user), path: str = "", ss: float = 0.0):
-    # Живое перекодирование для звука в браузере: видео копируется как есть
-    # (нагрузки почти нет, если это H.264), аудио на лету пережимается в AAC.
-    # ss — старт с указанной секунды (перемотка перезапуском потока).
-    try:
-        f = fileops.resolve_file_for_download(path)
-    except fileops.FileOpError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    args = ["ffmpeg", "-hide_banner", "-loglevel", "error"]
-    if ss and ss > 0:
-        args += ["-ss", str(ss)]
-    args += ["-i", str(f),
-             "-c:v", "copy", "-c:a", "aac", "-ac", "2", "-b:a", "160k",
-             "-avoid_negative_ts", "make_zero",
-             "-movflags", "frag_keyframe+empty_moov+default_base_moof",
-             "-f", "mp4", "pipe:1"]
-    proc = await asyncio.create_subprocess_exec(
-        *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
-
+def _ffmpeg_stream(args: list[str], media_type: str):
     async def gen():
+        proc = await asyncio.create_subprocess_exec(
+            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
         try:
             while True:
                 chunk = await proc.stdout.read(65536)
@@ -344,8 +353,117 @@ async def transcode(request: Request, _: str = Depends(current_user), path: str 
                 with contextlib.suppress(ProcessLookupError):
                     proc.kill()
                 await proc.wait()
+    return StreamingResponse(gen(), media_type=media_type)
 
-    return StreamingResponse(gen(), media_type="video/mp4")
+@app.get("/transcode")
+async def transcode(request: Request, _: str = Depends(current_user),
+                    path: str = "", ss: float = 0.0, audio: int = 0):
+    # Живое перекодирование для звука в браузере: видео копируется как есть
+    # (нагрузки почти нет, если это H.264), выбранная аудиодорожка на лету
+    # пережимается в AAC. ss — старт с указанной секунды (перемотка перезапуском).
+    try:
+        f = fileops.resolve_file_for_download(path)
+    except fileops.FileOpError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    audio = max(0, audio)
+    args = ["ffmpeg", "-hide_banner", "-loglevel", "error"]
+    if ss and ss > 0:
+        args += ["-ss", str(ss)]
+    args += ["-i", str(f),
+             "-map", "0:v:0?", "-map", f"0:a:{audio}?",
+             "-c:v", "copy", "-c:a", "aac", "-ac", "2", "-b:a", "160k",
+             # держим звук на исходных таймстампах: дыры/наложения в аудио
+             # вебрипов иначе накапливаются в рассинхрон с картинкой
+             "-af", "aresample=async=1",
+             "-avoid_negative_ts", "make_zero",
+             "-movflags", "frag_keyframe+empty_moov+default_base_moof",
+             "-f", "mp4", "pipe:1"]
+    return _ffmpeg_stream(args, "video/mp4")
+
+# Извлечение субтитров требует прочитать весь контейнер (на большом файле —
+# минуты), поэтому дорожка извлекается ОДИН раз в фон и кэшируется; дальше
+# отдаётся мгновенно, тайминги сдвигаются под перемотку уже по кэшу.
+SUB_CACHE = DATA_DIR / "subcache"
+_sub_jobs: dict[str, asyncio.Task] = {}
+
+def _sub_key(f: Path, idx: int) -> str:
+    st = f.stat()
+    raw = f"{f}|{st.st_size}|{st.st_mtime_ns}|{idx}"
+    return hashlib.sha1(raw.encode()).hexdigest()
+
+def _extract_subs(f: Path, idx: int, dest: Path) -> None:
+    SUB_CACHE.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(".tmp")
+    r = shell.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                   "-i", str(f), "-map", f"0:s:{idx}?", "-f", "webvtt", str(tmp)],
+                  timeout=1800)
+    if r.ok and tmp.exists() and tmp.stat().st_size > 0:
+        tmp.replace(dest)
+    else:
+        tmp.unlink(missing_ok=True)
+
+_TS = re.compile(r"(\d+):(\d{2}):(\d{2})\.(\d{3})|(\d{2}):(\d{2})\.(\d{3})")
+
+def _shift_vtt(text: str, ss: float) -> str:
+    if ss <= 0:
+        return text
+    def fmt(t: float) -> str:
+        t = max(0.0, t)
+        h, rem = divmod(t, 3600)
+        m, s = divmod(rem, 60)
+        return f"{int(h):02d}:{int(m):02d}:{s:06.3f}"
+    out = ["WEBVTT", ""]
+    for block in text.split("\n\n"):
+        if "-->" not in block:
+            continue
+        lines = block.split("\n")
+        for i, ln in enumerate(lines):
+            if "-->" in ln:
+                times = _TS.findall(ln)
+                if len(times) < 2:
+                    break
+                def secs(g):
+                    if g[0] != "" or g[1] != "" or g[2] != "":
+                        return int(g[0]) * 3600 + int(g[1]) * 60 + int(g[2]) + int(g[3]) / 1000
+                    return int(g[4]) * 60 + int(g[5]) + int(g[6]) / 1000
+                start, end = secs(times[0]) - ss, secs(times[1]) - ss
+                if end <= 0:
+                    break
+                lines[i] = f"{fmt(start)} --> {fmt(end)}"
+                out.append("\n".join(lines[i:]))
+                out.append("")
+                break
+    return "\n".join(out)
+
+@app.get("/subs-prepare")
+async def subs_prepare(request: Request, _: str = Depends(current_user),
+                       path: str = "", idx: int = 0):
+    try:
+        f = fileops.resolve_file_for_download(path)
+    except fileops.FileOpError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    idx = max(0, idx)
+    key = _sub_key(f, idx)
+    dest = SUB_CACHE / f"{key}.vtt"
+    if dest.exists():
+        return {"ready": True}
+    job = _sub_jobs.get(key)
+    if job is None or job.done():
+        _sub_jobs[key] = asyncio.create_task(asyncio.to_thread(_extract_subs, f, idx, dest))
+    return {"ready": False}
+
+@app.get("/subs")
+async def subs(request: Request, _: str = Depends(current_user),
+               path: str = "", idx: int = 0, ss: float = 0.0):
+    try:
+        f = fileops.resolve_file_for_download(path)
+    except fileops.FileOpError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    dest = SUB_CACHE / f"{_sub_key(f, max(0, idx))}.vtt"
+    if not dest.exists():
+        raise HTTPException(status_code=404, detail="субтитры ещё готовятся")
+    text = await asyncio.to_thread(dest.read_text, "utf-8", "replace")
+    return PlainTextResponse(_shift_vtt(text, ss), media_type="text/vtt")
 
 
 # ---------- shares ----------
@@ -379,10 +497,12 @@ async def htmx_share_create(request: Request, _: str = Depends(current_user),
                             name: str = Form(...), abs_path: str = Form(...),
                             mode: str = Form("guest"), guest_write: str = Form("no"),
                             access_users: list[str] = Form(default=[]),
-                            write_users: list[str] = Form(default=[])):
+                            write_users: list[str] = Form(default=[]),
+                            old_name: str = Form("")):
     ok, msg = samba.create_share(name=name, abs_path=abs_path, mode=mode,
                                  guest_write=(guest_write == "yes"),
-                                 access_users=access_users, write_users=write_users)
+                                 access_users=access_users, write_users=write_users,
+                                 old_name=old_name.strip() or None)
     return _resp(request, ok, msg or f"Шара «{name}» сохранена",
                  ["refreshSidebar", "closeModal"] if ok else [])
 
@@ -432,7 +552,14 @@ async def htmx_settings(request: Request, _: str = Depends(current_user)):
     return templates.TemplateResponse("_settings.html", {
         "request": request, "username": auth.get_username(),
         "port": portcfg.current_port(), "srv": _server_info(), "version": APP_VERSION,
+        "show_system_disks": db.get_setting("ui_show_system_disks") == "yes",
     })
+
+@app.post("/htmx/ui-pref", response_class=HTMLResponse)
+async def htmx_ui_pref(request: Request, _: str = Depends(current_user),
+                       show_system_disks: str = Form("no")):
+    db.set_setting("ui_show_system_disks", "yes" if show_system_disks == "yes" else "no")
+    return _resp(request, True, "Настройка сохранена", ["refreshSidebar"])
 
 @app.post("/htmx/admin-account", response_class=HTMLResponse)
 async def htmx_admin_account(request: Request, _: str = Depends(current_user),
@@ -488,9 +615,60 @@ async def htmx_torrent_dest(request: Request, _: str = Depends(current_user)):
     return templates.TemplateResponse("_torrent_dest.html", {"request": request, "items": items})
 
 @app.get("/htmx/torrents-list", response_class=HTMLResponse)
-async def htmx_torrents_list(request: Request, _: str = Depends(current_user)):
+async def htmx_torrents_list(request: Request, _: str = Depends(current_user),
+                             sort: str = "name", dir: str = "asc"):
     torrents = await asyncio.to_thread(torrent.list_torrents)
+    key = torrent.SORT_KEYS.get(sort, torrent.SORT_KEYS["name"])
+    torrents.sort(key=key, reverse=(dir == "desc"))
     return templates.TemplateResponse("_torrents_list.html", {"request": request, "torrents": torrents})
+
+@app.get("/htmx/torrent-files", response_class=HTMLResponse)
+async def htmx_torrent_files(request: Request, _: str = Depends(current_user), id: int = 0):
+    if not id:
+        return HTMLResponse("")
+    det = await asyncio.to_thread(torrent.get_details, id)
+    if not det:
+        return HTMLResponse("")
+    return templates.TemplateResponse("_torrent_files.html", {"request": request, "t": det})
+
+@app.post("/htmx/torrent-seq", response_class=HTMLResponse)
+async def htmx_torrent_seq(request: Request, _: str = Depends(current_user),
+                           id: int = Form(...), on: str = Form("no")):
+    ok, msg = await asyncio.to_thread(torrent.set_sequential, id, on == "yes")
+    return _resp(request, ok, msg, [])
+
+@app.post("/htmx/torrent-file-wanted", response_class=HTMLResponse)
+async def htmx_torrent_file_wanted(request: Request, _: str = Depends(current_user),
+                                   id: int = Form(...), idx: int = Form(...), wanted: str = Form("yes")):
+    ok, msg = await asyncio.to_thread(torrent.set_file_wanted, id, idx, wanted == "yes")
+    return _resp(request, ok, msg, [])
+
+@app.post("/htmx/torrent-file-prio", response_class=HTMLResponse)
+async def htmx_torrent_file_prio(request: Request, _: str = Depends(current_user),
+                                 id: int = Form(...), idx: int = Form(...), prio: str = Form("normal")):
+    ok, msg = await asyncio.to_thread(torrent.set_file_priority, id, idx, prio)
+    return _resp(request, ok, msg, [])
+
+@app.get("/htmx/torrent-limits", response_class=HTMLResponse)
+async def htmx_torrent_limits(request: Request, _: str = Depends(current_user)):
+    lim = await asyncio.to_thread(torrent.get_limits)
+    return templates.TemplateResponse("_torrent_limits.html", {"request": request, "lim": lim})
+
+@app.post("/htmx/torrent-limits", response_class=HTMLResponse)
+async def htmx_torrent_limits_save(request: Request, _: str = Depends(current_user),
+                                   down: int = Form(0), down_on: str = Form("no"),
+                                   up: int = Form(0), up_on: str = Form("no"),
+                                   alt_down: int = Form(0), alt_up: int = Form(0),
+                                   ratio: float = Form(2.0), ratio_on: str = Form("no")):
+    ok, msg = await asyncio.to_thread(
+        torrent.set_limits, down, down_on == "yes", up, up_on == "yes",
+        alt_down, alt_up, ratio, ratio_on == "yes")
+    return _resp(request, ok, msg, ["closeModal"] if ok else [])
+
+@app.post("/htmx/torrent-alt-speed", response_class=HTMLResponse)
+async def htmx_torrent_alt_speed(request: Request, _: str = Depends(current_user)):
+    ok, msg = await asyncio.to_thread(torrent.toggle_alt_speed)
+    return _resp(request, ok, msg, [])
 
 @app.post("/htmx/torrent-toggle", response_class=HTMLResponse)
 async def htmx_torrent_toggle(request: Request, _: str = Depends(current_user), enable: str = Form("no")):

@@ -1,10 +1,11 @@
 {% if not torrents %}
-  <tr><td colspan="8" class="text-center text-slate-400 py-8">Торрентов нет. Вставь magnet-ссылку или .torrent-файл сверху.</td></tr>
+  <tr><td colspan="11" class="text-center text-slate-400 py-8">Торрентов нет. Вставь magnet-ссылку или .torrent-файл сверху.</td></tr>
 {% else %}
   {% for t in torrents %}
-    <tr class="border-b border-slate-100 hover:bg-slate-50 align-middle">
+    <tr class="tr-row border-b border-slate-100 hover:bg-slate-50 align-middle cursor-pointer" data-tid="{{ t.id }}"
+        onclick="SW.trSelect({{ t.id }}, event)">
       <td class="px-3 py-2 max-w-0">
-        <span class="block truncate" title="{{ t.name }}">{{ t.name }}</span>
+        <span class="block truncate" title="{{ t.name }}">{% if t.seq %}<i class="ti ti-arrows-sort text-sky-500 text-xs" title="Последовательная загрузка"></i> {% endif %}{{ t.name }}</span>
         <span class="block truncate text-[0.6875rem] text-slate-400">{{ t.dir }}</span>
         {% if t.error %}<span class="block truncate text-[0.6875rem] text-red-600" title="{{ t.error }}">{{ t.error }}</span>{% endif %}
       </td>
@@ -16,6 +17,9 @@
       </td>
       <td class="px-2 py-2 text-{{ t.tone }}-600 text-[0.8125rem] whitespace-nowrap">{{ t.status }}</td>
       <td class="px-2 py-2 text-right text-slate-500 whitespace-nowrap">{{ t.size }}</td>
+      <td class="px-2 py-2 text-right text-slate-500">{{ t.seeds }}</td>
+      <td class="px-2 py-2 text-right text-slate-500">{{ t.peers }}</td>
+      <td class="px-2 py-2 text-right text-slate-500">{{ '%.2f'|format(t.ratio) }}</td>
       <td class="px-2 py-2 text-right text-sky-600 whitespace-nowrap">{{ t.down }}</td>
       <td class="px-2 py-2 text-right text-emerald-600 whitespace-nowrap">{{ t.up }}</td>
       <td class="px-2 py-2 text-right text-slate-400 whitespace-nowrap">{{ t.eta }}</td>
