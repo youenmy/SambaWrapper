@@ -12,7 +12,7 @@
   <button id="btn-rename" class="tbb" onclick="SW.rename()"><i class="ti ti-edit"></i>Переименовать</button>
   <button id="btn-move" class="tbb" onclick="SW.move()"><i class="ti ti-arrows-move"></i>Переместить</button>
   <button id="btn-del" class="tbb text-red-600" onclick="SW.del()"><i class="ti ti-trash"></i>Удалить</button>
-  <button class="tbb ml-auto" onclick="SW.shareCurrent()"><i class="ti ti-share"></i>Расшарить папку</button>
+  {% if role == 'admin' %}<button class="tbb ml-auto" onclick="SW.shareCurrent()"><i class="ti ti-share"></i>Расшарить папку</button>{% endif %}
 </div>
 
 <div class="flex items-center gap-1.5 px-4 h-10 text-sm text-slate-500 border-b border-slate-100 shrink-0 overflow-x-auto whitespace-nowrap">
@@ -26,7 +26,7 @@
   {% endfor %}
 </div>
 
-{% if disk and disk.uuid %}
+{% if disk and disk.uuid and role == 'admin' %}
 <div class="flex items-center gap-3 px-4 py-2 text-sm border-b border-slate-100 shrink-0 bg-slate-50">
   <i class="ti ti-disc text-sky-600"></i>
   <span class="text-slate-500 truncate min-w-0">Диск «{{ disk.label or disk.name }}»</span>

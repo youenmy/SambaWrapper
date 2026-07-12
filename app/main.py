@@ -7,6 +7,7 @@ import logging
 import mimetypes
 import re
 import socket
+import time
 from pathlib import Path
 
 APP_VERSION = "1.3"
@@ -14,6 +15,7 @@ from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, 
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.datastructures import MutableHeaders
 from starlette.middleware.sessions import SessionMiddleware
 from . import auth, db, disks, browse, samba, fileops, portcfg, dlna, torrent, shell
 from .config import MOUNT_ROOT, DATA_DIR
@@ -46,8 +48,33 @@ async def lifespan(app: FastAPI):
             await task
 
 app = FastAPI(title="SambaWrapper", lifespan=lifespan)
+_TLS_ON = (DATA_DIR / "tls" / "cert.pem").exists() and (DATA_DIR / "tls" / "key.pem").exists()
 app.add_middleware(SessionMiddleware, secret_key=auth.ensure_session_secret(),
-                   session_cookie="sambawrapper_sid", max_age=7 * 24 * 3600)
+                   session_cookie="sambawrapper_sid", max_age=24 * 3600,
+                   https_only=_TLS_ON)
+
+# Заголовки добавляем «сырым» ASGI-мидлварем, НЕ через @app.middleware("http"):
+# BaseHTTPMiddleware не доносит разрыв соединения до стримящих генераторов,
+# из-за чего ffmpeg-потоки /transcode не закрывались при перемотке.
+class _SecurityHeaders:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers.setdefault("X-Frame-Options", "DENY")
+                headers.setdefault("X-Content-Type-Options", "nosniff")
+                headers.setdefault("Referrer-Policy", "same-origin")
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
+
+app.add_middleware(_SecurityHeaders)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 auth.ensure_initial_password()
 
@@ -58,12 +85,40 @@ auth.ensure_initial_password()
 async def login_form(request: Request, err: str | None = None):
     return templates.TemplateResponse("login.html", {"request": request, "err": err})
 
+# Анти-brute-force: после 5 неудач подряд с одного IP — блок на 15 минут.
+LOGIN_MAX_FAILS = 5
+LOGIN_LOCK_SECS = 15 * 60
+_login_fails: dict[str, list] = {}  # ip -> [fail_count, locked_until_ts]
+
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "?"
+
 @app.post("/login")
 async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
-    if not auth.verify_password(username, password):
+    ip = _client_ip(request)
+    now = time.time()
+    rec = _login_fails.get(ip)
+    if rec and rec[1] > now:
+        log.warning("login blocked (rate limit) from %s", ip)
+        return RedirectResponse("/login?err=2", status_code=303)
+    role = auth.authenticate(username, password)
+    if not role:
+        rec = _login_fails.setdefault(ip, [0, 0.0])
+        rec[0] += 1
+        if rec[0] >= LOGIN_MAX_FAILS:
+            rec[0] = 0
+            rec[1] = now + LOGIN_LOCK_SECS
+            log.warning("login: too many failures from %s — locked for %s min",
+                        ip, LOGIN_LOCK_SECS // 60)
+        else:
+            log.warning("login failed from %s (attempt %d)", ip, rec[0])
         await asyncio.sleep(1)  # притормаживаем перебор паролей
         return RedirectResponse("/login?err=1", status_code=303)
-    request.session["user"] = username
+    _login_fails.pop(ip, None)
+    request.session.clear()  # новая сессия после логина (session fixation)
+    request.session["user"] = username.strip()
+    request.session["role"] = role
+    log.info("login ok from %s (%s, role=%s)", ip, username.strip(), role)
     return RedirectResponse("/", status_code=303)
 
 @app.post("/logout")
@@ -77,13 +132,30 @@ def current_user(request: Request) -> str:
         raise HTTPException(status_code=302, headers={"Location": "/login"})
     return user
 
+def current_role(request: Request) -> str:
+    # старые сессии без роли считаем админскими (до этого другой роли не было)
+    return request.session.get("role", auth.ROLE_ADMIN)
+
+def require_admin(request: Request) -> str:
+    user = current_user(request)
+    if current_role(request) != auth.ROLE_ADMIN:
+        raise HTTPException(status_code=403, detail="только для администратора")
+    return user
+
 
 # ---------- page ----------
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, _: str = Depends(current_user)):
+    # самоизлечение сессий, выданных до переименования главного админа:
+    # если имени из сессии не существует среди учёток — это старое имя админа
+    if current_role(request) == auth.ROLE_ADMIN:
+        known = {u["username"] for u in auth.list_web_users()} | {auth.get_username()}
+        if request.session.get("user") not in known:
+            request.session["user"] = auth.get_username()
     return templates.TemplateResponse("index.html", {
         "request": request, "mount_root": str(MOUNT_ROOT), "port": portcfg.current_port(),
+        "role": current_role(request), "username": request.session.get("user", ""),
     })
 
 
@@ -114,15 +186,16 @@ async def htmx_sidebar(request: Request, _: str = Depends(current_user)):
         "request": request, "partitions": partitions, "shares": shares,
         "orphan_shares": orphan_shares, "stale": disks.list_stale_mounts(),
         "dlna": dlna.status(), "torrent": torrent.status(), "mount_root": root,
+        "role": current_role(request),
     })
 
 @app.post("/htmx/stale-clean", response_class=HTMLResponse)
-async def htmx_stale_clean(request: Request, _: str = Depends(current_user), mountpoint: str = Form(...)):
+async def htmx_stale_clean(request: Request, _: str = Depends(require_admin), mountpoint: str = Form(...)):
     ok, msg = disks.clean_stale(mountpoint)
     return _resp(request, ok, msg or "Зависшая точка очищена", ["refreshSidebar"] if ok else [])
 
 @app.post("/htmx/stale-clean-all", response_class=HTMLResponse)
-async def htmx_stale_clean_all(request: Request, _: str = Depends(current_user)):
+async def htmx_stale_clean_all(request: Request, _: str = Depends(require_admin)):
     n, errors = disks.clean_all_stale()
     if errors:
         return _resp(request, False, f"Очищено: {n}; ошибки: " + "; ".join(errors), ["refreshSidebar"])
@@ -133,7 +206,8 @@ async def htmx_stale_clean_all(request: Request, _: str = Depends(current_user))
 
 @app.get("/htmx/browse", response_class=HTMLResponse)
 async def htmx_browse(request: Request, _: str = Depends(current_user), path: str = ""):
-    ctx = {"request": request, "mount_root": str(MOUNT_ROOT), "error": None, "listing": None, "disk": None}
+    ctx = {"request": request, "mount_root": str(MOUNT_ROOT), "error": None, "listing": None, "disk": None,
+           "role": current_role(request)}
     try:
         listing = browse.list_dir(path)
         ctx["listing"] = listing
@@ -156,7 +230,7 @@ async def htmx_browse(request: Request, _: str = Depends(current_user), path: st
 # ---------- disk actions ----------
 
 @app.post("/htmx/mount", response_class=HTMLResponse)
-async def htmx_mount(request: Request, _: str = Depends(current_user),
+async def htmx_mount(request: Request, _: str = Depends(require_admin),
                      path: str = Form(...), mount_name: str = Form(...), fstype: str = Form(...),
                      uuid: str = Form(""), label: str = Form(""), auto_mount: str = Form("no")):
     ok, msg = disks.mount_partition(path, mount_name, fstype)
@@ -168,14 +242,14 @@ async def htmx_mount(request: Request, _: str = Depends(current_user),
                  ["refreshSidebar", "closeModal"] if ok else [])
 
 @app.post("/htmx/umount", response_class=HTMLResponse)
-async def htmx_umount(request: Request, _: str = Depends(current_user),
+async def htmx_umount(request: Request, _: str = Depends(require_admin),
                       mount_point: str = Form(...), force: str = Form("no")):
     ok, msg = disks.unmount(mount_point, force=(force == "yes"))
     return _resp(request, ok, msg or "Диск отключён — можно безопасно извлекать",
                  ["refreshSidebar", "refreshBrowser"])
 
 @app.post("/htmx/automount-toggle", response_class=HTMLResponse)
-async def htmx_automount_toggle(request: Request, _: str = Depends(current_user),
+async def htmx_automount_toggle(request: Request, _: str = Depends(require_admin),
                                 uuid: str = Form(...), mount_name: str = Form(...),
                                 label: str = Form(""), enabled: str = Form("no")):
     on = enabled == "yes"
@@ -184,14 +258,14 @@ async def htmx_automount_toggle(request: Request, _: str = Depends(current_user)
     return _resp(request, ok, text, ["refreshSidebar"])
 
 @app.post("/htmx/format", response_class=HTMLResponse)
-async def htmx_format(request: Request, _: str = Depends(current_user),
+async def htmx_format(request: Request, _: str = Depends(require_admin),
                       device: str = Form(...), fstype: str = Form(...),
                       label: str = Form(""), confirm: str = Form("")):
     ok, msg = await asyncio.to_thread(disks.format_partition, device, fstype, label, confirm)
     return _resp(request, ok, msg, ["refreshSidebar", "closeModal"] if ok else [])
 
 @app.post("/htmx/disk-check", response_class=HTMLResponse)
-async def htmx_disk_check(request: Request, _: str = Depends(current_user), device: str = Form(...)):
+async def htmx_disk_check(request: Request, _: str = Depends(require_admin), device: str = Form(...)):
     ok, msg = await asyncio.to_thread(disks.check_repair, device)
     return _resp(request, ok, msg, ["refreshSidebar"])
 
@@ -338,8 +412,14 @@ async def media_info(request: Request, _: str = Depends(current_user), path: str
         pass
     return {"duration": dur, "audio": audio, "subs": subs}
 
-def _ffmpeg_stream(args: list[str], media_type: str):
+MAX_TRANSCODES = 4  # предохранитель: не даём наспавнить ffmpeg'ов и утопить ноут
+_active_transcodes = 0
+
+def _ffmpeg_stream(args: list[str], media_type: str, counted: bool = False):
     async def gen():
+        global _active_transcodes
+        if counted:
+            _active_transcodes += 1
         proc = await asyncio.create_subprocess_exec(
             *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
         try:
@@ -349,6 +429,8 @@ def _ffmpeg_stream(args: list[str], media_type: str):
                     break
                 yield chunk
         finally:
+            if counted:
+                _active_transcodes -= 1
             if proc.returncode is None:
                 with contextlib.suppress(ProcessLookupError):
                     proc.kill()
@@ -365,6 +447,8 @@ async def transcode(request: Request, _: str = Depends(current_user),
         f = fileops.resolve_file_for_download(path)
     except fileops.FileOpError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    if _active_transcodes >= MAX_TRANSCODES:
+        raise HTTPException(status_code=429, detail="слишком много активных потоков")
     audio = max(0, audio)
     args = ["ffmpeg", "-hide_banner", "-loglevel", "error"]
     if ss and ss > 0:
@@ -378,7 +462,7 @@ async def transcode(request: Request, _: str = Depends(current_user),
              "-avoid_negative_ts", "make_zero",
              "-movflags", "frag_keyframe+empty_moov+default_base_moof",
              "-f", "mp4", "pipe:1"]
-    return _ffmpeg_stream(args, "video/mp4")
+    return _ffmpeg_stream(args, "video/mp4", counted=True)
 
 # Извлечение субтитров требует прочитать весь контейнер (на большом файле —
 # минуты), поэтому дорожка извлекается ОДИН раз в фон и кэшируется; дальше
@@ -469,7 +553,7 @@ async def subs(request: Request, _: str = Depends(current_user),
 # ---------- shares ----------
 
 @app.get("/htmx/share-form", response_class=HTMLResponse)
-async def htmx_share_form(request: Request, _: str = Depends(current_user),
+async def htmx_share_form(request: Request, _: str = Depends(require_admin),
                           path: str = "", suggested_name: str = ""):
     users = samba.list_smb_users()
     return templates.TemplateResponse("_share_form.html", {
@@ -479,7 +563,7 @@ async def htmx_share_form(request: Request, _: str = Depends(current_user),
     })
 
 @app.get("/htmx/share-edit", response_class=HTMLResponse)
-async def htmx_share_edit(request: Request, _: str = Depends(current_user), name: str = ""):
+async def htmx_share_edit(request: Request, _: str = Depends(require_admin), name: str = ""):
     share = samba.get_share(name)
     if not share:
         return _resp(request, False, "Шара не найдена", [])
@@ -493,7 +577,7 @@ async def htmx_share_edit(request: Request, _: str = Depends(current_user), name
     })
 
 @app.post("/htmx/share-create", response_class=HTMLResponse)
-async def htmx_share_create(request: Request, _: str = Depends(current_user),
+async def htmx_share_create(request: Request, _: str = Depends(require_admin),
                             name: str = Form(...), abs_path: str = Form(...),
                             mode: str = Form("guest"), guest_write: str = Form("no"),
                             access_users: list[str] = Form(default=[]),
@@ -507,7 +591,7 @@ async def htmx_share_create(request: Request, _: str = Depends(current_user),
                  ["refreshSidebar", "closeModal"] if ok else [])
 
 @app.post("/htmx/share-delete", response_class=HTMLResponse)
-async def htmx_share_delete(request: Request, _: str = Depends(current_user), name: str = Form(...)):
+async def htmx_share_delete(request: Request, _: str = Depends(require_admin), name: str = Form(...)):
     ok, msg = samba.delete_share(name)
     return _resp(request, ok, msg or f"Шара «{name}» удалена",
                  ["refreshSidebar", "closeModal"] if ok else [])
@@ -516,23 +600,23 @@ async def htmx_share_delete(request: Request, _: str = Depends(current_user), na
 # ---------- samba users ----------
 
 @app.get("/htmx/users", response_class=HTMLResponse)
-async def htmx_users(request: Request, _: str = Depends(current_user)):
+async def htmx_users(request: Request, _: str = Depends(require_admin)):
     return templates.TemplateResponse("_users.html", {"request": request, "users": samba.list_smb_users()})
 
 @app.post("/htmx/user-add", response_class=HTMLResponse)
-async def htmx_user_add(request: Request, _: str = Depends(current_user),
+async def htmx_user_add(request: Request, _: str = Depends(require_admin),
                         username: str = Form(...), password: str = Form(...)):
     ok, msg = samba.add_smb_user(username, password)
     return _resp(request, ok, msg or f"Пользователь «{username}» добавлен", ["reloadUsers"] if ok else [])
 
 @app.post("/htmx/user-passwd", response_class=HTMLResponse)
-async def htmx_user_passwd(request: Request, _: str = Depends(current_user),
+async def htmx_user_passwd(request: Request, _: str = Depends(require_admin),
                            username: str = Form(...), password: str = Form(...)):
     ok, msg = samba.set_smb_password(username, password)
     return _resp(request, ok, msg or "Пароль сменён", [])
 
 @app.post("/htmx/user-delete", response_class=HTMLResponse)
-async def htmx_user_delete(request: Request, _: str = Depends(current_user), username: str = Form(...)):
+async def htmx_user_delete(request: Request, _: str = Depends(require_admin), username: str = Form(...)):
     ok, msg = samba.delete_smb_user(username)
     return _resp(request, ok, msg or f"Пользователь «{username}» удалён", ["reloadUsers"] if ok else [])
 
@@ -540,7 +624,7 @@ async def htmx_user_delete(request: Request, _: str = Depends(current_user), use
 # ---------- admin password ----------
 
 @app.post("/htmx/admin-passwd", response_class=HTMLResponse)
-async def htmx_admin_passwd(request: Request, _: str = Depends(current_user), password: str = Form(...)):
+async def htmx_admin_passwd(request: Request, _: str = Depends(require_admin), password: str = Form(...)):
     if len(password) < 8:
         return _resp(request, False, "Минимум 8 символов", [])
     auth.set_password(password)
@@ -548,21 +632,41 @@ async def htmx_admin_passwd(request: Request, _: str = Depends(current_user), pa
 
 
 @app.get("/htmx/settings", response_class=HTMLResponse)
-async def htmx_settings(request: Request, _: str = Depends(current_user)):
+async def htmx_settings(request: Request, _: str = Depends(require_admin)):
     return templates.TemplateResponse("_settings.html", {
         "request": request, "username": auth.get_username(),
         "port": portcfg.current_port(), "srv": _server_info(), "version": APP_VERSION,
         "show_system_disks": db.get_setting("ui_show_system_disks") == "yes",
+        "web_users": auth.list_web_users(),
     })
 
+@app.post("/htmx/webuser-add", response_class=HTMLResponse)
+async def htmx_webuser_add(request: Request, _: str = Depends(require_admin),
+                           username: str = Form(...), password: str = Form(...),
+                           role: str = Form("user")):
+    ok, msg = auth.add_web_user(username, password, role)
+    return _resp(request, ok, msg or f"Пользователь «{username}» создан", ["reloadSettings"] if ok else [])
+
+@app.post("/htmx/webuser-passwd", response_class=HTMLResponse)
+async def htmx_webuser_passwd(request: Request, _: str = Depends(require_admin),
+                              username: str = Form(...), password: str = Form(...)):
+    ok, msg = auth.set_web_user_password(username, password)
+    return _resp(request, ok, msg or "Пароль обновлён", [])
+
+@app.post("/htmx/webuser-delete", response_class=HTMLResponse)
+async def htmx_webuser_delete(request: Request, _: str = Depends(require_admin),
+                              username: str = Form(...)):
+    ok, msg = auth.delete_web_user(username)
+    return _resp(request, ok, msg or f"Пользователь «{username}» удалён", ["reloadSettings"] if ok else [])
+
 @app.post("/htmx/ui-pref", response_class=HTMLResponse)
-async def htmx_ui_pref(request: Request, _: str = Depends(current_user),
+async def htmx_ui_pref(request: Request, _: str = Depends(require_admin),
                        show_system_disks: str = Form("no")):
     db.set_setting("ui_show_system_disks", "yes" if show_system_disks == "yes" else "no")
     return _resp(request, True, "Настройка сохранена", ["refreshSidebar"])
 
 @app.post("/htmx/admin-account", response_class=HTMLResponse)
-async def htmx_admin_account(request: Request, _: str = Depends(current_user),
+async def htmx_admin_account(request: Request, _: str = Depends(require_admin),
                             username: str = Form(...), password: str = Form("")):
     ok, msg = auth.set_username(username)
     if not ok:
@@ -575,7 +679,7 @@ async def htmx_admin_account(request: Request, _: str = Depends(current_user),
     return _resp(request, True, "Учётная запись обновлена", ["closeModal"])
 
 @app.post("/htmx/set-port", response_class=HTMLResponse)
-async def htmx_set_port(request: Request, _: str = Depends(current_user), port: int = Form(...)):
+async def htmx_set_port(request: Request, _: str = Depends(require_admin), port: int = Form(...)):
     ok, msg = portcfg.set_port(port)
     return _resp(request, ok, msg, ["closeModal"] if ok else [])
 
@@ -604,6 +708,7 @@ async def htmx_torrents_page(request: Request, _: str = Depends(current_user)):
     dirs = [{"abs": str(MOUNT_ROOT / r), "label": r} for r in fileops.list_dirs_under_mounts()]
     return templates.TemplateResponse("_torrents_page.html", {
         "request": request, "st": torrent.status(), "dirs": dirs,
+        "role": current_role(request),
     })
 
 @app.get("/htmx/torrent-dest", response_class=HTMLResponse)
@@ -650,12 +755,12 @@ async def htmx_torrent_file_prio(request: Request, _: str = Depends(current_user
     return _resp(request, ok, msg, [])
 
 @app.get("/htmx/torrent-limits", response_class=HTMLResponse)
-async def htmx_torrent_limits(request: Request, _: str = Depends(current_user)):
+async def htmx_torrent_limits(request: Request, _: str = Depends(require_admin)):
     lim = await asyncio.to_thread(torrent.get_limits)
     return templates.TemplateResponse("_torrent_limits.html", {"request": request, "lim": lim})
 
 @app.post("/htmx/torrent-limits", response_class=HTMLResponse)
-async def htmx_torrent_limits_save(request: Request, _: str = Depends(current_user),
+async def htmx_torrent_limits_save(request: Request, _: str = Depends(require_admin),
                                    down: int = Form(0), down_on: str = Form("no"),
                                    up: int = Form(0), up_on: str = Form("no"),
                                    alt_down: int = Form(0), alt_up: int = Form(0),
@@ -666,7 +771,7 @@ async def htmx_torrent_limits_save(request: Request, _: str = Depends(current_us
     return _resp(request, ok, msg, ["closeModal"] if ok else [])
 
 @app.post("/htmx/torrent-alt-speed", response_class=HTMLResponse)
-async def htmx_torrent_alt_speed(request: Request, _: str = Depends(current_user)):
+async def htmx_torrent_alt_speed(request: Request, _: str = Depends(require_admin)):
     ok, msg = await asyncio.to_thread(torrent.toggle_alt_speed)
     return _resp(request, ok, msg, [])
 

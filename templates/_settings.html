@@ -15,6 +15,37 @@
     <div class="flex justify-end"><button class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm">Сохранить</button></div>
   </form>
 
+  <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Пользователи веб-интерфейса</div>
+  <div class="space-y-1 mb-3">
+    {% if not web_users %}
+      <div class="text-xs text-slate-400">Дополнительных пользователей нет. Создай учётку с ролью «пользователь» для друга — без управления дисками и настройками.</div>
+    {% endif %}
+    {% for u in web_users %}
+      <div class="flex items-center gap-2 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5">
+        <i class="ti ti-user text-slate-400"></i>
+        <span class="flex-1 truncate">{{ u.username }}</span>
+        <span class="text-[0.625rem] px-1.5 rounded {{ 'bg-sky-100 text-sky-700' if u.role == 'admin' else 'bg-slate-100 text-slate-500' }}">{{ 'админ' if u.role == 'admin' else 'пользователь' }}</span>
+        <button title="Сменить пароль" class="text-slate-400 hover:text-sky-600"
+                onclick="SW.prompt('Новый пароль для «{{ u.username }}» (мин. 8 символов)', '', (p) => { if (p && p.length >= 8) SW.post('/htmx/webuser-passwd', {username: {{ u.username|tojson|forceescape }}, password: p}); else if (p) SW.toast('Минимум 8 символов'); })">
+          <i class="ti ti-key text-base"></i></button>
+        <button title="Удалить" class="text-slate-400 hover:text-red-600"
+                onclick="SW.confirm('Удалить пользователя «{{ u.username }}»?', () => SW.post('/htmx/webuser-delete', {username: {{ u.username|tojson|forceescape }}}), {ok: 'Удалить', danger: true})">
+          <i class="ti ti-trash text-base"></i></button>
+      </div>
+    {% endfor %}
+  </div>
+  <form hx-post="/htmx/webuser-add" hx-target="#toast-host" hx-swap="beforeend" class="flex gap-2 mb-6">
+    <input name="username" required pattern="[A-Za-z0-9_.\-]{2,32}" placeholder="логин"
+           class="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+    <input type="password" name="password" required minlength="8" placeholder="пароль (≥8)" autocomplete="new-password"
+           class="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+    <select name="role" class="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+      <option value="user">пользователь</option>
+      <option value="admin">админ</option>
+    </select>
+    <button class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm shrink-0"><i class="ti ti-plus"></i></button>
+  </form>
+
   <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Порт веб-интерфейса</div>
   <form hx-post="/htmx/set-port" hx-target="#toast-host" hx-swap="beforeend" class="flex gap-2 mb-1">
     <input type="number" name="port" min="1024" max="65535" required value="{{ port }}"

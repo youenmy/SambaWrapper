@@ -71,6 +71,65 @@ def verify_password(username: str, password: str) -> bool:
         return False
     return _check(password, hashed)
 
+
+# --- дополнительные учётки веб-интерфейса (роль admin/user) ---
+
+ROLE_ADMIN = "admin"
+ROLE_USER = "user"
+
+def authenticate(username: str, password: str) -> str | None:
+    """Вернуть роль, если логин/пароль верные, иначе None.
+    Сначала главный админ (в settings), затем таблица web_users."""
+    if verify_password(username, password):
+        return ROLE_ADMIN
+    username = (username or "").strip()
+    with db.connect() as cx:
+        row = cx.execute("SELECT pwhash, role FROM web_users WHERE username=?",
+                         (username,)).fetchone()
+    if row and _check(password, row["pwhash"]):
+        return row["role"] if row["role"] in (ROLE_ADMIN, ROLE_USER) else ROLE_USER
+    return None
+
+def list_web_users() -> list[dict]:
+    with db.connect() as cx:
+        rows = cx.execute("SELECT username, role FROM web_users ORDER BY username").fetchall()
+    return [dict(r) for r in rows]
+
+def add_web_user(username: str, password: str, role: str) -> tuple[bool, str]:
+    username = (username or "").strip()
+    if not SAFE_LOGIN.match(username):
+        return False, "Логин: 2–32 символа, буквы/цифры/._-"
+    if username == get_username():
+        return False, "Это имя занято главным админом"
+    if len(password) < 8:
+        return False, "Пароль: минимум 8 символов"
+    if role not in (ROLE_ADMIN, ROLE_USER):
+        return False, "Неизвестная роль"
+    with db.connect() as cx:
+        exists = cx.execute("SELECT 1 FROM web_users WHERE username=?", (username,)).fetchone()
+        if exists:
+            return False, "Такой пользователь уже есть"
+        cx.execute("INSERT INTO web_users(username,pwhash,role) VALUES(?,?,?)",
+                   (username, _hash(password), role))
+    return True, ""
+
+def set_web_user_password(username: str, password: str) -> tuple[bool, str]:
+    if len(password) < 8:
+        return False, "Пароль: минимум 8 символов"
+    with db.connect() as cx:
+        cur = cx.execute("UPDATE web_users SET pwhash=? WHERE username=?",
+                         (_hash(password), (username or "").strip()))
+        if cur.rowcount == 0:
+            return False, "Пользователь не найден"
+    return True, ""
+
+def delete_web_user(username: str) -> tuple[bool, str]:
+    with db.connect() as cx:
+        cur = cx.execute("DELETE FROM web_users WHERE username=?", ((username or "").strip(),))
+        if cur.rowcount == 0:
+            return False, "Пользователь не найден"
+    return True, ""
+
 def set_password(new_password: str) -> None:
     db.set_setting(SETTING_PWHASH, _hash(new_password))
 

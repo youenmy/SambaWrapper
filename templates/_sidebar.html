@@ -13,6 +13,7 @@
             <span class="truncate text-sm">{{ p.label or name }}</span>
           </button>
           {% if p.tran == 'usb' %}<span class="text-[0.625rem] bg-amber-100 text-amber-700 px-1.5 rounded">USB</span>{% endif %}
+          {% if role == 'admin' %}
           {% if p.tran == 'usb' or p.hotplug %}
           <button title="Проверить и исправить" class="text-slate-400 hover:text-amber-600"
                   onclick="SW.fixDisk({{ p.path|tojson|forceescape }}, {{ p.kname|tojson|forceescape }})">
@@ -27,6 +28,7 @@
                   onclick="SW.disconnectDisk({{ p.mountpoint|tojson|forceescape }}, {{ (p.label or name)|tojson|forceescape }})">
             <i class="ti ti-eject text-base"></i>
           </button>
+          {% endif %}
         </div>
         <div class="pl-6 mt-0.5">
           <div class="text-[0.625rem] text-slate-400">{{ fsmap.get(p.fstype, p.fstype|upper) }} · {{ p.size_human }}{% if p.free_human %} · своб. {{ p.free_human }}{% endif %}{% if p.uuid %} · авто <span class="{{ 'text-emerald-600' if p.auto_mount else 'text-slate-500' }}">{{ 'вкл' if p.auto_mount else 'выкл' }}</span>{% endif %}</div>
@@ -44,7 +46,7 @@
               <span class="flex-1 min-w-0 truncate text-[0.8125rem]">{{ sh.name }}</span>
             </button>
             <span class="text-[0.625rem] {{ 'bg-emerald-100 text-emerald-700' if sh_w else 'bg-slate-100 text-slate-500' }} px-1.5 rounded shrink-0">{{ 'чт+зап' if sh_w else 'чтение' }}</span>
-            <button title="Настройки шары" class="text-slate-400 hover:text-sky-600 shrink-0" onclick="SW.openModal('/htmx/share-edit?name={{ sh.name|urlencode }}')"><i class="ti ti-settings text-base"></i></button>
+            {% if role == 'admin' %}<button title="Настройки шары" class="text-slate-400 hover:text-sky-600 shrink-0" onclick="SW.openModal('/htmx/share-edit?name={{ sh.name|urlencode }}')"><i class="ti ti-settings text-base"></i></button>{% endif %}
             <button title="Копировать сетевой путь" class="text-slate-400 hover:text-sky-600 shrink-0" onclick="SW.copyShare({{ sh.name|tojson|forceescape }})"><i class="ti ti-copy text-base"></i></button>
           </div>
         {% endfor %}
@@ -53,6 +55,11 @@
       <div class="disk-row px-2 py-1.5 flex items-center gap-2 text-sm text-slate-400">
         <i class="ti ti-disc text-lg"></i><span class="truncate flex-1">{{ p.label or p.kname }}</span>
         <span class="text-[0.625rem]">{{ fsmap.get(p.fstype, p.fstype|upper) }} · сист.</span>
+      </div>
+    {% elif p.mountable and role != 'admin' %}
+      <div class="disk-row px-2 py-1.5 flex items-center gap-2 text-sm text-slate-400">
+        <i class="ti ti-disc text-lg"></i><span class="truncate flex-1">{{ p.label or p.kname }}</span>
+        <span class="text-[0.625rem]">не подключен</span>
       </div>
     {% elif p.mountable %}
       <div class="disk-row rounded-lg hover:bg-slate-50 px-2 py-1.5">
@@ -92,14 +99,16 @@
     <div class="px-2 py-1.5 flex items-center gap-2 rounded-lg hover:bg-slate-50">
       <i class="ti ti-plug-connected-x text-amber-500 text-lg"></i>
       <span class="truncate flex-1 text-sm text-slate-500" title="устройство отключено">{{ s.name }}</span>
+      {% if role == 'admin' %}
       <button title="Убрать из истории" class="text-slate-400 hover:text-red-600"
               onclick="SW.post('/htmx/stale-clean',{mountpoint:{{ s.mountpoint|tojson|forceescape }}})">
         <i class="ti ti-x text-base"></i>
       </button>
+      {% endif %}
     </div>
   {% endfor %}
 
-  {% if orphan_shares %}
+  {% if orphan_shares and role == 'admin' %}
   <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-amber-600">Шары без активного диска</div>
   {% for sh in orphan_shares %}
     {% set sh_w = sh.write_list or (sh.guest_ok and not sh.read_only) %}

@@ -13,7 +13,8 @@ Environment=SW_HOST=0.0.0.0
 Environment=SW_PORT=8080
 # Port is overridable via the web UI, which writes this file (SW_PORT=...).
 EnvironmentFile=-/var/lib/sambawrapper/service.env
-ExecStart=/opt/sambawrapper/venv/bin/uvicorn app.main:app --host ${SW_HOST} --port ${SW_PORT}
+# app.serve генерирует self-signed сертификат (DATA_DIR/tls) и стартует uvicorn с TLS
+ExecStart=/opt/sambawrapper/venv/bin/python -m app.serve
 Restart=on-failure
 RestartSec=3
 

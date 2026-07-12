@@ -59,7 +59,7 @@ echo ""
 
 echo "==> Устанавливаю системные пакеты"
 apt-get update -qq
-PKGS="samba samba-common-bin ntfs-3g exfatprogs e2fsprogs dosfstools python3 python3-venv python3-pip sudo rsync ffmpeg"
+PKGS="samba samba-common-bin ntfs-3g exfatprogs e2fsprogs dosfstools python3 python3-venv python3-pip sudo rsync ffmpeg openssl"
 [[ "${SW_DLNA,,}" == y* ]] && PKGS="$PKGS minidlna"
 [[ "${SW_TORRENT,,}" == y* ]] && PKGS="$PKGS transmission-daemon transmission-cli"
 apt-get install -y --no-install-recommends $PKGS
@@ -93,6 +93,11 @@ SMB_CONF=/etc/samba/smb.conf
 INCLUDE_LINE="include = ${SAMBA_CONF_DIR}/sambawrapper-all.conf"
 # Гарантируем наличие [global]
 grep -qE '^\s*\[global\]' "${SMB_CONF}" 2>/dev/null || printf '\n[global]\n' >> "${SMB_CONF}"
+# Проводник Windows не должен кэшировать листинг папок через directory leases —
+# иначе удалённые через веб файлы продолжают отображаться в сетевой папке.
+if ! grep -qF "smb3 directory leases" "${SMB_CONF}"; then
+    sed -i '/^\[global\]/a \   smb3 directory leases = no' "${SMB_CONF}"
+fi
 # include добавляем в КОНЕЦ файла — иначе секции шар из include поглощают
 # параметры [global] (ломается гостевой доступ).
 if ! grep -qF "${INCLUDE_LINE}" "${SMB_CONF}" 2>/dev/null; then
@@ -173,7 +178,7 @@ IP_HINT="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo ""
 echo "==============================================="
 echo " SambaWrapper установлен и запущен."
-echo " Веб-морда:  http://${IP_HINT:-<ip-сервера>}:${SW_PORT}"
+echo " Веб-морда:  https://${IP_HINT:-<ip-сервера>}:${SW_PORT}"
 if [[ -f "${DATA_DIR}/initial-password.txt" ]]; then
     echo ""; cat "${DATA_DIR}/initial-password.txt"
 elif [[ -n "${SW_ADMIN_PASS:-}" ]]; then

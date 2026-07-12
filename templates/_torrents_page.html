@@ -44,10 +44,12 @@
     <i class="ti ti-file-upload"></i> .torrent
     <input type="file" accept=".torrent" class="hidden" onchange="SW.torrentUpload(this)">
   </label>
+  {% if role == 'admin' %}
   <button title="Тихий режим (медленные лимиты)" class="px-2 py-1.5 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
           onclick="SW.post('/htmx/torrent-alt-speed',{})"><i class="ti ti-tortoise"></i></button>
   <button title="Лимиты скорости и раздачи" class="px-2 py-1.5 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
           onclick="SW.openModal('/htmx/torrent-limits')"><i class="ti ti-gauge"></i></button>
+  {% endif %}
   <script>window.SW_TR_DIRS = {{ dirs|tojson }}; window.SW && SW.initTrDest();</script>
 </div>
 

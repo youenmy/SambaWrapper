@@ -13,14 +13,16 @@
       <div class="relative">
         <button id="userchip" class="flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg hover:bg-slate-100"
                 onclick="event.stopPropagation();SW.toggleUserMenu()">
-          <span class="w-6 h-6 rounded-full bg-sky-100 text-sky-700 grid place-items-center text-xs">A</span>
-          <span class="hidden sm:inline">admin</span> <i class="ti ti-chevron-down text-base"></i>
+          <span class="w-6 h-6 rounded-full bg-sky-100 text-sky-700 grid place-items-center text-xs uppercase">{{ (username or 'a')[0] }}</span>
+          <span class="hidden sm:inline">{{ username or 'admin' }}</span> <i class="ti ti-chevron-down text-base"></i>
         </button>
         <div id="usermenu" class="hidden absolute right-0 top-10 w-52 bg-white border border-slate-200 rounded-lg shadow-lg p-1.5 z-50 text-sm">
+          {% if role == 'admin' %}
           <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
                   onclick="SW.openModal('/htmx/users')"><i class="ti ti-users text-slate-500"></i>Пользователи Samba</button>
           <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"
                   onclick="SW.openModal('/htmx/settings')"><i class="ti ti-settings text-slate-500"></i>Настройки</button>
+          {% endif %}
           <form method="post" action="/logout">
             <button class="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-slate-100"><i class="ti ti-logout text-slate-500"></i>Выйти</button>
           </form>
@@ -67,6 +69,7 @@
 {% block scripts %}
 <script>
 const SW = {
+  role: {{ role|tojson }},
   path: "",
   mountRoot: {{ mount_root | tojson }},
   curPort: {{ port | tojson }},
@@ -94,7 +97,11 @@ const SW = {
   closeModal() {
     const m = document.getElementById("modal-host");
     m.classList.add("hidden"); m.innerHTML = "";
-    if (this._pl) { clearInterval(this._pl.subPoll); this._pl = null; document.removeEventListener("keydown", this._plKeydown); }
+    if (this._pl) {
+      clearInterval(this._pl.subPoll); clearTimeout(this._plIdleT); this._pl = null;
+      document.removeEventListener("keydown", this._plKeydown);
+      if (this._plPopCloser) { document.removeEventListener("click", this._plPopCloser, true); this._plPopCloser = null; }
+    }
   },
   confirm(message, onYes, opts) {
     opts = opts || {};
@@ -273,10 +280,24 @@ const SW = {
   _playVideo(rel, name) {
     if (!document.getElementById("sw-fs-style")) {
       const st = document.createElement("style"); st.id = "sw-fs-style";
-      st.textContent = "#sw-player:fullscreen{max-width:none;width:100%;height:100%;border-radius:0;padding:0;background:#000}" +
+      st.textContent = "#sw-player:fullscreen{max-width:none;width:100%;height:100%;border:none;border-radius:0;padding:0;background:#000}" +
                        "#sw-player:fullscreen .sw-hdr{display:none}" +
                        "#sw-player:fullscreen .sw-video{flex:1;min-height:0;max-height:none;height:100%;border-radius:0;object-fit:contain}" +
-                       "#sw-player:fullscreen .sw-bar{padding:0.4rem 1rem 0.6rem}";
+                       // в фуллскрине панели — оверлей поверх кадра, а не отдельные строки
+                       "#sw-player:fullscreen .sw-bar{position:absolute;left:0;right:0;z-index:5;padding:0.45rem 1.25rem;background:rgba(2,6,23,.82);backdrop-filter:blur(4px)}" +
+                       "#sw-player:fullscreen .sw-seekbar{bottom:2.6rem;border-top:1px solid rgba(148,163,184,.45);border-bottom:1px solid rgba(148,163,184,.15)}" +
+                       "#sw-player:fullscreen .sw-btnbar{bottom:0;padding-bottom:0.6rem;color:#e2e8f0}" +
+                       "#sw-player:fullscreen .sw-seekbar span{color:#cbd5e1}" +
+                       "#sw-player:fullscreen #sw-seek{background:rgba(148,163,184,.35);outline:1px solid rgba(148,163,184,.4)}" +
+                       "#sw-player .sw-hdr,#sw-player .sw-bar{transition:opacity .35s}" +
+                       "#sw-player.sw-idle .sw-hdr,#sw-player.sw-idle .sw-bar{opacity:0;pointer-events:none}" +
+                       "#sw-player.sw-idle{cursor:none}" +
+                       // попап дорожек: вырастает из кнопки настроек, тонкий тёмный скроллбар
+                       "#sw-tracks-pop{transform-origin:bottom right;transition:transform .18s ease,opacity .18s ease;scrollbar-width:thin;scrollbar-color:#475569 transparent}" +
+                       "#sw-tracks-pop.sw-pop-closed{transform:scale(.75) translateY(8px);opacity:0;pointer-events:none}" +
+                       "#sw-tracks-pop::-webkit-scrollbar{width:6px}" +
+                       "#sw-tracks-pop::-webkit-scrollbar-thumb{background:#475569;border-radius:3px}" +
+                       "#sw-tracks-pop::-webkit-scrollbar-track{background:transparent}";
       document.head.appendChild(st);
     }
     const dl = "/download?path=" + encodeURIComponent(rel);
@@ -293,27 +314,32 @@ const SW = {
         <track id="sw-track" kind="subtitles" label="Субтитры">
       </video>
       <div id="sw-pl-err" class="hidden text-sm text-slate-300 text-center py-2">Не удалось воспроизвести (возможно, видео в H.265/экзотическом кодеке). <a href="${dl}" class="text-sky-400 underline">Скачать</a></div>
-      <div class="sw-bar flex items-center gap-2 text-xs text-slate-400 select-none px-0.5">
+      <div class="sw-bar sw-seekbar flex items-center gap-2 text-xs text-slate-400 select-none px-0.5">
         <span id="sw-cur" class="tabular-nums w-12 text-right">0:00</span>
         <div id="sw-seek" class="flex-1 h-2 bg-slate-700 rounded cursor-pointer relative" onclick="SW.seekTo(event)" title="Клик — перемотка">
           <div id="sw-fill" class="h-full bg-sky-500 rounded" style="width:0%"></div>
         </div>
         <span id="sw-dur" class="tabular-nums w-12">--:--</span>
       </div>
-      <div class="sw-bar flex items-center gap-3 text-slate-300 px-0.5 pb-0.5">
+      <div class="sw-bar sw-btnbar flex items-center gap-3 text-slate-300 px-0.5 pb-0.5">
         <button onclick="SW.plToggle()" class="hover:text-white" title="Воспроизведение/пауза"><i id="sw-pl-icon" class="ti ti-player-pause-filled text-xl"></i></button>
         <button onclick="SW.plMute()" class="hover:text-white" title="Звук"><i id="sw-vol-icon" class="ti ti-volume text-lg"></i></button>
         <input id="sw-vol" type="range" min="0" max="1" step="0.05" value="1" oninput="SW.plVolume(this.value)" class="w-24 accent-sky-500 cursor-pointer">
         <button id="sw-tracks-btn" onclick="SW.plTracksMenu()" class="hover:text-white hidden" title="Аудио и субтитры"><i class="ti ti-adjustments-horizontal text-lg"></i></button>
         <button onclick="SW.plFullscreen()" class="hover:text-white ml-auto" title="Полный экран"><i class="ti ti-maximize text-lg"></i></button>
       </div>
-      <div id="sw-tracks-pop" class="hidden absolute bottom-14 right-3 z-10 bg-slate-800 border border-slate-600 rounded-lg shadow-xl p-2 w-64 max-h-72 overflow-y-auto text-sm" onclick="event.stopPropagation()"></div>
+      <div id="sw-tracks-pop" class="hidden sw-pop-closed absolute z-10 bg-slate-800/95 border border-slate-600 rounded-xl shadow-2xl p-1.5 w-64 max-h-72 overflow-y-auto text-sm" onclick="event.stopPropagation()"></div>
     </div>`;
     m.classList.remove("hidden");
     this._pl = {rel: rel, duration: 0, offset: 0, audio: 0, sub: null, tracks: {audio: [], subs: []}};
     document.addEventListener("keydown", this._plKeydown);
     const v = document.getElementById("sw-vid");
     v.addEventListener("wheel", (e) => { e.preventDefault(); this._volStep(e.deltaY < 0 ? 0.05 : -0.05); }, {passive: false});
+    const player = document.getElementById("sw-player");
+    ["mousemove", "touchstart", "click"].forEach((ev) =>
+      player.addEventListener(ev, () => this._plActivity(), {passive: true}));
+    v.addEventListener("pause", () => this._plActivity());
+    this._plActivity();
     v.src = this._plSrc(0);
     v.addEventListener("timeupdate", () => this._plTick());
     v.addEventListener("play", () => { const i = document.getElementById("sw-pl-icon"); if (i) i.className = "ti ti-player-pause-filled text-xl"; });
@@ -361,9 +387,43 @@ const SW = {
   plTracksMenu() {
     const pop = document.getElementById("sw-tracks-pop");
     if (!pop || !this._pl) return;
-    if (!pop.classList.contains("hidden")) { pop.classList.add("hidden"); return; }
+    if (!pop.classList.contains("hidden")) { this._plPopClose(); return; }
     this._plRenderTracks();
+    // позиционируем попап над кнопкой ⚙ (не выходя за края плеера)
+    // и растим его анимацией ровно из центра кнопки
+    const btn = document.getElementById("sw-tracks-btn"), player = document.getElementById("sw-player");
+    if (btn && player) {
+      const pr = player.getBoundingClientRect(), br = btn.getBoundingClientRect();
+      const popW = 256;  // w-64
+      const btnCenter = br.left + br.width / 2 - pr.left;      // центр кнопки в координатах плеера
+      let left = Math.round(btnCenter - popW / 2);              // попап по центру над кнопкой
+      left = Math.max(8, Math.min(left, pr.width - popW - 8)); // зажать в пределы плеера
+      pop.style.left = left + "px";
+      pop.style.right = "auto";
+      pop.style.bottom = Math.max(8, Math.round(pr.bottom - br.top + 6)) + "px";
+      const originX = Math.max(12, Math.min(popW - 12, Math.round(btnCenter - left)));
+      pop.style.transformOrigin = `${originX}px 100%`;
+    }
     pop.classList.remove("hidden");
+    requestAnimationFrame(() => requestAnimationFrame(() => pop.classList.remove("sw-pop-closed")));
+    // клик мимо попапа закрывает его; слушаем capture-фазу, потому что
+    // контейнер плеера гасит всплытие кликов (stopPropagation)
+    setTimeout(() => {
+      this._plPopCloser = (e) => {
+        if (e.target.closest && e.target.closest("#sw-tracks-pop, #sw-tracks-btn")) return;
+        // закрывающий клик не должен долетать до видео (пауза) и прочих контролов
+        e.stopPropagation(); e.preventDefault();
+        this._plPopClose();
+      };
+      document.addEventListener("click", this._plPopCloser, true);
+    }, 0);
+  },
+  _plPopClose() {
+    const pop = document.getElementById("sw-tracks-pop");
+    if (this._plPopCloser) { document.removeEventListener("click", this._plPopCloser, true); this._plPopCloser = null; }
+    if (!pop || pop.classList.contains("hidden")) return;
+    pop.classList.add("sw-pop-closed");
+    setTimeout(() => pop.classList.add("hidden"), 180);
   },
   // содержимое меню перерисовывается на месте — выбор НЕ закрывает попап,
   // чтобы можно было перебирать дорожки/субтитры подряд
@@ -423,6 +483,18 @@ const SW = {
     m.classList.remove("hidden");
   },
   plToggle() { const v = document.getElementById("sw-vid"); if (!v) return; if (v.paused) v.play().catch(() => {}); else v.pause(); },
+  // автоскрытие контролов: 3с без движения мыши при воспроизведении
+  _plActivity() {
+    const p = document.getElementById("sw-player");
+    if (!p) return;
+    p.classList.remove("sw-idle");
+    clearTimeout(this._plIdleT);
+    this._plIdleT = setTimeout(() => {
+      const v = document.getElementById("sw-vid");
+      const pop = document.getElementById("sw-tracks-pop");
+      if (v && !v.paused && (!pop || pop.classList.contains("hidden"))) p.classList.add("sw-idle");
+    }, 3000);
+  },
   // одиночный клик по кадру — пауза (с задержкой, чтобы не мешать двойному),
   // двойной — полный экран
   plClick() {
@@ -779,7 +851,7 @@ const SW = {
     }
     items.push(["ti-edit","Переименовать",() => SW.rename()]);
     items.push(["ti-arrows-move","Переместить",() => SW.move()]);
-    if (isDir) items.push(["ti-share","Расшарить",() => SW.share(rel, name)]);
+    if (isDir && this.role === "admin") items.push(["ti-share","Расшарить",() => SW.share(rel, name)]);
     items.push(["ti-trash","Удалить",() => SW.del(),"text-red-600"]);
     const menu = document.getElementById("ctxmenu");
     // строим кнопки через DOM, а не innerHTML: имя файла (в т.ч. из чужого
@@ -827,6 +899,7 @@ document.body.addEventListener("refreshBrowser", () => SW.refreshBrowser());
 document.body.addEventListener("refreshSidebar", () => SW.refreshSidebar());
 document.body.addEventListener("closeModal", () => SW.closeModal());
 document.body.addEventListener("reloadUsers", () => SW.openModal("/htmx/users"));
+document.body.addEventListener("reloadSettings", () => SW.openModal("/htmx/settings"));
 document.body.addEventListener("reloadTorrents", () => SW.openTorrents());
 document.body.addEventListener("htmx:afterSwap", (e) => {
   if (e.target && (e.target.id === "sidebar" || e.target.id === "browser")) SW._markActiveDisk();

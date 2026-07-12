@@ -14,6 +14,11 @@ CREATE TABLE IF NOT EXISTS mount_prefs (
     mount_name TEXT NOT NULL,
     auto_mount INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS web_users (
+    username TEXT PRIMARY KEY,
+    pwhash   TEXT NOT NULL,
+    role     TEXT NOT NULL DEFAULT 'user'
+);
 """
 
 def init() -> None:
