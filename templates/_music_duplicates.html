@@ -1,0 +1,40 @@
+<div class="bg-white rounded-xl p-5 w-full max-w-5xl max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
+  <div class="flex items-center justify-between mb-2 shrink-0">
+    <h3 class="font-medium flex items-center gap-2"><i class="ti ti-copy text-amber-500"></i>Дубликаты треков</h3>
+    <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+  </div>
+  <p class="text-[0.6875rem] text-slate-400 mb-3 shrink-0">
+    Одна и та же песня в разных папках. Область поиска:
+    <span class="text-sky-600">{{ scope }}</span>. Удаляй лишние копии — файл стирается с диска.
+  </p>
+
+  {% if not dups %}
+    <p class="text-sm text-slate-400 py-6 text-center">Дубликатов не найдено.</p>
+  {% else %}
+  <div class="flex-1 overflow-y-auto space-y-3">
+    {% for d in dups %}
+      <div class="border border-slate-200 rounded-lg p-2.5">
+        <div class="flex items-center gap-2 mb-1.5">
+          <span class="text-sm font-medium truncate">{{ d.artist or '—' }} — {{ d.title }}</span>
+          <span class="text-[0.625rem] bg-amber-100 text-amber-700 px-1.5 rounded shrink-0">{{ d.n }} копии</span>
+        </div>
+        {% for c in d.copies %}
+          <div class="flex items-start gap-2 text-[0.75rem] py-1 border-t border-slate-100 first:border-0">
+            <i class="ti ti-file-music text-slate-400 shrink-0 mt-0.5"></i>
+            <span class="flex-1 min-w-0 text-slate-500 break-all leading-snug">{{ c.path }}</span>
+            <span class="text-slate-400 shrink-0 tabular-nums mt-0.5">{{ (c.size / 1048576)|round(1) }} МБ</span>
+            <button title="Воспроизвести" data-play="{{ c.id }}" data-label="{{ d.artist }} — {{ d.title }}"
+                    class="shrink-0 w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white grid place-items-center"
+                    onclick="SW.musPlayOne({{ c.id }}, {{ (d.artist ~ ' — ' ~ d.title)|tojson|forceescape }})">
+              <i class="ti ti-player-play-filled text-base"></i></button>
+            <button title="Удалить эту копию" data-del="{{ c.id }}"
+                    class="shrink-0 w-8 h-8 rounded-full bg-slate-100 hover:bg-red-600 text-slate-500 hover:text-white grid place-items-center"
+                    onclick="SW.musDeleteDup({{ c.id }}, {{ c.path|tojson|forceescape }}, this)">
+              <i class="ti ti-trash text-base"></i></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>

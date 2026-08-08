@@ -19,6 +19,26 @@ CREATE TABLE IF NOT EXISTS web_users (
     pwhash   TEXT NOT NULL,
     role     TEXT NOT NULL DEFAULT 'user'
 );
+CREATE TABLE IF NOT EXISTS tracks (
+    id          INTEGER PRIMARY KEY,
+    path        TEXT NOT NULL UNIQUE,
+    title       TEXT NOT NULL DEFAULT '',
+    artist      TEXT NOT NULL DEFAULT '',
+    album       TEXT NOT NULL DEFAULT '',
+    albumartist TEXT NOT NULL DEFAULT '',
+    genre       TEXT NOT NULL DEFAULT '',
+    year        INTEGER NOT NULL DEFAULT 0,
+    track_no    INTEGER NOT NULL DEFAULT 0,
+    duration    REAL    NOT NULL DEFAULT 0,
+    bitrate     INTEGER NOT NULL DEFAULT 0,
+    size        INTEGER NOT NULL DEFAULT 0,
+    mtime       REAL    NOT NULL DEFAULT 0,
+    has_cover   INTEGER NOT NULL DEFAULT 0,
+    added       REAL    NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
+CREATE INDEX IF NOT EXISTS idx_tracks_album  ON tracks(album);
+CREATE INDEX IF NOT EXISTS idx_tracks_title  ON tracks(title);
 """
 
 def init() -> None:

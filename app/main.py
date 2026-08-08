@@ -10,14 +10,14 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "1.4"
+APP_VERSION = "1.5"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.sessions import SessionMiddleware
-from . import auth, db, disks, browse, samba, fileops, portcfg, dlna, torrent, shell
+from . import auth, db, disks, browse, samba, fileops, portcfg, dlna, torrent, shell, music
 from .config import MOUNT_ROOT, DATA_DIR
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -186,6 +186,7 @@ async def htmx_sidebar(request: Request, _: str = Depends(current_user)):
         "request": request, "partitions": partitions, "shares": shares,
         "orphan_shares": orphan_shares, "stale": disks.list_stale_mounts(),
         "dlna": dlna.status(), "torrent": torrent.status(), "mount_root": root,
+        "music": music.stats(),
         "role": current_role(request),
     })
 
@@ -684,6 +685,20 @@ async def htmx_set_port(request: Request, _: str = Depends(require_admin), port:
     return _resp(request, ok, msg, ["closeModal"] if ok else [])
 
 
+@app.get("/htmx/dlna-page", response_class=HTMLResponse)
+async def htmx_dlna_page(request: Request, _: str = Depends(current_user)):
+    root = str(MOUNT_ROOT)
+    dirs = [{"abs": root, "label": "Все диски"}] +            [{"abs": str(MOUNT_ROOT / r), "label": r} for r in fileops.list_dirs_under_mounts()]
+    return templates.TemplateResponse("_dlna_page.html", {
+        "request": request, "st": dlna.status(), "mount_root": root,
+        "media_dir": dlna.media_dir(), "dirs": dirs, "role": current_role(request),
+    })
+
+@app.post("/htmx/dlna-dir", response_class=HTMLResponse)
+async def htmx_dlna_dir(request: Request, _: str = Depends(require_admin), dir: str = Form(...)):
+    ok, msg = await asyncio.to_thread(dlna.set_media_dir, dir)
+    return _resp(request, ok, msg if not ok else "Папка трансляции обновлена", ["reloadDlna"] if ok else [])
+
 @app.get("/htmx/dlna", response_class=HTMLResponse)
 async def htmx_dlna(request: Request, _: str = Depends(current_user)):
     return templates.TemplateResponse("_dlna.html", {
@@ -693,12 +708,12 @@ async def htmx_dlna(request: Request, _: str = Depends(current_user)):
 @app.post("/htmx/dlna-toggle", response_class=HTMLResponse)
 async def htmx_dlna_toggle(request: Request, _: str = Depends(current_user), enable: str = Form("no")):
     ok, msg = dlna.enable() if enable == "yes" else dlna.disable()
-    return _resp(request, ok, msg, ["refreshSidebar"] if ok else [])
+    return _resp(request, ok, msg, ["refreshSidebar", "reloadDlna"] if ok else [])
 
 @app.post("/htmx/dlna-rescan", response_class=HTMLResponse)
 async def htmx_dlna_rescan(request: Request, _: str = Depends(current_user)):
     ok, msg = dlna.rescan()
-    return _resp(request, ok, msg, ["refreshSidebar"])
+    return _resp(request, ok, msg, ["refreshSidebar", "reloadDlna"])
 
 
 # ---------- torrents ----------
@@ -721,11 +736,35 @@ async def htmx_torrent_dest(request: Request, _: str = Depends(current_user)):
 
 @app.get("/htmx/torrents-list", response_class=HTMLResponse)
 async def htmx_torrents_list(request: Request, _: str = Depends(current_user),
-                             sort: str = "name", dir: str = "asc"):
+                             sort: str = "name", dir: str = "asc",
+                             filter: str = "all", q: str = ""):
     torrents = await asyncio.to_thread(torrent.list_torrents)
+    codes = torrent.FILTERS.get(filter)
+    if codes:
+        torrents = [t for t in torrents if t["_code"] in codes]
+    q = q.strip().lower()
+    if q:
+        torrents = [t for t in torrents if q in t["name"].lower()]
     key = torrent.SORT_KEYS.get(sort, torrent.SORT_KEYS["name"])
     torrents.sort(key=key, reverse=(dir == "desc"))
     return templates.TemplateResponse("_torrents_list.html", {"request": request, "torrents": torrents})
+
+@app.get("/htmx/torrents-stats", response_class=HTMLResponse)
+async def htmx_torrents_stats(request: Request, _: str = Depends(current_user)):
+    s = await asyncio.to_thread(torrent.stats)
+    if not s:
+        return HTMLResponse("")
+    alt = '<span class="text-amber-500" title="Тихий режим включён"><i class="ti ti-tortoise"></i></span>' if s["alt"] else ""
+    return HTMLResponse(
+        f'<span>{s["count"]} торрентов · активных {s["active"]}</span>'
+        f'<span class="text-sky-600 ml-auto"><i class="ti ti-arrow-down"></i>{s["down"]}</span>'
+        f'<span class="text-emerald-600"><i class="ti ti-arrow-up"></i>{s["up"]}</span>{alt}')
+
+@app.post("/htmx/torrent-move", response_class=HTMLResponse)
+async def htmx_torrent_move(request: Request, _: str = Depends(current_user),
+                            id: int = Form(...), dir: str = Form(...)):
+    ok, msg = await asyncio.to_thread(torrent.set_location, id, dir)
+    return _resp(request, ok, msg, [])
 
 @app.get("/htmx/torrent-files", response_class=HTMLResponse)
 async def htmx_torrent_files(request: Request, _: str = Depends(current_user), id: int = 0):
@@ -801,7 +840,11 @@ async def htmx_torrent_upload(request: Request, _: str = Depends(current_user),
 @app.post("/htmx/torrent-action", response_class=HTMLResponse)
 async def htmx_torrent_action(request: Request, _: str = Depends(current_user),
                               id: int = Form(...), action: str = Form(...)):
-    if action == "start":
+    if action == "start-all":
+        ok, msg = torrent.start_all()
+    elif action == "stop-all":
+        ok, msg = torrent.stop_all()
+    elif action == "start":
         ok, msg = torrent.start(id)
     elif action == "stop":
         ok, msg = torrent.stop(id)
@@ -812,6 +855,113 @@ async def htmx_torrent_action(request: Request, _: str = Depends(current_user),
     else:
         ok, msg = False, "неизвестное действие"
     return _resp(request, ok, msg, [])
+
+
+# ---------- music ----------
+
+MUSIC_PAGE_SIZE = 100
+
+@app.get("/htmx/music-page", response_class=HTMLResponse)
+async def htmx_music_page(request: Request, _: str = Depends(current_user)):
+    return templates.TemplateResponse("_music_page.html", {
+        "request": request, "st": await asyncio.to_thread(music.stats),
+        "library": music.library_path(), "role": current_role(request),
+        "dirs": [{"abs": str(MOUNT_ROOT / r), "label": r} for r in fileops.list_dirs_under_mounts()],
+    })
+
+@app.get("/htmx/music-tracks", response_class=HTMLResponse)
+async def htmx_music_tracks(request: Request, _: str = Depends(current_user),
+                            q: str = "", sort: str = "artist", desc: str = "no",
+                            artist: str = "", album: str = "", folder: str = "", page: int = 1):
+    page = max(1, page)
+    tracks, total = await asyncio.to_thread(
+        music.list_tracks, q.strip(), sort, desc == "yes", artist, album, folder,
+        MUSIC_PAGE_SIZE, (page - 1) * MUSIC_PAGE_SIZE)
+    return templates.TemplateResponse("_music_tracks.html", {
+        "request": request, "tracks": tracks, "total": total, "page": page,
+        "pages": max(1, (total + MUSIC_PAGE_SIZE - 1) // MUSIC_PAGE_SIZE),
+        "sort": sort, "desc": desc == "yes", "artist": artist, "album": album,
+        "folder": folder, "role": current_role(request),
+    })
+
+@app.get("/htmx/music-lists", response_class=HTMLResponse)
+async def htmx_music_lists(request: Request, _: str = Depends(current_user),
+                           artist: str = "", album: str = "", folder: str = ""):
+    folders, artists, albums = await asyncio.gather(
+        asyncio.to_thread(music.list_folders),
+        asyncio.to_thread(music.list_artists),
+        asyncio.to_thread(music.list_albums, artist))
+    return templates.TemplateResponse("_music_lists.html", {
+        "request": request, "folders": folders, "artists": artists, "albums": albums,
+        "cur_artist": artist, "cur_album": album, "cur_folder": folder,
+    })
+
+@app.get("/htmx/music-scan-status", response_class=HTMLResponse)
+async def htmx_music_scan_status(request: Request, _: str = Depends(current_user)):
+    s = music.scan_state()
+    if not s["running"]:
+        if s["error"]:
+            return HTMLResponse(f'<span class="text-red-500">Ошибка: {s["error"]}</span>')
+        return HTMLResponse("")
+    pct = round(s["done"] / s["found"] * 100) if s["found"] else 0
+    return HTMLResponse(
+        f'<i class="ti ti-loader-2 animate-spin text-sky-500"></i>'
+        f'<span class="text-sky-600">Сканирую… {s["done"]}/{s["found"]} ({pct}%)</span>'
+        f'<div class="w-32 h-1.5 bg-slate-200 rounded overflow-hidden">'
+        f'<div class="h-full bg-sky-500" style="width:{pct}%"></div></div>')
+
+@app.post("/htmx/music-scan", response_class=HTMLResponse)
+async def htmx_music_scan(request: Request, _: str = Depends(require_admin), full: str = "no"):
+    ok, msg = music.start_scan(full == "yes")
+    return _resp(request, ok, msg, [])
+
+@app.post("/htmx/music-library", response_class=HTMLResponse)
+async def htmx_music_library(request: Request, _: str = Depends(require_admin), dir: str = Form(...)):
+    ok, msg = music.set_library_path(dir)
+    if ok:
+        music.start_scan(False)
+        msg = "Библиотека сохранена — сканирую…"
+    return _resp(request, ok, msg, ["reloadMusic"] if ok else [])
+
+@app.get("/htmx/music-library-picker", response_class=HTMLResponse)
+async def htmx_music_library_picker(request: Request, _: str = Depends(require_admin)):
+    root = str(MOUNT_ROOT)
+    items = [{"abs": root, "label": "Все диски", "depth": 0}]
+    items += [{"abs": str(MOUNT_ROOT / r), "label": r.split("/")[-1], "depth": r.count("/") + 1}
+              for r in fileops.list_dirs_under_mounts()]
+    return templates.TemplateResponse("_music_library.html", {
+        "request": request, "items": items, "current": music.library_path(),
+    })
+
+@app.get("/htmx/music-duplicates", response_class=HTMLResponse)
+async def htmx_music_duplicates(request: Request, _: str = Depends(current_user),
+                                folder: str = "", artist: str = "", album: str = ""):
+    dups = await asyncio.to_thread(music.find_duplicates, folder, artist, album)
+    scope = folder.split("/")[-1] if folder else (album or artist or "вся библиотека")
+    return templates.TemplateResponse("_music_duplicates.html", {
+        "request": request, "dups": dups, "scope": scope,
+    })
+
+@app.get("/music-cover/{track_id}")
+async def music_cover(track_id: int, request: Request, _: str = Depends(current_user)):
+    f = music.cover_file(track_id)
+    if not f:
+        raise HTTPException(status_code=404, detail="нет обложки")
+    return FileResponse(str(f), media_type="image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+@app.get("/music-audio/{track_id}")
+async def music_audio(track_id: int, request: Request, _: str = Depends(current_user)):
+    track = music.get_track(track_id)
+    if not track or not Path(track["path"]).is_file():
+        raise HTTPException(status_code=404, detail="трек не найден")
+    mime, _enc = mimetypes.guess_type(track["path"])
+    return FileResponse(track["path"], media_type=mime or "audio/mpeg")
+
+@app.post("/htmx/music-delete", response_class=HTMLResponse)
+async def htmx_music_delete(request: Request, _: str = Depends(current_user), id: int = Form(...)):
+    ok, msg = await asyncio.to_thread(music.delete_track, id)
+    return _resp(request, ok, msg, ["refreshMusicTracks"] if ok else [])
 
 
 @app.get("/healthz", response_class=PlainTextResponse)

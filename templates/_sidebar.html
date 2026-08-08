@@ -92,7 +92,7 @@
   {% endfor %}
 
   <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-slate-400">История дисков</div>
-  {% if not stale %}
+  {% if not stale and not (orphan_shares and role == 'admin') %}
     <div class="px-2 text-xs text-slate-400">Пусто — отключённых дисков нет.</div>
   {% endif %}
   {% for s in stale %}
@@ -107,48 +107,38 @@
       {% endif %}
     </div>
   {% endfor %}
-
-  {% if orphan_shares and role == 'admin' %}
-  <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-amber-600">Шары без активного диска</div>
+  {# шары отключённых дисков — тоже часть «истории» #}
+  {% if role == 'admin' %}
   {% for sh in orphan_shares %}
     {% set sh_w = sh.write_list or (sh.guest_ok and not sh.read_only) %}
     <button class="w-full rounded-lg hover:bg-slate-50 px-2 py-1.5 flex items-center gap-2 text-left"
+            title="Шара отключённого диска — заработает после подключения диска"
             onclick="SW.openModal('/htmx/share-edit?name={{ sh.name|urlencode }}')">
       <i class="ti ti-folder-share text-amber-500 text-lg shrink-0"></i>
-      <span class="flex-1 min-w-0 truncate text-sm">{{ sh.name }}</span>
+      <span class="flex-1 min-w-0 truncate text-sm text-slate-500">{{ sh.name }}</span>
       <span class="text-[0.625rem] {{ 'bg-emerald-100 text-emerald-700' if sh_w else 'bg-slate-100 text-slate-500' }} px-1.5 rounded shrink-0">{{ 'чт+зап' if sh_w else 'чтение' }}</span>
     </button>
   {% endfor %}
   {% endif %}
 
-  <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-slate-400">DLNA для телевизора</div>
-  <div class="px-2 py-1.5 flex items-center gap-2">
+  <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-slate-400">Сервисы</div>
+  <button id="sw-item-dlna" class="disk-row w-full px-2 py-1.5 flex items-center gap-2 rounded-lg hover:bg-slate-50 text-left"
+          onclick="SW.openDlna()">
     <i class="ti ti-device-tv {{ 'text-sky-600' if dlna.active else 'text-slate-400' }} text-lg"></i>
-    <span class="flex-1 min-w-0">
-      <span class="text-sm block">Медиасервер</span>
-      <span class="text-[0.6875rem] {{ 'text-emerald-600' if dlna.active else 'text-slate-400' }}">{{ 'работает' if dlna.active else 'выключен' }}</span>
-    </span>
-    {% if not dlna.installed %}
-      <span class="text-[0.625rem] text-slate-400">не установлен</span>
-    {% elif dlna.active %}
-      <button title="Пересканировать" class="text-slate-400 hover:text-sky-600" onclick="SW.post('/htmx/dlna-rescan',{})"><i class="ti ti-refresh text-base"></i></button>
-      <button class="text-[0.6875rem] text-red-600 hover:underline" onclick="SW.post('/htmx/dlna-toggle',{enable:'no'})">выключить</button>
-    {% else %}
-      <button class="text-[0.6875rem] text-emerald-600 hover:underline" onclick="SW.post('/htmx/dlna-toggle',{enable:'yes'})">включить</button>
-    {% endif %}
-  </div>
-
-  <div class="px-2 pt-4 pb-2 text-[0.6875rem] uppercase tracking-wide text-slate-400">Торренты</div>
-  <button class="w-full px-2 py-1.5 flex items-center gap-2 rounded-lg hover:bg-slate-50 text-left"
+    <span class="flex-1 text-sm {{ '' if dlna.active else 'text-slate-400' }}">DLNA</span>
+    {% if dlna.active %}<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>{% endif %}
+  </button>
+  <button id="sw-item-music" class="disk-row w-full px-2 py-1.5 flex items-center gap-2 rounded-lg hover:bg-slate-50 text-left"
+          onclick="SW.openMusic()">
+    <i class="ti ti-music {{ 'text-sky-600' if music.tracks else 'text-slate-400' }} text-lg"></i>
+    <span class="flex-1 text-sm {{ '' if music.tracks else 'text-slate-400' }}">Музыка</span>
+    {% if music.tracks %}<span class="text-[0.625rem] text-slate-400 shrink-0">{{ music.tracks }}</span>{% endif %}
+  </button>
+  <button id="sw-item-torrent" class="disk-row w-full px-2 py-1.5 flex items-center gap-2 rounded-lg hover:bg-slate-50 text-left"
           onclick="SW.openTorrents()">
     <i class="ti ti-download {{ 'text-sky-600' if torrent.active else 'text-slate-400' }} text-lg"></i>
-    <span class="flex-1 min-w-0">
-      <span class="text-sm block">Торрент-клиент</span>
-      <span class="text-[0.6875rem] {{ 'text-emerald-600' if torrent.active else 'text-slate-400' }}">
-        {% if not torrent.installed %}не установлен{% elif torrent.active %}работает{% if torrent.count %} · {{ torrent.count }}{% endif %}{% else %}выключен{% endif %}
-      </span>
-    </span>
-    <i class="ti ti-chevron-right text-slate-300"></i>
+    <span class="flex-1 text-sm {{ '' if torrent.active else 'text-slate-400' }}">Торрент</span>
+    {% if torrent.active %}<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>{% endif %}
   </button>
 
 </div>

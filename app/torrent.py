@@ -179,11 +179,58 @@ def list_torrents() -> list[dict]:
             "peers": t.get("peersGettingFromUs", 0),
             "ratio": round(ratio, 2) if ratio >= 0 else 0.0,
             "seq": bool(t.get("sequential_download")),
-            # сырые значения для сортировки
+            # сырые значения для сортировки и фильтров
             "_size": t.get("totalSize", 0), "_down": t.get("rateDownload", 0),
             "_up": t.get("rateUpload", 0), "_eta": t.get("eta", -1),
+            "_code": t.get("status", 0),
         })
     return out
+
+# фильтры списка: по статус-кодам transmission
+FILTERS = {
+    "down": {1, 2, 3, 4},   # проверка/очередь/качается
+    "seed": {5, 6},          # раздаётся
+    "stop": {0},             # остановлен
+}
+
+def stats() -> dict | None:
+    """Суммарные скорости и счётчики + состояние тихого режима."""
+    try:
+        s = _rpc("session-stats")
+        alt = _rpc("session-get", {"fields": ["alt-speed-enabled"]}).get("alt-speed-enabled", False)
+    except TorrentError:
+        return None
+    return {
+        "down": _human_rate(s.get("downloadSpeed", 0)) or "0",
+        "up": _human_rate(s.get("uploadSpeed", 0)) or "0",
+        "count": s.get("torrentCount", 0),
+        "active": s.get("activeTorrentCount", 0),
+        "alt": bool(alt),
+    }
+
+def start_all() -> tuple[bool, str]:
+    try:
+        _rpc("torrent-start")  # без ids = все
+    except TorrentError as e:
+        return False, str(e)
+    return True, "Все торренты запущены"
+
+def stop_all() -> tuple[bool, str]:
+    try:
+        _rpc("torrent-stop")
+    except TorrentError as e:
+        return False, str(e)
+    return True, "Все торренты приостановлены"
+
+def set_location(tid: int, download_dir: str) -> tuple[bool, str]:
+    """Переместить данные торрента в другую папку (transmission переносит сам)."""
+    try:
+        target = _valid_dir(download_dir)
+        _rpc("torrent-set-location", {"ids": [tid], "location": str(target), "move": True},
+             timeout=30)
+    except TorrentError as e:
+        return False, str(e)
+    return True, "Перемещение запущено — файлы переедут в фоне"
 
 SORT_KEYS = {
     "name": lambda t: t["name"].lower(), "pct": lambda t: t["pct"],
@@ -228,7 +275,8 @@ def get_details(tid: int) -> dict | None:
     try:
         r = _rpc("torrent-get", {"ids": [tid], "fields":
                  ["id", "name", "downloadDir", "files", "fileStats",
-                  "sequential_download", "percentDone", "status"]})
+                  "sequential_download", "percentDone", "status",
+                  "addedDate", "trackerStats"]})
     except TorrentError:
         return None
     ts = r.get("torrents", [])
@@ -259,7 +307,18 @@ def get_details(tid: int) -> dict | None:
             "prio": _PRIO.get(st.get("priority", 0), "normal"),
             "rel": rel, "media": is_media, "playable": playable,
         })
-    return {"id": t.get("id"), "name": t.get("name", "?"), "seq": seq, "files": files}
+    added = ""
+    if t.get("addedDate"):
+        import datetime
+        added = datetime.datetime.fromtimestamp(t["addedDate"]).strftime("%d.%m.%Y %H:%M")
+    trackers = []
+    for ts in (t.get("trackerStats") or [])[:3]:
+        msg = (ts.get("lastAnnounceResult") or "").strip()
+        trackers.append({"host": ts.get("host", "?"),
+                         "ok": bool(ts.get("lastAnnounceSucceeded")),
+                         "msg": msg if msg.lower() != "success" else ""})
+    return {"id": t.get("id"), "name": t.get("name", "?"), "seq": seq, "files": files,
+            "dir": ddir, "added": added, "trackers": trackers}
 
 def set_sequential(tid: int, on: bool) -> tuple[bool, str]:
     try:

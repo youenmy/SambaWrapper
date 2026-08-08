@@ -1,0 +1,55 @@
+<div class="flex items-center gap-2 px-3 h-12 border-b border-slate-200 shrink-0">
+  <i class="ti ti-device-tv text-sky-600 text-lg"></i>
+  <span class="font-medium text-sm">DLNA — медиасервер для телевизора</span>
+  {% if st.installed and st.active %}
+    <span class="text-[0.6875rem] text-emerald-600 flex items-center gap-1"><i class="ti ti-circle-filled text-[0.5rem]"></i>работает</span>
+  {% elif st.installed %}
+    <span class="text-[0.6875rem] text-slate-400 flex items-center gap-1"><i class="ti ti-circle text-[0.5rem]"></i>выключен</span>
+  {% endif %}
+</div>
+
+{% if not st.installed %}
+  <div class="p-6 text-sm text-slate-500">
+    Пакет <code>minidlna</code> не установлен. Поставь его (<code>apt install minidlna</code>) и обнови страницу.
+  </div>
+{% elif not st.active %}
+  <div class="m-auto text-center text-slate-400 text-sm flex flex-col items-center gap-3 px-4">
+    <i class="ti ti-device-tv-off text-3xl"></i>
+    <span>Медиасервер выключен.<br>После включения телевизор увидит источник «SambaWrapper» со всем содержимым дисков.</span>
+    <button class="px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-sm"
+            onclick="SW.post('/htmx/dlna-toggle',{enable:'yes'})">Включить DLNA</button>
+  </div>
+{% else %}
+  <div class="p-6 max-w-lg space-y-4">
+    <p class="text-sm text-slate-500">
+      Транслирует <code>{{ media_dir }}</code> в локальную сеть.
+      На телевизоре сервер виден в источниках под именем <b>«SambaWrapper»</b>.
+    </p>
+
+    {% if role == 'admin' %}
+    <div class="border border-slate-200 rounded-lg p-3 space-y-2">
+      <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400">Что транслировать</div>
+      <div class="flex gap-2">
+        <select id="dlna-dir" class="flex-1 min-w-0 border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+          {% for d in dirs %}
+            <option value="{{ d.abs }}" {% if d.abs == media_dir %}selected{% endif %}>{{ d.label }}</option>
+          {% endfor %}
+        </select>
+        <button class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm shrink-0"
+                onclick="SW.post('/htmx/dlna-dir',{dir:document.getElementById('dlna-dir').value})">Сохранить</button>
+      </div>
+      <p class="text-[0.6875rem] text-slate-400">После смены папки медиатека пересканируется автоматически.</p>
+    </div>
+    {% endif %}
+
+    <p class="text-[0.8125rem] text-slate-400">
+      Если новые файлы не появились на телевизоре — запусти пересканирование медиатеки.
+    </p>
+    <div class="flex gap-2">
+      <button class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
+              onclick="SW.post('/htmx/dlna-rescan',{})"><i class="ti ti-refresh"></i> Пересканировать</button>
+      <button class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm ml-auto"
+              onclick="SW.post('/htmx/dlna-toggle',{enable:'no'})">Выключить</button>
+    </div>
+  </div>
+{% endif %}

@@ -1,0 +1,27 @@
+<div class="bg-white rounded-xl p-5 w-full max-w-md max-h-[80vh] flex flex-col" onclick="event.stopPropagation()">
+  <div class="flex items-center justify-between mb-3 shrink-0">
+    <h3 class="font-medium flex items-center gap-2"><i class="ti ti-folder text-sky-600"></i>Папка с музыкой</h3>
+    <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+  </div>
+  <p class="text-[0.6875rem] text-slate-400 mb-3 shrink-0">
+    Выбранная папка сканируется целиком, включая подпапки. Сейчас: <code>{{ current }}</code>
+  </p>
+
+  <div class="flex-1 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+    {% for it in items %}
+      <button class="w-full flex items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-sky-50
+                     {{ 'bg-sky-50' if it.abs == current else '' }}"
+              style="padding-left:{{ 0.5 + it.depth * 1.1 }}rem"
+              onclick="SW.post('/htmx/music-library',{dir:{{ it.abs|tojson|forceescape }}}); SW.closeModal()">
+        {% if it.depth == 0 %}
+          <i class="ti ti-server text-sky-600 shrink-0"></i><span class="truncate font-medium">{{ it.label }}</span>
+        {% elif it.depth == 1 %}
+          <i class="ti ti-disc text-sky-600 shrink-0"></i><span class="truncate">{{ it.label }}</span>
+        {% else %}
+          <i class="ti ti-folder text-slate-400 shrink-0"></i><span class="truncate">{{ it.label }}</span>
+        {% endif %}
+        {% if it.abs == current %}<i class="ti ti-check text-emerald-600 ml-auto shrink-0"></i>{% endif %}
+      </button>
+    {% endfor %}
+  </div>
+</div>

@@ -7,7 +7,18 @@
            onchange="SW.post('/htmx/torrent-seq',{id:{{ t.id }},on:this.checked?'yes':'no'})">
     последовательно
   </label>
+  <button class="text-slate-400 hover:text-sky-600 shrink-0 flex items-center gap-1 text-xs" title="Переместить файлы в другую папку"
+          onclick="SW.trMove({{ t.id }})"><i class="ti ti-folder-symlink text-base"></i>переместить</button>
   <button class="text-slate-400 hover:text-slate-700 shrink-0" title="Скрыть" onclick="SW.trSelect(0)"><i class="ti ti-x"></i></button>
+</div>
+<div class="px-3 py-1 flex items-center gap-3 border-b border-slate-100 text-[0.6875rem] text-slate-400 flex-wrap">
+  <span title="Папка"><i class="ti ti-folder"></i> {{ t.dir }}</span>
+  {% if t.added %}<span title="Добавлен"><i class="ti ti-calendar-plus"></i> {{ t.added }}</span>{% endif %}
+  {% for tr in t.trackers %}
+    <span title="Трекер {{ tr.host }}{% if tr.msg %}: {{ tr.msg }}{% endif %}" class="{{ 'text-emerald-600' if tr.ok else 'text-red-500' }}">
+      <i class="ti {{ 'ti-circle-check' if tr.ok else 'ti-alert-circle' }}"></i> {{ tr.host }}{% if tr.msg %} — {{ tr.msg }}{% endif %}
+    </span>
+  {% endfor %}
 </div>
 
 <table class="w-full text-[0.8125rem] border-collapse">

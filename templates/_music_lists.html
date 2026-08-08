@@ -1,0 +1,45 @@
+<div class="p-2 space-y-0.5">
+  <button class="w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-sm flex items-center gap-2"
+          onclick="SW.musClear()">
+    <i class="ti ti-list text-sky-600"></i>Все треки
+  </button>
+
+  <div class="px-2 pt-3 pb-1 text-[0.6875rem] uppercase tracking-wide text-slate-400">Папки библиотеки</div>
+  {% if not folders %}<div class="px-2 text-xs text-slate-400">Нет подпапок.</div>{% endif %}
+  {% for f in folders %}
+    <button class="mus-item w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-[0.8125rem] flex items-center gap-1.5 {{ 'mus-on' if f.abs == cur_folder else '' }}"
+            data-folder="{{ f.abs }}"
+            onclick="SW.musFilterFolder({{ f.abs|tojson|forceescape }})" title="{{ f.abs }}">
+      <i class="ti ti-folder text-amber-500 shrink-0"></i>
+      <span class="flex-1 min-w-0 truncate">{{ f.name }}</span>
+      <span class="text-[0.625rem] text-slate-400 shrink-0">{{ f.n }}</span>
+    </button>
+  {% endfor %}
+
+  <div class="px-2 pt-3 pb-1 text-[0.6875rem] uppercase tracking-wide text-slate-400">Исполнители</div>
+  {% if not artists %}<div class="px-2 text-xs text-slate-400">Пусто — запусти сканирование.</div>{% endif %}
+  {% for a in artists %}
+    <button class="mus-item w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-[0.8125rem] flex items-center gap-1.5 {{ 'mus-on' if a.artist == cur_artist else '' }}"
+            data-artist="{{ a.artist }}"
+            onclick="SW.musFilterArtist({{ a.artist|tojson|forceescape }})">
+      <i class="ti ti-user text-slate-400 shrink-0"></i>
+      <span class="flex-1 min-w-0 truncate">{{ a.artist }}</span>
+      <span class="text-[0.625rem] text-slate-400 shrink-0">{{ a.n }}</span>
+    </button>
+  {% endfor %}
+
+  <div class="px-2 pt-3 pb-1 text-[0.6875rem] uppercase tracking-wide text-slate-400">Альбомы</div>
+  {% for al in albums %}
+    <button class="mus-item w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-[0.8125rem] flex items-center gap-1.5 {{ 'mus-on' if al.album == cur_album else '' }}"
+            data-album="{{ al.album }}"
+            onclick="SW.musFilterAlbum({{ al.album|tojson|forceescape }})">
+      {% if al.cover_id %}
+        <img src="/music-cover/{{ al.cover_id }}" alt="" class="w-5 h-5 rounded object-cover shrink-0" loading="lazy">
+      {% else %}
+        <i class="ti ti-disc text-slate-400 shrink-0"></i>
+      {% endif %}
+      <span class="flex-1 min-w-0 truncate">{{ al.album }}</span>
+      <span class="text-[0.625rem] text-slate-400 shrink-0">{{ al.n }}</span>
+    </button>
+  {% endfor %}
+</div>

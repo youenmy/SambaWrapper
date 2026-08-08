@@ -1,70 +1,93 @@
-<div class="bg-white rounded-xl p-5 w-full max-w-md" onclick="event.stopPropagation()">
-  <div class="flex items-center justify-between mb-4">
+<div class="bg-white rounded-xl p-5 w-full max-w-md max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
+  <div class="flex items-center justify-between mb-3 shrink-0">
     <h3 class="font-medium flex items-center gap-2"><i class="ti ti-settings text-slate-500"></i>Настройки</h3>
     <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
   </div>
 
-  <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Учётная запись веб-интерфейса</div>
-  <form hx-post="/htmx/admin-account" hx-target="#toast-host" hx-swap="beforeend" class="space-y-3 mb-6">
-    <label class="block text-sm text-slate-500">Логин
-      <input name="username" required pattern="[A-Za-z0-9_.\-]{2,32}" value="{{ username }}"
-             class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"></label>
-    <label class="block text-sm text-slate-500">Новый пароль <span class="text-slate-400">(пусто — не менять)</span>
-      <input type="password" name="password" minlength="8" autocomplete="new-password" placeholder="••••••••"
-             class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"></label>
-    <div class="flex justify-end"><button class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm">Сохранить</button></div>
-  </form>
-
-  <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Пользователи веб-интерфейса</div>
-  <div class="space-y-1 mb-3">
-    {% if not web_users %}
-      <div class="text-xs text-slate-400">Дополнительных пользователей нет. Создай учётку с ролью «пользователь» для друга — без управления дисками и настройками.</div>
-    {% endif %}
-    {% for u in web_users %}
-      <div class="flex items-center gap-2 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5">
-        <i class="ti ti-user text-slate-400"></i>
-        <span class="flex-1 truncate">{{ u.username }}</span>
-        <span class="text-[0.625rem] px-1.5 rounded {{ 'bg-sky-100 text-sky-700' if u.role == 'admin' else 'bg-slate-100 text-slate-500' }}">{{ 'админ' if u.role == 'admin' else 'пользователь' }}</span>
-        <button title="Сменить пароль" class="text-slate-400 hover:text-sky-600"
-                onclick="SW.prompt('Новый пароль для «{{ u.username }}» (мин. 8 символов)', '', (p) => { if (p && p.length >= 8) SW.post('/htmx/webuser-passwd', {username: {{ u.username|tojson|forceescape }}, password: p}); else if (p) SW.toast('Минимум 8 символов'); })">
-          <i class="ti ti-key text-base"></i></button>
-        <button title="Удалить" class="text-slate-400 hover:text-red-600"
-                onclick="SW.confirm('Удалить пользователя «{{ u.username }}»?', () => SW.post('/htmx/webuser-delete', {username: {{ u.username|tojson|forceescape }}}), {ok: 'Удалить', danger: true})">
-          <i class="ti ti-trash text-base"></i></button>
-      </div>
-    {% endfor %}
+  <div class="flex gap-1 border-b border-slate-200 mb-4 shrink-0 text-sm">
+    <button class="st-tab px-3 py-1.5 rounded-t-lg border-b-2 border-sky-600 text-sky-600" data-tab="general"
+            onclick="SW.settingsTab('general')">Общие</button>
+    <button class="st-tab px-3 py-1.5 rounded-t-lg border-b-2 border-transparent text-slate-500 hover:text-slate-700" data-tab="accounts"
+            onclick="SW.settingsTab('accounts')">Учётные записи</button>
+    <button class="st-tab px-3 py-1.5 rounded-t-lg border-b-2 border-transparent text-slate-500 hover:text-slate-700" data-tab="samba"
+            onclick="SW.settingsTab('samba')">Доступ Samba</button>
   </div>
-  <form hx-post="/htmx/webuser-add" hx-target="#toast-host" hx-swap="beforeend" class="flex gap-2 mb-6">
-    <input name="username" required pattern="[A-Za-z0-9_.\-]{2,32}" placeholder="логин"
-           class="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
-    <input type="password" name="password" required minlength="8" placeholder="пароль (≥8)" autocomplete="new-password"
-           class="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
-    <select name="role" class="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-      <option value="user">пользователь</option>
-      <option value="admin">админ</option>
-    </select>
-    <button class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm shrink-0"><i class="ti ti-plus"></i></button>
-  </form>
 
-  <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Порт веб-интерфейса</div>
-  <form hx-post="/htmx/set-port" hx-target="#toast-host" hx-swap="beforeend" class="flex gap-2 mb-1">
-    <input type="number" name="port" min="1024" max="65535" required value="{{ port }}"
-           class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm">
-    <button class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm">Сменить</button>
-  </form>
-  <p class="text-[0.6875rem] text-slate-400 mb-6">После смены порта сервис перезапустится — переподключись на новый адрес.</p>
+  <div class="overflow-y-auto -mx-1 px-1">
 
-  <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Интерфейс</div>
-  <label class="flex items-center gap-2 text-sm text-slate-600 mb-6 cursor-pointer select-none">
-    <input type="checkbox" {% if show_system_disks %}checked{% endif %}
-           onchange="SW.post('/htmx/ui-pref',{show_system_disks:this.checked?'yes':'no'})">
-    Показывать системные диски в сайдбаре
-  </label>
+  <!-- ===== Общие ===== -->
+  <div id="st-general" class="st-pane">
+    <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Интерфейс</div>
+    <label class="flex items-center gap-2 text-sm text-slate-600 mb-6 cursor-pointer select-none">
+      <input type="checkbox" {% if show_system_disks %}checked{% endif %}
+             onchange="SW.post('/htmx/ui-pref',{show_system_disks:this.checked?'yes':'no'})">
+      Показывать системные диски в сайдбаре
+    </label>
 
-  <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Сервер</div>
-  <div class="text-sm text-slate-500 space-y-1">
-    <div>Адрес: <code class="text-slate-700">{{ srv.ip }}</code> · подключение по SMB: <code class="text-slate-700">\\{{ srv.ip }}</code></div>
-    <div>Имя хоста: <code class="text-slate-700">{{ srv.host }}</code></div>
-    <div>Аптайм: {{ srv.uptime }} · SambaWrapper v{{ version }}</div>
+    <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Порт веб-интерфейса</div>
+    <form hx-post="/htmx/set-port" hx-target="#toast-host" hx-swap="beforeend" class="flex gap-2 mb-1">
+      <input type="number" name="port" min="1024" max="65535" required value="{{ port }}"
+             class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm">
+      <button class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm">Сменить</button>
+    </form>
+    <p class="text-[0.6875rem] text-slate-400 mb-6">После смены порта сервис перезапустится — переподключись на новый адрес.</p>
+
+    <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Сервер</div>
+    <div class="text-sm text-slate-500 space-y-1">
+      <div>Адрес: <code class="text-slate-700">{{ srv.ip }}</code> · подключение по SMB: <code class="text-slate-700">\\{{ srv.ip }}</code></div>
+      <div>Имя хоста: <code class="text-slate-700">{{ srv.host }}</code></div>
+      <div>Аптайм: {{ srv.uptime }} · SambaWrapper v{{ version }}</div>
+    </div>
+  </div>
+
+  <!-- ===== Учётные записи панели ===== -->
+  <div id="st-accounts" class="st-pane hidden">
+    <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Моя учётная запись</div>
+    <form hx-post="/htmx/admin-account" hx-target="#toast-host" hx-swap="beforeend" class="space-y-3 mb-6">
+      <label class="block text-sm text-slate-500">Логин
+        <input name="username" required pattern="[A-Za-z0-9_.\-]{2,32}" value="{{ username }}"
+               class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"></label>
+      <label class="block text-sm text-slate-500">Новый пароль <span class="text-slate-400">(пусто — не менять)</span>
+        <input type="password" name="password" minlength="8" autocomplete="new-password" placeholder="••••••••"
+               class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2"></label>
+      <div class="flex justify-end"><button class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm">Сохранить</button></div>
+    </form>
+
+    <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Другие пользователи панели</div>
+    <div class="space-y-1 mb-3">
+      {% for u in web_users %}
+        <div class="flex items-center gap-2 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5">
+          <i class="ti ti-user text-slate-400"></i>
+          <span class="flex-1 truncate">{{ u.username }}</span>
+          <span class="text-[0.625rem] px-1.5 rounded {{ 'bg-sky-100 text-sky-700' if u.role == 'admin' else 'bg-slate-100 text-slate-500' }}">{{ 'админ' if u.role == 'admin' else 'пользователь' }}</span>
+          <button title="Сменить пароль" class="text-slate-400 hover:text-sky-600"
+                  onclick="SW.prompt('Новый пароль для «{{ u.username }}» (мин. 8 символов)', '', (p) => { if (p && p.length >= 8) SW.post('/htmx/webuser-passwd', {username: {{ u.username|tojson|forceescape }}, password: p}); else if (p) SW.toast('Минимум 8 символов'); })">
+            <i class="ti ti-key text-base"></i></button>
+          <button title="Удалить" class="text-slate-400 hover:text-red-600"
+                  onclick="SW.confirm('Удалить пользователя «{{ u.username }}»?', () => SW.post('/htmx/webuser-delete', {username: {{ u.username|tojson|forceescape }}}), {ok: 'Удалить', danger: true})">
+            <i class="ti ti-trash text-base"></i></button>
+        </div>
+      {% endfor %}
+    </div>
+    <form hx-post="/htmx/webuser-add" hx-target="#toast-host" hx-swap="beforeend" class="flex gap-2 mb-2">
+      <input name="username" required pattern="[A-Za-z0-9_.\-]{2,32}" placeholder="логин"
+             class="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+      <input type="password" name="password" required minlength="8" placeholder="пароль (≥8)" autocomplete="new-password"
+             class="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+      <select name="role" class="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+        <option value="user">пользователь</option>
+        <option value="admin">админ</option>
+      </select>
+      <button class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm shrink-0"><i class="ti ti-plus"></i></button>
+    </form>
+    <p class="text-[0.6875rem] text-slate-400">Это входы в веб-панель. Доступ к сетевым папкам настраивается на вкладке «Доступ Samba».</p>
+  </div>
+
+  <!-- ===== Пользователи Samba ===== -->
+  <div id="st-samba" class="st-pane hidden"
+       hx-get="/htmx/users" hx-trigger="load once, reloadUsers from:body" hx-swap="innerHTML">
+    <div class="text-sm text-slate-400">Загрузка…</div>
+  </div>
+
   </div>
 </div>

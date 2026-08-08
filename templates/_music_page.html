@@ -1,0 +1,53 @@
+<div class="flex items-center gap-2 px-3 h-12 border-b border-slate-200 shrink-0">
+  <i class="ti ti-music text-sky-600 text-lg"></i>
+  <span class="font-medium text-sm">Музыка</span>
+  <span class="text-[0.6875rem] text-slate-400">{{ st.tracks }} треков · {{ st.artists }} исполнителей · {{ (st.duration / 3600)|round|int }} ч</span>
+  <div id="music-scan" class="flex items-center gap-2 text-[0.6875rem] ml-2"
+       hx-get="/htmx/music-scan-status" hx-trigger="load, every 2s" hx-swap="innerHTML"></div>
+
+  {% if role == 'admin' %}
+  <button class="tbb ml-auto" onclick="SW.post('/htmx/music-scan',{full:'no'})" title="Найти новые и изменённые файлы">
+    <i class="ti ti-refresh"></i>Обновить</button>
+  <button class="tbb" onclick="SW.openModal('/htmx/music-library-picker')" title="Выбрать папку с музыкой">
+    <i class="ti ti-folder"></i>Библиотека</button>
+  {% endif %}
+</div>
+
+<div class="flex items-center gap-2 px-3 h-11 border-b border-slate-100 shrink-0">
+  <div class="relative flex-1 max-w-sm">
+    <i class="ti ti-search absolute left-2.5 top-1.5 text-slate-400 text-sm"></i>
+    <input id="mus-search" type="search" placeholder="поиск: трек, исполнитель, альбом…"
+           oninput="SW.musSearch(this.value)"
+           class="w-full border border-slate-300 rounded-lg pl-8 pr-3 py-1 text-sm">
+  </div>
+  <select id="mus-sort" title="Сортировка" onchange="SW.musSortSelect(this.value)"
+          class="border border-slate-300 rounded-lg px-2 py-1 text-sm">
+    <option value="title:asc">Название: А→Я</option>
+    <option value="title:desc">Название: Я→А</option>
+    <option value="artist:asc" selected>Исполнитель: А→Я</option>
+    <option value="artist:desc">Исполнитель: Я→А</option>
+    <option value="album:asc">Альбом: А→Я</option>
+    <option value="year:desc">Год: новые</option>
+    <option value="year:asc">Год: старые</option>
+    <option value="duration:desc">Длительность: ↓</option>
+    <option value="duration:asc">Длительность: ↑</option>
+  </select>
+  <button class="tbb" onclick="SW.musColsModal()" title="Какие столбцы показывать">
+    <i class="ti ti-columns"></i>Столбцы</button>
+  <button class="tbb" onclick="SW.musDuplicates()" title="Найти дубликаты в текущей папке/фильтре">
+    <i class="ti ti-copy"></i>Дубликаты</button>
+  <span class="text-[0.6875rem] text-slate-400 truncate hidden xl:inline ml-auto" title="{{ library }}">
+    <i class="ti ti-folder"></i> {{ library }}</span>
+</div>
+
+<div class="flex-1 min-h-0 flex">
+  <div id="music-lists" class="w-52 shrink-0 border-r border-slate-100 overflow-y-auto hidden lg:block"
+       hx-get="/htmx/music-lists" hx-trigger="load, reloadMusicLists from:body" hx-swap="innerHTML"
+       hx-vals="js:{artist: SW.musArtist, album: SW.musAlbum, folder: SW.musFolder}"></div>
+
+  <div id="music-tracks" class="flex-1 min-w-0 overflow-auto"
+       hx-get="/htmx/music-tracks" hx-trigger="load, refreshMusicTracks from:body" hx-swap="innerHTML"
+       hx-vals="js:{q: SW.musQ, sort: SW.musSort, desc: SW.musDesc ? 'yes' : 'no', artist: SW.musArtist, album: SW.musAlbum, folder: SW.musFolder, page: SW.musPage}">
+    <div class="p-6 text-slate-400 text-sm">Загрузка…</div>
+  </div>
+</div>

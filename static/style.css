@@ -13,8 +13,45 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 /* disk row as a left "tab" — active = accent bar + tint */
 .disk-row { border-left: 3px solid transparent; }
-.disk-row.sw-active { background: rgb(224 242 254); border-left-color: #0284c7; }
-html.dark .disk-row.sw-active { background: #0c2a47; border-left-color: #38bdf8; }
+.disk-row.sw-active, .disk-row.sw-active:hover { background: rgb(224 242 254) !important; border-left-color: #0284c7; }
+html.dark .disk-row.sw-active, html.dark .disk-row.sw-active:hover { background: #0c2a47 !important; border-left-color: #38bdf8; }
+
+/* подсветка активного сервиса — чистым CSS по состоянию страницы,
+   чтобы она не слетала при автообновлении сайдбара каждые 8 секунд */
+body[data-view="music"]    #sw-item-music,
+body[data-view="dlna"]     #sw-item-dlna,
+body[data-view="torrents"] #sw-item-torrent {
+  background: rgb(224 242 254) !important;
+  border-left-color: #0284c7;
+  box-shadow: inset 0 0 0 1.5px #0284c7;
+  border-radius: 0.5rem;
+}
+html.dark body[data-view="music"]    #sw-item-music,
+html.dark body[data-view="dlna"]     #sw-item-dlna,
+html.dark body[data-view="torrents"] #sw-item-torrent {
+  background: #0c2a47 !important;
+  border-left-color: #38bdf8;
+  box-shadow: inset 0 0 0 1.5px #38bdf8;
+}
+
+/* активная папка/исполнитель/альбом в списках музыки */
+.mus-item.mus-on, .mus-item.mus-on:hover {
+  background: rgb(224 242 254) !important; color: #0369a1; font-weight: 500;
+  box-shadow: inset 0 0 0 1.5px #0284c7;
+}
+html.dark .mus-item.mus-on, html.dark .mus-item.mus-on:hover {
+  background: #0c2a47 !important; color: #7dd3fc; box-shadow: inset 0 0 0 1.5px #38bdf8;
+}
+
+/* играющий трек — синяя рамка на всю строку */
+tr.mrow.mus-playing > td { background: rgb(224 242 254) !important; }
+tr.mrow.mus-playing > td:first-child { box-shadow: inset 2px 0 0 #0284c7, inset 0 1.5px 0 #0284c7, inset 0 -1.5px 0 #0284c7; }
+tr.mrow.mus-playing > td:last-child  { box-shadow: inset -2px 0 0 #0284c7, inset 0 1.5px 0 #0284c7, inset 0 -1.5px 0 #0284c7; }
+tr.mrow.mus-playing > td:not(:first-child):not(:last-child) { box-shadow: inset 0 1.5px 0 #0284c7, inset 0 -1.5px 0 #0284c7; }
+html.dark tr.mrow.mus-playing > td { background: #0c2a47 !important; }
+html.dark tr.mrow.mus-playing > td:first-child { box-shadow: inset 2px 0 0 #38bdf8, inset 0 1.5px 0 #38bdf8, inset 0 -1.5px 0 #38bdf8; }
+html.dark tr.mrow.mus-playing > td:last-child  { box-shadow: inset -2px 0 0 #38bdf8, inset 0 1.5px 0 #38bdf8, inset 0 -1.5px 0 #38bdf8; }
+html.dark tr.mrow.mus-playing > td:not(:first-child):not(:last-child) { box-shadow: inset 0 1.5px 0 #38bdf8, inset 0 -1.5px 0 #38bdf8; }
 
 /* ============ DARK THEME ============ */
 /* Overrides the light Tailwind utilities used in the templates, scoped to html.dark. */
@@ -58,3 +95,61 @@ html.dark .bg-sky-100 { background: #0c2a47 !important; }
 html.dark .text-sky-700 { color: #7dd3fc !important; }
 html.dark .bg-sky-50, html.dark .frow.bg-sky-50 { background: #0c2a47 !important; }
 html.dark .bg-slate-100.text-slate-500 { color: #cbd5e1 !important; }
+
+
+/* ---- единый стиль полос перемотки (видео и музыка) ---- */
+#sw-seek, #mus-seek {
+  position: relative;
+  height: 0.375rem;               /* толще, чтобы попадать мышью */
+  border-radius: 999px;
+  transition: height .12s ease;
+}
+#sw-seek:hover, #mus-seek:hover { height: 0.5rem; }
+#sw-fill, #mus-fill {
+  border-radius: 999px;
+  position: relative;
+}
+/* бегунок-кружок на конце заполненной части */
+#sw-fill::after, #mus-fill::after {
+  content: "";
+  position: absolute;
+  right: -0.3125rem; top: 50%;
+  width: 0.625rem; height: 0.625rem;
+  transform: translateY(-50%) scale(0);
+  background: #0ea5e9;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.35);
+  transition: transform .12s ease;
+}
+#sw-seek:hover #sw-fill::after, #mus-seek:hover #mus-fill::after { transform: translateY(-50%) scale(1); }
+html.dark #sw-fill::after, html.dark #mus-fill::after { border-color: #0f172a; }
+
+/* ползунки громкости — в тон интерфейсу */
+#sw-vol, #mus-vol { accent-color: #0284c7; height: 0.375rem; }
+
+
+/* ---- полосы прокрутки в стиле интерфейса ---- */
+* { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: content-box; }
+*::-webkit-scrollbar-track { background: transparent; }
+html.dark * { scrollbar-color: #475569 transparent; }
+html.dark *::-webkit-scrollbar-thumb { background: #475569; background-clip: content-box; }
+html.dark *::-webkit-scrollbar-thumb:hover { background: #64748b; background-clip: content-box; }
+
+/* заглушка обложки, когда картинки в тегах нет */
+.mus-nocover {
+  background: #e2e8f0 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><path d='M42 16v22.5a7 7 0 1 1-4-6.3V22l-14 3.2v17.3a7 7 0 1 1-4-6.3V21l22-5z' fill='%2394a3b8'/></svg>") center/60% no-repeat;
+}
+html.dark .mus-nocover { background-color: #334155; }
+
+
+/* ручка изменения ширины столбца */
+.col-resizer {
+  position: absolute; top: 0; right: -3px; width: 7px; height: 100%;
+  cursor: col-resize; user-select: none; z-index: 5;
+}
+.col-resizer:hover { background: linear-gradient(to right, transparent 2px, #0284c7 2px, #0284c7 5px, transparent 5px); }
+#music-tracks th { user-select: none; }

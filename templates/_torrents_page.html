@@ -53,6 +53,22 @@
   <script>window.SW_TR_DIRS = {{ dirs|tojson }}; window.SW && SW.initTrDest();</script>
 </div>
 
+<div class="flex items-center gap-1.5 px-3 h-10 border-b border-slate-100 shrink-0 text-[0.8125rem]">
+  <div class="flex rounded-lg border border-slate-200 overflow-hidden">
+    <button class="tr-flt px-2.5 py-1 bg-sky-600 text-white" data-f="all" onclick="SW.trFilterBy('all')">Все</button>
+    <button class="tr-flt px-2.5 py-1 text-slate-500 hover:bg-slate-50" data-f="down" onclick="SW.trFilterBy('down')">Качаются</button>
+    <button class="tr-flt px-2.5 py-1 text-slate-500 hover:bg-slate-50" data-f="seed" onclick="SW.trFilterBy('seed')">Раздаются</button>
+    <button class="tr-flt px-2.5 py-1 text-slate-500 hover:bg-slate-50" data-f="stop" onclick="SW.trFilterBy('stop')">Остановлены</button>
+  </div>
+  <input id="tr-search" type="search" placeholder="поиск по имени…" oninput="SW.trSearch(this.value)"
+         class="flex-1 min-w-[8rem] max-w-xs border border-slate-200 rounded-lg px-2.5 py-1 ml-1">
+  <span class="ml-auto"></span>
+  <button title="Запустить все" class="text-slate-400 hover:text-emerald-600 px-1.5"
+          onclick="SW.post('/htmx/torrent-action',{id:0,action:'start-all'})"><i class="ti ti-player-play text-base"></i></button>
+  <button title="Приостановить все" class="text-slate-400 hover:text-amber-600 px-1.5"
+          onclick="SW.post('/htmx/torrent-action',{id:0,action:'stop-all'})"><i class="ti ti-player-pause text-base"></i></button>
+</div>
+
 <div class="flex-1 overflow-auto min-h-0">
   <table class="w-full text-sm border-collapse">
     <thead class="sticky top-0 bg-slate-50 text-[0.6875rem] uppercase tracking-wide text-slate-400 select-none">
@@ -71,7 +87,7 @@
       </tr>
     </thead>
     <tbody id="tr-tbody" hx-get="/htmx/torrents-list" hx-trigger="load, every 2s, refresh"
-           hx-vals="js:{sort: SW.trSort, dir: SW.trAsc ? 'asc' : 'desc'}" hx-swap="innerHTML">
+           hx-vals="js:{sort: SW.trSort, dir: SW.trAsc ? 'asc' : 'desc', filter: SW.trFilter, q: SW.trQ}" hx-swap="innerHTML">
       <tr><td colspan="11" class="text-center text-slate-400 py-6">Загрузка…</td></tr>
     </tbody>
   </table>
@@ -80,5 +96,8 @@
 <div id="tr-details" class="shrink-0 max-h-64 overflow-auto border-t border-slate-200 empty:hidden"
      hx-get="/htmx/torrent-files" hx-trigger="every 3s, refresh" hx-swap="innerHTML"
      hx-vals="js:{id: SW.trSel || 0}"></div>
+
+<div id="tr-stats" class="shrink-0 flex items-center gap-3 px-4 h-8 border-t border-slate-100 text-xs text-slate-400"
+     hx-get="/htmx/torrents-stats" hx-trigger="load, every 2s" hx-swap="innerHTML"></div>
 
 {% endif %}

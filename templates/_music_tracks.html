@@ -1,0 +1,92 @@
+{% macro arrow(col) %}{% if sort == col %}{{ ' ↓' if desc else ' ↑' }}{% endif %}{% endmacro %}
+
+{% if artist or album or folder %}
+<div class="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-sm sticky top-0 z-10">
+  <i class="ti ti-filter text-sky-600"></i>
+  <span class="truncate">{{ artist }}{% if artist and album %} — {% endif %}{{ album }}{% if folder %}<i class="ti ti-folder text-amber-500 ml-1"></i> {{ folder.split('/')[-1] }}{% endif %}</span>
+  <button class="text-slate-400 hover:text-slate-700 ml-1" onclick="SW.musClear()" title="Сбросить фильтр"><i class="ti ti-x"></i></button>
+</div>
+{% endif %}
+
+<table class="w-full text-sm border-collapse">
+  <thead class="sticky {{ 'top-8' if (artist or album or folder) else 'top-0' }} bg-slate-50 text-[0.6875rem] uppercase tracking-wide text-slate-400 select-none z-10">
+    <tr>
+      <th data-col="cover" class="w-10 px-2 py-2"></th>
+      <th data-col="title" draggable="true" class="text-left font-medium px-2 py-2 cursor-pointer hover:text-slate-600" onclick="SW.musSortBy('title')">Название{{ arrow('title') }}</th>
+      <th data-col="artist" draggable="true" class="text-left font-medium px-2 py-2 w-44 cursor-pointer hover:text-slate-600" onclick="SW.musSortBy('artist')">Исполнитель{{ arrow('artist') }}</th>
+      <th data-col="album" draggable="true" class="text-left font-medium px-2 py-2 w-44 cursor-pointer hover:text-slate-600" onclick="SW.musSortBy('album')">Альбом{{ arrow('album') }}</th>
+      <th data-col="year" draggable="true" class="text-right font-medium px-2 py-2 w-14 cursor-pointer hover:text-slate-600" onclick="SW.musSortBy('year')">Год{{ arrow('year') }}</th>
+      <th data-col="genre" draggable="true" class="text-left font-medium px-2 py-2 w-32 cursor-pointer hover:text-slate-600">Жанр</th>
+      <th data-col="bitrate" draggable="true" class="text-right font-medium px-2 py-2 w-16">Битрейт</th>
+      <th data-col="duration" draggable="true" class="text-right font-medium px-2 py-2 w-16 cursor-pointer hover:text-slate-600" onclick="SW.musSortBy('duration')">Время{{ arrow('duration') }}</th>
+      <th data-col="actions" class="w-16 px-2 py-2"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% if not tracks %}
+      <tr><td colspan="9" class="text-center text-slate-400 py-10">
+        Ничего не найдено. Укажи папку с музыкой кнопкой «Библиотека» и нажми «Обновить».
+      </td></tr>
+    {% endif %}
+    {% for t in tracks %}
+      <tr class="mrow border-b border-slate-100 hover:bg-slate-50 cursor-pointer align-middle"
+          data-id="{{ t.id }}" onclick="SW.musPlayId({{ t.id }})">
+        <td data-col="cover" class="px-2 py-1.5">
+          <button class="w-8 h-8 rounded bg-slate-100 overflow-hidden grid place-items-center text-slate-400 hover:text-sky-600 shrink-0"
+                  onclick="event.stopPropagation(); SW.musPlayId({{ t.id }})" title="Воспроизвести">
+            {% if t.has_cover %}
+              <img src="/music-cover/{{ t.id }}" alt="" class="w-8 h-8 object-cover" loading="lazy">
+            {% else %}
+              <i class="ti ti-player-play-filled text-xs"></i>
+            {% endif %}
+          </button>
+        </td>
+        <td data-col="title" class="px-2 py-1.5 max-w-0"><span class="block truncate" title="{{ t.title }}">{{ t.title }}</span></td>
+        <td data-col="artist" class="px-2 py-1.5 max-w-0">
+          <button class="block truncate text-slate-600 hover:text-sky-600 text-left w-full" title="{{ t.artist }}"
+                  onclick="event.stopPropagation(); SW.musFilterArtist({{ t.artist|tojson|forceescape }})">{{ t.artist or '—' }}</button>
+        </td>
+        <td data-col="album" class="px-2 py-1.5 max-w-0">
+          <button class="block truncate text-slate-500 hover:text-sky-600 text-left w-full" title="{{ t.album }}"
+                  onclick="event.stopPropagation(); SW.musFilterAlbum({{ t.album|tojson|forceescape }})">{{ t.album or '—' }}</button>
+        </td>
+        <td data-col="year" class="px-2 py-1.5 text-right text-slate-400">{{ t.year or '' }}</td>
+        <td data-col="genre" class="px-2 py-1.5 max-w-0"><span class="block truncate text-slate-400" title="{{ t.genre }}">{{ t.genre or '' }}</span></td>
+        <td data-col="bitrate" class="px-2 py-1.5 text-right text-slate-400 tabular-nums">{{ (t.bitrate ~ 'k') if t.bitrate else '' }}</td>
+        <td data-col="duration" class="px-2 py-1.5 text-right text-slate-500 tabular-nums">{{ '%d:%02d'|format(t.duration|int // 60, t.duration|int % 60) }}</td>
+        <td data-col="actions" class="px-2 py-1.5 text-right whitespace-nowrap">
+          <button title="Удалить с диска" class="text-slate-400 hover:text-red-600"
+                  onclick="event.stopPropagation(); SW.musDelete({{ t.id }}, {{ (t.title or t.path)|tojson|forceescape }})">
+            <i class="ti ti-trash text-base"></i></button>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if pages > 1 %}
+<div class="flex items-center justify-center gap-1 py-3 text-sm">
+  <button class="px-2 py-1 rounded hover:bg-slate-100 disabled:opacity-30" {{ 'disabled' if page <= 1 }}
+          onclick="SW.musPage = {{ page - 1 }}; SW.musReload()"><i class="ti ti-chevron-left"></i></button>
+  <span class="text-slate-500 px-2">{{ page }} / {{ pages }}</span>
+  <button class="px-2 py-1 rounded hover:bg-slate-100 disabled:opacity-30" {{ 'disabled' if page >= pages }}
+          onclick="SW.musPage = {{ page + 1 }}; SW.musReload()"><i class="ti ti-chevron-right"></i></button>
+</div>
+{% endif %}
+
+<div class="px-3 pb-3 text-xs text-slate-400">Найдено треков: {{ total }}</div>
+
+<script>
+  const _newQueue = {{ tracks|map(attribute='id')|list|tojson }}.map((id, i) => ({
+    id: id,
+    title: {{ tracks|map(attribute='title')|list|tojson }}[i],
+    artist: {{ tracks|map(attribute='artist')|list|tojson }}[i],
+    album: {{ tracks|map(attribute='album')|list|tojson }}[i],
+    duration: {{ tracks|map(attribute='duration')|list|tojson }}[i],
+    cover: {{ tracks|map(attribute='has_cover')|list|tojson }}[i] === 1
+  }));
+  if (SW._musKeepQueue) { SW._musKeepQueue = false; }   // слушаем копию из окна дубликатов
+  else { SW.musQueue = _newQueue; }
+  SW.musMarkRow();
+  SW.musApplyColumns();
+</script>
