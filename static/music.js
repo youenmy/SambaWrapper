@@ -159,8 +159,11 @@
     playTrack: function (track) {
       var a = audio();
       st.now = track; st.nowId = track.id;
+      a.pause();                                  // корректно обрываем предыдущий поток
       a.src = "/music-audio/" + track.id;
-      a.play().catch(function () { /* автозапуск может быть заблокирован */ });
+      a.load();                                   // сбрасываем состояние, в т.ч. после ошибки чтения
+      var started = a.play();
+      if (started && started.catch) started.catch(function () { /* автозапуск заблокирован */ });
       $("mus-bar").classList.remove("hidden");
       $("mus-title").textContent = track.title || "—";
       $("mus-artist").textContent = [track.artist, track.album].filter(Boolean).join(" — ");
@@ -322,6 +325,10 @@
           document.querySelectorAll("#modal-host button[data-play]"),
           function (b) { return Number(b.dataset.play); });
         var row = button.closest("div");
+        if (wasPlaying) {           // отпускаем файл до удаления — иначе элемент уйдёт в ошибку
+          var a = audio();
+          a.pause(); a.removeAttribute("src"); a.load();
+        }
 
         M._request(id, function () {
           if (row) row.remove();
@@ -533,6 +540,10 @@
       });
       a.addEventListener("ended", function () {
         if (M.repeatOn) { a.currentTime = 0; a.play(); } else M.next();
+      });
+      a.addEventListener("error", function () {
+        if (!a.src) return;                       // источник сняли намеренно
+        SW.toast("Не удалось воспроизвести трек");
       });
       a.addEventListener("play", function () {
         $("mus-play-icon").className = "ti ti-player-pause-filled text-sm";
