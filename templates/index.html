@@ -204,6 +204,7 @@ const SW = {
     if (i < 0 || i >= this.musQueue.length) return;
     this.musIdx = i;
     const t = this.musQueue[i], a = document.getElementById("mus-audio");
+    this.musNowId = t.id; this.musNow = t;
     a.src = "/music-audio/" + t.id;
     a.play().catch(() => {});
     document.getElementById("mus-bar").classList.remove("hidden");
@@ -223,8 +224,20 @@ const SW = {
     localStorage.setItem("sw.musTrack", JSON.stringify({track: t, time: 0}));
   },
   musPlayId(id) {
-    const i = this.musQueue.findIndex((t) => t.id === id);
+    let i = this.musQueue.findIndex((t) => t.id === id);
+    if (i < 0) { this.musRebuildQueue(); i = this.musQueue.findIndex((t) => t.id === id); }
     if (i >= 0) this.musPlayIndex(i);
+    else this.toast("Трек не найден в списке");
+  },
+  // очередь = то, что сейчас в таблице (страховка от рассинхрона)
+  musRebuildQueue() {
+    const rows = document.querySelectorAll("#music-tracks .mrow[data-id]");
+    if (!rows.length) return;
+    this.musQueue = Array.from(rows).map((r) => ({
+      id: Number(r.dataset.id), title: r.dataset.title || "", artist: r.dataset.artist || "",
+      album: r.dataset.album || "", duration: Number(r.dataset.dur || 0),
+      cover: r.dataset.cover === "1",
+    }));
   },
   musToggle() {
     const a = document.getElementById("mus-audio");
@@ -272,14 +285,13 @@ const SW = {
     const a = document.getElementById("mus-audio");
     a.pause(); a.removeAttribute("src"); a.load();
     if (this.view !== "music") document.getElementById("mus-bar").classList.add("hidden");
-    this.musIdx = -1; this.musMarkRow();
+    this.musIdx = -1; this.musNowId = 0; this.musNow = null; this.musMarkRow();
     document.getElementById("mus-title").textContent = "—";
     document.getElementById("mus-artist").textContent = "";
   },
   musMarkRow() {
-    const cur = this.musQueue[this.musIdx];
     document.querySelectorAll("#music-tracks .mrow").forEach((r) => {
-      r.classList.toggle("mus-playing", !!cur && Number(r.dataset.id) === cur.id);
+      r.classList.toggle("mus-playing", !!this.musNowId && Number(r.dataset.id) === this.musNowId);
     });
   },
 
@@ -960,7 +972,7 @@ const SW = {
 
   // ===== музыка =====
   musQ: "", musSort: "artist", musDesc: false, musArtist: "", musAlbum: "", musFolder: "", musPage: 1,
-  musQueue: [], musIdx: -1, musShuf: false, musRep: false,
+  musQueue: [], musIdx: -1, musShuf: false, musRep: false, musNowId: 0, musNow: null,
 
   openMusic() {
     this.path = "";
@@ -984,7 +996,7 @@ const SW = {
     try { s = JSON.parse(localStorage.getItem("sw.musTrack") || "null"); } catch (e) {}
     if (!s || !s.track) return;
     const t = s.track;
-    this.musQueue = [t]; this.musIdx = 0;
+    this.musQueue = [t]; this.musIdx = 0; this.musNowId = t.id; this.musNow = t;
     a.src = "/music-audio/" + t.id;
     a.addEventListener("loadedmetadata", () => { if (s.time > 0) a.currentTime = s.time; }, {once: true});
     document.getElementById("mus-title").textContent = t.title || "—";
@@ -997,7 +1009,7 @@ const SW = {
 
   // Del в разделе музыки — удалить трек, который сейчас играет
   musDeleteCurrent() {
-    const t = this.musQueue[this.musIdx];
+    const t = this.musNow;
     if (!t) { this.toast("Сначала включи трек"); return; }
     const name = [t.artist, t.title].filter(Boolean).join(" — ") || t.title;
     this.confirm("Удалить трек с диска?" + String.fromCharCode(10) + name + String.fromCharCode(10, 10) + "Enter или пробел — удалить, Esc — отмена",
@@ -1006,9 +1018,10 @@ const SW = {
         fetch("/htmx/music-delete", {method: "POST", body: new URLSearchParams({id: id})})
           .then((r) => r.text()).then((html) => {
             this._toastHtml(html);
-            this.musQueue.splice(idx, 1);       // убираем из очереди
-            this.musIdx = -1;
-            if (this.musQueue.length) this.musPlayIndex(Math.min(idx, this.musQueue.length - 1));
+            const pos = this.musQueue.findIndex((x) => x.id === id);
+            if (pos >= 0) this.musQueue.splice(pos, 1);
+            this.musIdx = -1; this.musNowId = 0; this.musNow = null;
+            if (this.musQueue.length) this.musPlayIndex(Math.min(pos < 0 ? 0 : pos, this.musQueue.length - 1));
             else this.musClose();
             this.musReload();
           });
@@ -1017,7 +1030,7 @@ const SW = {
   musDeleteDup(id, path, btn) {
     this.confirm("Удалить копию?" + String.fromCharCode(10) + path, () => {
       // играет ли именно эта копия
-      const playing = !!(this.musQueue[this.musIdx] && this.musQueue[this.musIdx].id === id);
+      const playing = (this.musNowId === id);
       // следующая копия в списке окна — её включим после удаления
       const plays = Array.from(document.querySelectorAll("#modal-host button[data-play]"));
       const idx = plays.findIndex((b) => Number(b.dataset.play) === id);
@@ -1041,11 +1054,7 @@ const SW = {
     }, {ok: "Удалить", danger: true});
   },
 
-  // обновить список треков, не сбивая текущую очередь плеера
-  musReloadQuiet() {
-    this._musKeepQueue = true;
-    this.musReload();
-  },
+  musReloadQuiet() { this.musReload(); },
 
 
   openDlna() {
@@ -1428,7 +1437,7 @@ document.body.addEventListener("reloadTorrents", () => SW.openTorrents());
     if (c) c.textContent = SW._musFmt(a.currentTime);
     if (!SW._musSaveAt || Date.now() - SW._musSaveAt > 5000) {
       SW._musSaveAt = Date.now();
-      const t = SW.musQueue[SW.musIdx];
+      const t = SW.musNow;
       if (t) localStorage.setItem("sw.musTrack", JSON.stringify({track: t, time: a.currentTime}));
     }
   });

@@ -30,7 +30,9 @@
     {% endif %}
     {% for t in tracks %}
       <tr class="mrow border-b border-slate-100 hover:bg-slate-50 cursor-pointer align-middle"
-          data-id="{{ t.id }}" onclick="SW.musPlayId({{ t.id }})">
+          data-id="{{ t.id }}" data-title="{{ t.title }}" data-artist="{{ t.artist }}"
+          data-album="{{ t.album }}" data-dur="{{ t.duration|int }}" data-cover="{{ 1 if t.has_cover else 0 }}"
+          onclick="SW.musPlayId({{ t.id }})">
         <td data-col="cover" class="px-2 py-1.5">
           <button class="w-8 h-8 rounded bg-slate-100 overflow-hidden grid place-items-center text-slate-400 hover:text-sky-600 shrink-0"
                   onclick="event.stopPropagation(); SW.musPlayId({{ t.id }})" title="Воспроизвести">
@@ -85,8 +87,7 @@
     duration: {{ tracks|map(attribute='duration')|list|tojson }}[i],
     cover: {{ tracks|map(attribute='has_cover')|list|tojson }}[i] === 1
   }));
-  if (SW._musKeepQueue) { SW._musKeepQueue = false; }   // слушаем копию из окна дубликатов
-  else { SW.musQueue = _newQueue; }
+  SW.musQueue = _newQueue;
   SW.musMarkRow();
   SW.musApplyColumns();
 </script>
