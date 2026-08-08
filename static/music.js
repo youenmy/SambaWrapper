@@ -313,25 +313,39 @@
     playCopy: function (id, label) {
       M.playTrack({id: id, title: label, artist: "", album: "", duration: 0, cover: false});
     },
-    /** Удалить копию; если звучала именно она — включить следующую из окна. */
+    /** Удалить копию; если звучала именно она — включить следующую доступную. */
     deleteCopy: function (id, path, button) {
       SW.confirm("Удалить копию?\n" + path, function () {
         var wasPlaying = st.nowId === id;
-        var buttons = Array.prototype.slice.call(
-          document.querySelectorAll("#modal-host button[data-play]"));
-        var idx = buttons.findIndex(function (b) { return Number(b.dataset.play) === id; });
-        var nextBtn = idx >= 0 ? (buttons[idx + 1] || buttons[idx - 1]) : null;
+        // порядок копий в окне запоминаем ДО удаления
+        var order = Array.prototype.map.call(
+          document.querySelectorAll("#modal-host button[data-play]"),
+          function (b) { return Number(b.dataset.play); });
         var row = button.closest("div");
 
         M._request(id, function () {
           if (row) row.remove();
-          if (wasPlaying) {
-            if (nextBtn) M.playCopy(Number(nextBtn.dataset.play), nextBtn.dataset.label || "");
-            else M.close();
-          }
+          if (wasPlaying) M._playNextCopy(order, id);
           M.reloadTracks();
         });
       }, {ok: "Удалить", danger: true});
+    },
+    /** Следующая копия после удалённой: сначала по окну, потом по списку треков. */
+    _playNextCopy: function (order, deletedId) {
+      var start = order.indexOf(deletedId);
+      var candidates = start >= 0
+        ? order.slice(start + 1).concat(order.slice(0, Math.max(0, start)).reverse())
+        : order;
+      for (var i = 0; i < candidates.length; i++) {
+        var btn = document.querySelector('#modal-host button[data-play="' + candidates[i] + '"]');
+        if (btn) {   // кнопка ещё в окне — значит копия не удалена
+          M.playCopy(candidates[i], btn.dataset.label || "");
+          return;
+        }
+      }
+      // в окне копий не осталось — продолжаем по обычному списку
+      var following = M._nextInQueue(deletedId);
+      if (following) M.playTrack(following); else M.close();
     },
 
     // -------------------------------------------------------------- столбцы
