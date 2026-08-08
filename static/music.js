@@ -34,6 +34,7 @@
     q: "", sort: "artist", desc: false,
     artist: "", album: "", folder: "", page: 1,
     queue: [],      // треки текущей страницы списка
+    dups: [],       // копии, показанные в окне дубликатов (в порядке отображения)
     now: null,      // трек, который звучит (может не быть в queue)
     nowId: 0,
   };
@@ -312,49 +313,54 @@
       var p = new URLSearchParams({folder: st.folder, artist: st.artist, album: st.album});
       SW.openModal("/htmx/music-duplicates?" + p.toString());
     },
+    /** Окно дубликатов отрисовано — запоминаем порядок копий. */
+    dupsRendered: function () {
+      st.dups = Array.prototype.map.call(
+        document.querySelectorAll("#modal-host .dup-row"),
+        function (row) {
+          return {id: Number(row.dataset.copy), label: row.dataset.label || ""};
+        });
+    },
     /** Проиграть конкретную копию из окна дубликатов. */
     playCopy: function (id, label) {
       M.playTrack({id: id, title: label, artist: "", album: "", duration: 0, cover: false});
     },
-    /** Удалить копию; если звучала именно она — включить следующую доступную. */
-    deleteCopy: function (id, path, button) {
-      SW.confirm("Удалить копию?\n" + path, function () {
+    /**
+     * Удалить копию. Следующий трек выбирается по сохранённому порядку (st.dups),
+     * а не поиском в DOM — так переход не зависит от того, что уже удалено со страницы.
+     */
+    deleteCopy: function (id, path) {
+      SW.confirm("Удалить копию?" + String.fromCharCode(10) + path, function () {
         var wasPlaying = st.nowId === id;
-        // порядок копий в окне запоминаем ДО удаления
-        var order = Array.prototype.map.call(
-          document.querySelectorAll("#modal-host button[data-play]"),
-          function (b) { return Number(b.dataset.play); });
-        var row = button.closest("div");
-        if (wasPlaying) {           // отпускаем файл до удаления — иначе элемент уйдёт в ошибку
+        var idx = -1;
+        for (var i = 0; i < st.dups.length; i++) if (st.dups[i].id === id) { idx = i; break; }
+        var following = idx >= 0 ? (st.dups[idx + 1] || st.dups[idx - 1] || null) : null;
+
+        if (wasPlaying) {          // отпускаем файл до удаления
           var a = audio();
           a.pause(); a.removeAttribute("src"); a.load();
         }
 
         M._request(id, function () {
-          if (row) row.remove();
-          if (wasPlaying) M._playNextCopy(order, id);
+          if (idx >= 0) st.dups.splice(idx, 1);
+          var row = document.querySelector('#modal-host .dup-row[data-copy="' + id + '"]');
+          if (row) {
+            var group = row.closest(".dup-group");
+            row.remove();
+            // в группе осталась одна копия — это уже не дубликат
+            if (group && group.querySelectorAll(".dup-row").length < 2) group.remove();
+          }
+          if (wasPlaying) {
+            if (following) M.playCopy(following.id, following.label);
+            else {
+              var next = M._nextInQueue(id);
+              if (next) M.playTrack(next); else M.close();
+            }
+          }
           M.reloadTracks();
         });
       }, {ok: "Удалить", danger: true});
     },
-    /** Следующая копия после удалённой: сначала по окну, потом по списку треков. */
-    _playNextCopy: function (order, deletedId) {
-      var start = order.indexOf(deletedId);
-      var candidates = start >= 0
-        ? order.slice(start + 1).concat(order.slice(0, Math.max(0, start)).reverse())
-        : order;
-      for (var i = 0; i < candidates.length; i++) {
-        var btn = document.querySelector('#modal-host button[data-play="' + candidates[i] + '"]');
-        if (btn) {   // кнопка ещё в окне — значит копия не удалена
-          M.playCopy(candidates[i], btn.dataset.label || "");
-          return;
-        }
-      }
-      // в окне копий не осталось — продолжаем по обычному списку
-      var following = M._nextInQueue(deletedId);
-      if (following) M.playTrack(following); else M.close();
-    },
-
     // -------------------------------------------------------------- столбцы
     columns: {
       config: function () {
