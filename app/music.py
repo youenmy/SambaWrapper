@@ -323,8 +323,14 @@ def find_duplicates(folder: str = "", artist: str = "", album: str = "",
                 f"SELECT id, path, size, duration FROM tracks WHERE {clause} "
                 f"AND artist = ? COLLATE NOCASE AND title = ? COLLATE NOCASE ORDER BY size DESC",
                 args + [g["artist"], g["title"]]).fetchall()
-            out.append({"artist": g["artist"], "title": g["title"], "n": g["n"],
-                        "copies": [dict(c) for c in copies]})
+            root = library_path().rstrip("/") + "/"
+            items = []
+            for c in copies:
+                item = dict(c)
+                # в окне показываем путь от корня библиотеки — остальное и так известно
+                item["rel"] = item["path"][len(root):] if item["path"].startswith(root) else item["path"]
+                items.append(item)
+            out.append({"artist": g["artist"], "title": g["title"], "n": g["n"], "copies": items})
     return out
 
 def get_track(track_id: int) -> dict | None:

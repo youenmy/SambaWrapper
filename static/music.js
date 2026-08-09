@@ -265,6 +265,10 @@
       document.querySelectorAll("#music-tracks .mrow").forEach(function (row) {
         row.classList.toggle("mus-playing", st.nowId > 0 && Number(row.dataset.id) === st.nowId);
       });
+      // та же пометка для копий в окне дубликатов
+      document.querySelectorAll("#modal-host .dup-row").forEach(function (row) {
+        row.classList.toggle("mus-playing", st.nowId > 0 && Number(row.dataset.copy) === st.nowId);
+      });
     },
     markLists: function () {
       document.querySelectorAll("#music-lists .mus-item").forEach(function (b) {
@@ -320,6 +324,7 @@
         function (row) {
           return {id: Number(row.dataset.copy), label: row.dataset.label || ""};
         });
+      M.markRow();
     },
     /** Проиграть конкретную копию из окна дубликатов. */
     playCopy: function (id, label) {
