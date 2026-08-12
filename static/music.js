@@ -99,7 +99,7 @@
     sortBy: function (column) {
       if (st.sort === column) st.desc = !st.desc;
       else { st.sort = column; st.desc = false; }
-      st.page = 1;
+      st.page = 1; st.seed = 0;
       var sel = $("mus-sort");
       if (sel) sel.value = column + ":" + (st.desc ? "desc" : "asc");
       M.reloadTracks();
@@ -107,6 +107,8 @@
     sortSelect: function (value) {
       var parts = String(value).split(":");
       st.sort = parts[0]; st.desc = parts[1] === "desc"; st.page = 1;
+      // «перемешать»: новый seed при каждом выборе — иначе порядок повторится
+      st.seed = (st.sort === "random") ? Math.floor(Math.random() * 900000) + 1000 : 0;
       M.reloadTracks();
     },
     filterArtist: function (name) {
@@ -167,7 +169,8 @@
       htmx.ajax("GET", "/htmx/music-rows", {
         target: "#mus-rows", swap: "beforeend",
         values: {q: st.q, sort: st.sort, desc: st.desc ? "yes" : "no",
-                 artist: st.artist, album: st.album, folder: st.folder, page: next},
+                 artist: st.artist, album: st.album, folder: st.folder,
+                 page: next, seed: st.seed},
       }).then(function () { st.page = next; })
         .catch(function () { st.loading = false; });
     },
@@ -267,7 +270,8 @@
     playRandom: function () {
       var params = new URLSearchParams({
         q: st.q, artist: st.artist, album: st.album, folder: st.folder,
-        sort: st.sort, desc: st.desc ? "yes" : "no", exclude: st.recent.join(","),
+        sort: st.sort, desc: st.desc ? "yes" : "no", seed: st.seed,
+        exclude: st.recent.join(","),
       });
       fetch("/api/music-random?" + params.toString())
         .then(function (r) { return r.json(); })
@@ -288,7 +292,7 @@
         target: "#mus-rows", swap: "innerHTML",
         values: {q: st.q, sort: st.sort, desc: st.desc ? "yes" : "no",
                  artist: st.artist, album: st.album, folder: st.folder,
-                 page: page, reset: "yes"},
+                 page: page, seed: st.seed, reset: "yes"},
       }).then(function () {
         st.loading = false;
         setTimeout(M.revealCurrent, 60);
@@ -591,13 +595,14 @@
 
     // ------------------------------------------------------------- хранилище
     saveFilters: function () {
-      store(LS.view, {q: st.q, sort: st.sort, desc: st.desc,
+      store(LS.view, {q: st.q, sort: st.sort, desc: st.desc, seed: st.seed,
                       artist: st.artist, album: st.album, folder: st.folder});
     },
     restoreFilters: function () {
       var s = load(LS.view, null);
       if (!s) return;
       st.q = s.q || ""; st.sort = s.sort || "artist"; st.desc = !!s.desc;
+      st.seed = s.seed || 0;
       st.artist = s.artist || ""; st.album = s.album || ""; st.folder = s.folder || "";
       st.page = 1;
     },

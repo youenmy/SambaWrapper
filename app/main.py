@@ -907,7 +907,7 @@ async def htmx_music_rows(request: Request, _: str = Depends(current_user),
 async def api_music_random(request: Request, _: str = Depends(current_user),
                            q: str = "", artist: str = "", album: str = "",
                            folder: str = "", exclude: str = "",
-                           sort: str = "artist", desc: str = "no"):
+                           sort: str = "artist", desc: str = "no", seed: int = 0):
     """Случайный трек из всей выборки — для режима «перемешать»."""
     skip = [int(x) for x in exclude.split(",") if x.strip().isdigit()][:200]
     rows = await asyncio.to_thread(music.random_tracks, q.strip(), artist, album, folder, 1, skip)
@@ -917,7 +917,7 @@ async def api_music_random(request: Request, _: str = Depends(current_user),
         return {"track": None}
     t = rows[0]
     page = await asyncio.to_thread(music.track_page, t["id"], q.strip(), sort,
-                                   desc == "yes", artist, album, folder, MUSIC_PAGE_SIZE)
+                                   desc == "yes", artist, album, folder, MUSIC_PAGE_SIZE, seed)
     return {"page": page,
             "track": {"id": t["id"], "title": t["title"], "artist": t["artist"],
                       "album": t["album"], "duration": t["duration"],

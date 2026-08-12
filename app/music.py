@@ -275,7 +275,10 @@ def list_tracks(q: str = "", sort: str = "artist", desc: bool = False,
         where.append("album = ?")
         args.append(album)
     clause = ("WHERE " + " AND ".join(where)) if where else ""
-    order = SORTS.get(sort, SORTS["artist"]) + (" DESC" if desc else "")
+    if sort == "random":
+        order = f"(id * {int(seed) % 999983 or 7919} % 1000003)"
+    else:
+        order = SORTS.get(sort, SORTS["artist"]) + (" DESC" if desc else "")
     with db.connect() as cx:
         total = cx.execute(f"SELECT COUNT(*) c FROM tracks {clause}", args).fetchone()["c"]
         rows = cx.execute(
@@ -315,7 +318,8 @@ def random_tracks(q: str = "", artist: str = "", album: str = "", folder: str = 
     return [dict(r) for r in rows]
 
 def track_page(track_id: int, q: str = "", sort: str = "artist", desc: bool = False,
-               artist: str = "", album: str = "", folder: str = "", page_size: int = 100) -> int:
+               artist: str = "", album: str = "", folder: str = "", page_size: int = 100,
+               seed: int = 0) -> int:
     """Номер страницы, на которой окажется трек при текущей сортировке и фильтрах."""
     where, args = [], []
     if q:
@@ -332,7 +336,10 @@ def track_page(track_id: int, q: str = "", sort: str = "artist", desc: bool = Fa
         where.append("path LIKE ?")
         args.append(folder.rstrip("/") + "/%")
     clause = ("WHERE " + " AND ".join(where)) if where else ""
-    order = SORTS.get(sort, SORTS["artist"]) + (" DESC" if desc else "")
+    if sort == "random":
+        order = f"(id * {int(seed) % 999983 or 7919} % 1000003)"
+    else:
+        order = SORTS.get(sort, SORTS["artist"]) + (" DESC" if desc else "")
     with db.connect() as cx:
         row = cx.execute(
             f"SELECT pos FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY {order}) - 1 AS pos "
