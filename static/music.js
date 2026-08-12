@@ -35,6 +35,7 @@
     artist: "", album: "", folder: "", page: 1,
     queue: [],      // треки текущей страницы списка
     total: 0,       // всего треков в текущей выборке
+    recent: [],     // недавно сыгранные id (чтобы «случайно» не повторялось)
     dups: [],       // копии, показанные в окне дубликатов (в порядке отображения)
     now: null,      // трек, который звучит (может не быть в queue)
     nowId: 0,
@@ -129,14 +130,17 @@
       var pane = $("music-tracks"); if (pane) pane.scrollTop = 0;
     },
 
-    /** Вызывается шаблоном после отрисовки списка. */
-    setQueue: function (tracks) {
-      st.queue = tracks || [];
+    /** Порция строк отрисована: первая — заменяет очередь, последующие дополняют. */
+    appendQueue: function (tracks, isFirst) {
+      if (isFirst) st.queue = tracks || [];
+      else st.queue = st.queue.concat(tracks || []);
       M.markRow();
       M.columns.apply();
-      if (M._playFirstAfterLoad) {
-        M._playFirstAfterLoad = false;
-        if (st.queue.length) M.playTrack(st.queue[0]);
+      if (M._playAfterLoad) {
+        var wanted = M._playAfterLoad;
+        M._playAfterLoad = null;
+        var found = M._find(wanted);
+        if (found) M.playTrack(found);
       }
       M.revealCurrent();
     },
@@ -184,6 +188,8 @@
         cover.removeAttribute("src"); cover.classList.add("hidden");
       }
       if (track.duration) $("mus-dur").textContent = fmt(track.duration);
+      st.recent.push(track.id);
+      if (st.recent.length > 150) st.recent.shift();
       M.markRow();
       M.revealCurrent();
       store(LS.track, {track: track, time: 0});
@@ -194,15 +200,22 @@
       if (a.paused) a.play().catch(function () {}); else a.pause();
     },
     next: function () {
+      if (M.shuffleOn) return M.playRandom();
       if (!st.queue.length) return;
       var i = M._indexOfNow();
-      if (i + 1 >= st.queue.length && st.page * 100 < st.total) {
-        st.page += 1;                  // дошли до конца страницы — берём следующую
-        M._playFirstAfterLoad = true;
-        M.reloadTracks();
+      if (i + 1 < st.queue.length) return M.playTrack(st.queue[i + 1]);
+      // дошли до конца загруженного — подгружаем ещё, если есть
+      var sentinel = $("mus-sentinel");
+      if (sentinel && st.queue.length < st.total) {
+        M._playAfterLoad = -1;                 // сыграть первый из новой порции
+        var known = st.queue.length;
+        htmx.trigger(sentinel, "revealed");
+        setTimeout(function () {
+          if (st.queue.length > known) M.playTrack(st.queue[known]);
+        }, 600);
         return;
       }
-      M.playTrack(st.queue[(i + 1) % st.queue.length]);
+      M.playTrack(st.queue[0]);                // список кончился — начинаем сначала
     },
     prev: function () {
       var a = audio();
@@ -220,20 +233,23 @@
     toggleShuffle: function () {
       M.shuffleOn = !M.shuffleOn;
       $("mus-shuffle").classList.toggle("text-sky-600", M.shuffleOn);
-      var sel = $("mus-sort");
-      if (M.shuffleOn) {
-        // перемешиваем весь список целиком — иначе «случайные» треки берутся
-        // только из показанной страницы, то есть из начала алфавита
-        st.sortBefore = st.sort;
-        st.seed = Math.floor(Math.random() * 900000) + 1000;
-        st.sort = "random"; st.page = 1;
-        if (sel) sel.disabled = true;
-        SW.toast("Перемешано — список в случайном порядке");
-      } else {
-        st.sort = st.sortBefore || "artist"; st.seed = 0; st.page = 1;
-        if (sel) { sel.disabled = false; sel.value = st.sort + (st.desc ? ":desc" : ":asc"); }
-      }
-      M.reloadTracks();
+      // список остаётся в своей сортировке — случайным становится только выбор трека
+      SW.toast(M.shuffleOn ? "Случайное воспроизведение включено"
+                           : "Случайное воспроизведение выключено");
+    },
+    /** Случайный трек берём с сервера — из всей выборки, а не из показанной части. */
+    playRandom: function () {
+      var params = new URLSearchParams({
+        q: st.q, artist: st.artist, album: st.album, folder: st.folder,
+        exclude: st.recent.join(","),
+      });
+      fetch("/api/music-random?" + params.toString())
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || !data.track) { SW.toast("Треков не найдено"); return; }
+          M.playTrack(data.track);
+        })
+        .catch(function () { SW.toast("Не удалось выбрать трек"); });
     },
     toggleRepeat: function () {
       M.repeatOn = !M.repeatOn;
@@ -463,7 +479,6 @@
           handle.addEventListener("mousedown", function (e) {
             e.preventDefault(); e.stopPropagation();
             var startX = e.clientX, startW = th.offsetWidth;
-            th.setAttribute("draggable", "false");
             document.body.style.userSelect = "none";
             function move(ev) {
               var w = Math.max(48, startW + ev.clientX - startX);
@@ -473,7 +488,6 @@
               document.removeEventListener("mousemove", move);
               document.removeEventListener("mouseup", up);
               document.body.style.userSelect = "";
-              if (th.dataset.col !== "cover") th.setAttribute("draggable", "true");
               var cfg = M.columns.config();
               cfg.widths[th.dataset.col] = th.offsetWidth;
               M.columns.save(cfg);

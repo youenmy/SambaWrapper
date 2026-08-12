@@ -1,0 +1,62 @@
+{% for t in tracks %}
+  <tr class="mrow border-b border-slate-100 hover:bg-slate-50 cursor-pointer align-middle"
+      data-id="{{ t.id }}" data-title="{{ t.title }}" data-artist="{{ t.artist }}"
+      data-album="{{ t.album }}" data-dur="{{ t.duration|int }}" data-cover="{{ 1 if t.has_cover else 0 }}"
+      onclick="Music.play({{ t.id }})">
+    <td data-col="cover" class="px-2 py-1.5">
+      <button class="w-8 h-8 rounded bg-slate-100 overflow-hidden grid place-items-center text-slate-400 hover:text-sky-600 shrink-0"
+              onclick="event.stopPropagation(); Music.play({{ t.id }})" title="Воспроизвести">
+        {% if t.has_cover %}
+          <img src="/music-cover/{{ t.id }}" alt="" class="w-8 h-8 object-cover" loading="lazy">
+        {% else %}
+          <i class="ti ti-player-play-filled text-xs"></i>
+        {% endif %}
+      </button>
+    </td>
+    <td data-col="title" class="px-2 py-1.5 max-w-0"><span class="block truncate" title="{{ t.title }}">{{ t.title }}</span></td>
+    <td data-col="artist" class="px-2 py-1.5 max-w-0">
+      <button class="block truncate text-slate-600 hover:text-sky-600 text-left w-full" title="{{ t.artist }}"
+              onclick="event.stopPropagation(); Music.filterArtist({{ t.artist|tojson|forceescape }})">{{ t.artist or '—' }}</button>
+    </td>
+    <td data-col="album" class="px-2 py-1.5 max-w-0">
+      <button class="block truncate text-slate-500 hover:text-sky-600 text-left w-full" title="{{ t.album }}"
+              onclick="event.stopPropagation(); Music.filterAlbum({{ t.album|tojson|forceescape }})">{{ t.album or '—' }}</button>
+    </td>
+    <td data-col="year" class="px-2 py-1.5 text-right text-slate-400">{{ t.year or '' }}</td>
+    <td data-col="genre" class="px-2 py-1.5 max-w-0"><span class="block truncate text-slate-400" title="{{ t.genre }}">{{ t.genre or '' }}</span></td>
+    <td data-col="bitrate" class="px-2 py-1.5 text-right text-slate-400 tabular-nums">{{ (t.bitrate ~ 'k') if t.bitrate else '' }}</td>
+    <td data-col="duration" class="px-2 py-1.5 text-right text-slate-500 tabular-nums">{{ '%d:%02d'|format(t.duration|int // 60, t.duration|int % 60) }}</td>
+    <td data-col="actions" class="px-2 py-1.5 text-right whitespace-nowrap">
+      <button title="Удалить с диска" class="text-slate-400 hover:text-red-600"
+              onclick="event.stopPropagation(); Music.deleteTrack({{ t.id }}, {{ (t.title or t.path)|tojson|forceescape }})">
+        <i class="ti ti-trash text-base"></i></button>
+    </td>
+  </tr>
+{% endfor %}
+
+{% if has_more %}
+  {# следующая порция подгружается, когда эта строка появляется на экране #}
+  <tr id="mus-sentinel"
+      hx-get="/htmx/music-rows?page={{ page + 1 }}&q={{ q|urlencode }}&sort={{ sort }}&desc={{ desc }}&artist={{ artist|urlencode }}&album={{ album|urlencode }}&folder={{ folder|urlencode }}&seed={{ seed }}"
+      hx-trigger="revealed" hx-swap="outerHTML">
+    <td colspan="9" class="py-3 text-center text-xs text-slate-400">
+      <i class="ti ti-loader-2 animate-spin"></i> загружаю ещё…
+    </td>
+  </tr>
+{% else %}
+  <tr><td colspan="9" class="py-3 text-center text-xs text-slate-400">Всего треков: {{ total }}</td></tr>
+{% endif %}
+
+<script>
+  Music.state.total = {{ total }};
+  Music.appendQueue({{ tracks|map(attribute='id')|list|tojson }}.map(function (id, i) {
+    return {
+      id: id,
+      title: {{ tracks|map(attribute='title')|list|tojson }}[i],
+      artist: {{ tracks|map(attribute='artist')|list|tojson }}[i],
+      album: {{ tracks|map(attribute='album')|list|tojson }}[i],
+      duration: {{ tracks|map(attribute='duration')|list|tojson }}[i],
+      cover: {{ tracks|map(attribute='has_cover')|list|tojson }}[i] === 1,
+    };
+  }), {{ 'true' if page == 1 else 'false' }});
+</script>

@@ -249,7 +249,6 @@ def _scan_worker(full: bool) -> None:
 # ---------- queries ----------
 
 SORTS = {
-    "random": "",   # подставляется отдельно: псевдослучайный порядок по seed
     "title": "title COLLATE NOCASE",
     "artist": "artist COLLATE NOCASE, album COLLATE NOCASE, track_no",
     "album": "album COLLATE NOCASE, track_no",
@@ -276,17 +275,44 @@ def list_tracks(q: str = "", sort: str = "artist", desc: bool = False,
         where.append("album = ?")
         args.append(album)
     clause = ("WHERE " + " AND ".join(where)) if where else ""
-    if sort == "random":
-        # перемешиваем всю выборку, но одинаково для всех страниц одного seed
-        order = f"(id * {int(seed) % 999983 or 7919} % 1000003)"
-    else:
-        order = SORTS.get(sort, SORTS["artist"]) + (" DESC" if desc else "")
+    order = SORTS.get(sort, SORTS["artist"]) + (" DESC" if desc else "")
     with db.connect() as cx:
         total = cx.execute(f"SELECT COUNT(*) c FROM tracks {clause}", args).fetchone()["c"]
         rows = cx.execute(
             f"SELECT * FROM tracks {clause} ORDER BY {order} LIMIT ? OFFSET ?",
             args + [limit, offset]).fetchall()
     return [dict(r) for r in rows], total
+
+def random_tracks(q: str = "", artist: str = "", album: str = "", folder: str = "",
+                  limit: int = 1, exclude: list[int] | None = None) -> list[dict]:
+    """Случайные треки в пределах текущего фильтра — для режима «перемешать».
+
+    Выбор делается по всей выборке в БД, а не по показанной части списка,
+    иначе «случайность» крутится вокруг первых по алфавиту исполнителей.
+    """
+    where, args = [], []
+    if q:
+        where.append("(title LIKE ? OR artist LIKE ? OR album LIKE ?)")
+        like = f"%{q}%"
+        args += [like, like, like]
+    if artist:
+        where.append("artist = ?")
+        args.append(artist)
+    if album:
+        where.append("album = ?")
+        args.append(album)
+    if folder:
+        where.append("path LIKE ?")
+        args.append(folder.rstrip("/") + "/%")
+    if exclude:
+        exclude = list(exclude)[:200]
+        where.append("id NOT IN (%s)" % ",".join("?" * len(exclude)))
+        args += exclude
+    clause = ("WHERE " + " AND ".join(where)) if where else ""
+    with db.connect() as cx:
+        rows = cx.execute(
+            f"SELECT * FROM tracks {clause} ORDER BY RANDOM() LIMIT ?", args + [limit]).fetchall()
+    return [dict(r) for r in rows]
 
 def list_folders() -> list[dict]:
     """Папки библиотеки (по одному уровню вложенности) с числом треков."""

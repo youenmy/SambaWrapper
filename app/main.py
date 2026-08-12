@@ -885,6 +885,39 @@ async def htmx_music_tracks(request: Request, _: str = Depends(current_user),
         "folder": folder, "role": current_role(request),
     })
 
+@app.get("/htmx/music-rows", response_class=HTMLResponse)
+async def htmx_music_rows(request: Request, _: str = Depends(current_user),
+                          q: str = "", sort: str = "artist", desc: str = "no",
+                          artist: str = "", album: str = "", folder: str = "",
+                          page: int = 1, seed: int = 0):
+    """Очередная порция строк для бесконечного списка."""
+    page = max(1, page)
+    tracks, total = await asyncio.to_thread(
+        music.list_tracks, q.strip(), sort, desc == "yes", artist, album, folder,
+        MUSIC_PAGE_SIZE, (page - 1) * MUSIC_PAGE_SIZE, seed)
+    return templates.TemplateResponse("_music_rows.html", {
+        "request": request, "tracks": tracks, "total": total, "page": page,
+        "has_more": page * MUSIC_PAGE_SIZE < total,
+        "q": q, "sort": sort, "desc": desc, "artist": artist, "album": album,
+        "folder": folder, "seed": seed,
+    })
+
+@app.get("/api/music-random")
+async def api_music_random(request: Request, _: str = Depends(current_user),
+                           q: str = "", artist: str = "", album: str = "",
+                           folder: str = "", exclude: str = ""):
+    """Случайный трек из всей выборки — для режима «перемешать»."""
+    skip = [int(x) for x in exclude.split(",") if x.strip().isdigit()][:200]
+    rows = await asyncio.to_thread(music.random_tracks, q.strip(), artist, album, folder, 1, skip)
+    if not rows:
+        rows = await asyncio.to_thread(music.random_tracks, q.strip(), artist, album, folder, 1, [])
+    if not rows:
+        return {"track": None}
+    t = rows[0]
+    return {"track": {"id": t["id"], "title": t["title"], "artist": t["artist"],
+                      "album": t["album"], "duration": t["duration"],
+                      "cover": bool(t["has_cover"])}}
+
 @app.get("/htmx/music-lists", response_class=HTMLResponse)
 async def htmx_music_lists(request: Request, _: str = Depends(current_user),
                            artist: str = "", album: str = "", folder: str = ""):
