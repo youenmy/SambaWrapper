@@ -286,7 +286,14 @@ def list_tracks(q: str = "", sort: str = "artist", desc: bool = False,
         rows = cx.execute(
             f"SELECT * FROM tracks {clause} ORDER BY {order} LIMIT ? OFFSET ?",
             args + [limit, offset]).fetchall()
-    return [dict(r) for r in rows], total
+    root = library_path().rstrip("/") + "/"
+    out = []
+    for r in rows:
+        item = dict(r)
+        # путь показываем от корня библиотеки — полный и так известен
+        item["rel"] = item["path"][len(root):] if item["path"].startswith(root) else item["path"]
+        out.append(item)
+    return out, total
 
 def random_tracks(q: str = "", artist: str = "", album: str = "", folder: str = "",
                   limit: int = 1, exclude: list[int] | None = None) -> list[dict]:

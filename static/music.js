@@ -24,10 +24,11 @@
     {id: "year", name: "Год"},
     {id: "genre", name: "Жанр"},
     {id: "bitrate", name: "Битрейт"},
+    {id: "path", name: "Путь в библиотеке"},
     {id: "duration", name: "Время"},
     {id: "actions", name: "Действия", fixed: true},
   ];
-  var HIDDEN_BY_DEFAULT = ["genre", "bitrate"];
+  var HIDDEN_BY_DEFAULT = ["genre", "bitrate", "path"];
 
   // ---------------------------------------------------------------- состояние
   var st = {
@@ -500,28 +501,51 @@
         M.columns._dragAndDrop();
         M.columns._resizers();
       },
+      /**
+       * Перетаскивание столбцов мышью. HTML5 drag&drop внутри таблицы со
+       * «липкой» шапкой отрабатывает ненадёжно, поэтому тащим вручную.
+       */
       _dragAndDrop: function () {
-        document.querySelectorAll("#music-tracks th[draggable=true]").forEach(function (th) {
-          th.ondragstart = function (e) {
-            e.stopPropagation();
-            e.dataTransfer.setData("text/plain", th.dataset.col);
-            th.classList.add("opacity-50");
-          };
-          th.ondragend = function () { th.classList.remove("opacity-50"); };
-          th.ondragover = function (e) { e.preventDefault(); th.classList.add("ring-2", "ring-sky-400"); };
-          th.ondragleave = function () { th.classList.remove("ring-2", "ring-sky-400"); };
-          th.ondrop = function (e) {
+        document.querySelectorAll("#music-tracks th[data-col] .col-grip").forEach(function (grip) {
+          if (grip._musDrag) return;
+          grip._musDrag = true;
+          grip.addEventListener("mousedown", function (e) {
             e.preventDefault(); e.stopPropagation();
-            th.classList.remove("ring-2", "ring-sky-400");
-            var from = e.dataTransfer.getData("text/plain"), to = th.dataset.col;
-            if (!from || from === to) return;
-            var cfg = M.columns.config();
-            cfg.order.splice(cfg.order.indexOf(from), 1);
-            cfg.order.splice(cfg.order.indexOf(to), 0, from);
-            M.columns.save(cfg); M.columns.apply();
-          };
+            var th = grip.closest("th");
+            var from = th.dataset.col, target = null;
+            th.classList.add("col-dragging");
+            document.body.style.userSelect = "none";
+
+            function over(ev) {
+              var el = document.elementFromPoint(ev.clientX, ev.clientY);
+              var cell = el && el.closest ? el.closest("#music-tracks th[data-col]") : null;
+              document.querySelectorAll("#music-tracks th").forEach(function (x) {
+                x.classList.remove("col-drop-target");
+              });
+              target = (cell && cell.dataset.col !== from) ? cell.dataset.col : null;
+              if (target) cell.classList.add("col-drop-target");
+            }
+            function up() {
+              document.removeEventListener("mousemove", over);
+              document.removeEventListener("mouseup", up);
+              document.body.style.userSelect = "";
+              th.classList.remove("col-dragging");
+              document.querySelectorAll("#music-tracks th").forEach(function (x) {
+                x.classList.remove("col-drop-target");
+              });
+              if (!target) return;
+              var cfg = M.columns.config();
+              cfg.order.splice(cfg.order.indexOf(from), 1);
+              cfg.order.splice(cfg.order.indexOf(target), 0, from);
+              M.columns.save(cfg);
+              M.columns.apply();
+            }
+            document.addEventListener("mousemove", over);
+            document.addEventListener("mouseup", up);
+          });
         });
       },
+
       /** Зафиксировать текущие ширины всех столбцов в пикселях. */
       _freezeWidths: function () {
         document.querySelectorAll("#music-tracks th[data-col]").forEach(function (th) {

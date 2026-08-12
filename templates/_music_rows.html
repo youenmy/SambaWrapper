@@ -25,6 +25,8 @@
     <td data-col="year" class="px-2 py-1.5 text-right text-slate-400">{{ t.year or '' }}</td>
     <td data-col="genre" class="px-2 py-1.5 max-w-0"><span class="block truncate text-slate-400" title="{{ t.genre }}">{{ t.genre or '' }}</span></td>
     <td data-col="bitrate" class="px-2 py-1.5 text-right text-slate-400 tabular-nums">{{ (t.bitrate ~ 'k') if t.bitrate else '' }}</td>
+    <td data-col="path" class="px-2 py-1.5 max-w-0">
+      <span class="block truncate text-slate-400" title="{{ t.path }}">{{ t.rel }}</span></td>
     <td data-col="duration" class="px-2 py-1.5 text-right text-slate-500 tabular-nums">{{ '%d:%02d'|format(t.duration|int // 60, t.duration|int % 60) }}</td>
     <td data-col="actions" class="px-2 py-1.5 text-right whitespace-nowrap">
       <button title="Удалить с диска" class="text-slate-400 hover:text-red-600"
@@ -35,7 +37,7 @@
 {% endfor %}
 
 {% if not has_more %}
-  <tr><td colspan="9" class="py-3 text-center text-xs text-slate-400">Всего треков: {{ total }}</td></tr>
+  <tr><td colspan="10" class="py-3 text-center text-xs text-slate-400">Всего треков: {{ total }}</td></tr>
 {% endif %}
 
 <script>

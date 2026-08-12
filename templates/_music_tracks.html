@@ -25,6 +25,8 @@
         {{ grip() }}<span class="col-label">Жанр</span></th>
       <th data-col="bitrate" class="text-right font-medium px-2 py-2 w-20">
         {{ grip() }}<span class="col-label">Битрейт</span></th>
+      <th data-col="path" class="text-left font-medium px-2 py-2 w-64">
+        {{ grip() }}<span class="col-label" onclick="Music.sortBy('path')">Путь{{ arrow('path') }}</span></th>
       <th data-col="duration" class="text-right font-medium px-2 py-2 w-20">
         {{ grip() }}<span class="col-label" onclick="Music.sortBy('duration')">Время{{ arrow('duration') }}</span></th>
       <th data-col="actions" class="px-2 py-2"></th>
@@ -35,6 +37,6 @@
          hx-trigger="load"
          hx-vals="js:{q: Music.state.q, sort: Music.state.sort, desc: Music.state.desc ? 'yes' : 'no', artist: Music.state.artist, album: Music.state.album, folder: Music.state.folder, page: 1, seed: Music.state.seed}"
          hx-swap="innerHTML">
-    <tr><td colspan="9" class="text-center text-slate-400 py-10">Загрузка…</td></tr>
+    <tr><td colspan="10" class="text-center text-slate-400 py-10">Загрузка…</td></tr>
   </tbody>
 </table>
