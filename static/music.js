@@ -31,7 +31,7 @@
 
   // ---------------------------------------------------------------- состояние
   var st = {
-    q: "", sort: "artist", desc: false, seed: 0, sortBefore: "",
+    q: "", sort: "path", desc: false, seed: 0, sortBefore: "",
     artist: "", album: "", folder: "", page: 1,
     queue: [],      // треки текущей страницы списка
     total: 0,       // всего треков в текущей выборке
@@ -69,6 +69,10 @@
     /** Открыть раздел «Музыка» в правой панели. */
     open: function () {
       M.restoreFilters();
+      setTimeout(function () {
+        var sel = $("mus-sort");
+        if (sel) sel.value = st.sort + ":" + (st.desc ? "desc" : "asc");
+      }, 120);
       $("mus-bar").classList.remove("hidden");   // док виден всегда в разделе
       htmx.ajax("GET", "/htmx/music-page", {target: "#browser", swap: "innerHTML"})
         .then(function () { M.restoreNow(); });
@@ -601,7 +605,7 @@
     restoreFilters: function () {
       var s = load(LS.view, null);
       if (!s) return;
-      st.q = s.q || ""; st.sort = s.sort || "artist"; st.desc = !!s.desc;
+      st.q = s.q || ""; st.sort = s.sort || "path"; st.desc = !!s.desc;
       st.seed = s.seed || 0;
       st.artist = s.artist || ""; st.album = s.album || ""; st.folder = s.folder || "";
       st.page = 1;

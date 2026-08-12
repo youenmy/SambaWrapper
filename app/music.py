@@ -249,6 +249,8 @@ def _scan_worker(full: bool) -> None:
 # ---------- queries ----------
 
 SORTS = {
+    # как разложено в библиотеке: папки по алфавиту, внутри — файлы по номерам
+    "path": "path COLLATE NOCASE",
     "title": "title COLLATE NOCASE",
     "artist": "artist COLLATE NOCASE, album COLLATE NOCASE, track_no",
     "album": "album COLLATE NOCASE, track_no",

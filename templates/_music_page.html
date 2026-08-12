@@ -22,16 +22,17 @@
   </div>
   <select id="mus-sort" title="Сортировка" onchange="Music.sortSelect(this.value)"
           class="border border-slate-300 rounded-lg px-2 py-1 text-sm">
+    <option value="path:asc" selected>По порядку (как в папках)</option>
+    <option value="random:asc">Перемешать ⤨</option>
     <option value="title:asc">Название: А→Я</option>
     <option value="title:desc">Название: Я→А</option>
-    <option value="artist:asc" selected>Исполнитель: А→Я</option>
+    <option value="artist:asc">Исполнитель: А→Я</option>
     <option value="artist:desc">Исполнитель: Я→А</option>
     <option value="album:asc">Альбом: А→Я</option>
     <option value="year:desc">Год: новые</option>
     <option value="year:asc">Год: старые</option>
     <option value="duration:desc">Длительность: ↓</option>
     <option value="duration:asc">Длительность: ↑</option>
-    <option value="random:asc">Перемешать ⤨</option>
   </select>
   <button class="tbb" onclick="Music.columns.modal()" title="Какие столбцы показывать">
     <i class="ti ti-columns"></i>Столбцы</button>
