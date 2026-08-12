@@ -31,9 +31,10 @@
 
   // ---------------------------------------------------------------- состояние
   var st = {
-    q: "", sort: "artist", desc: false,
+    q: "", sort: "artist", desc: false, seed: 0, sortBefore: "",
     artist: "", album: "", folder: "", page: 1,
     queue: [],      // треки текущей страницы списка
+    total: 0,       // всего треков в текущей выборке
     dups: [],       // копии, показанные в окне дубликатов (в порядке отображения)
     now: null,      // трек, который звучит (может не быть в queue)
     nowId: 0,
@@ -83,7 +84,8 @@
     /** Данные для hx-vals: сервер получает ровно текущее состояние фильтров. */
     query: function () {
       return {q: st.q, sort: st.sort, desc: st.desc ? "yes" : "no",
-              artist: st.artist, album: st.album, folder: st.folder, page: st.page};
+              artist: st.artist, album: st.album, folder: st.folder,
+              page: st.page, seed: st.seed};
     },
 
     search: function (value) {
@@ -132,6 +134,11 @@
       st.queue = tracks || [];
       M.markRow();
       M.columns.apply();
+      if (M._playFirstAfterLoad) {
+        M._playFirstAfterLoad = false;
+        if (st.queue.length) M.playTrack(st.queue[0]);
+      }
+      M.revealCurrent();
     },
     /** Страховка: собрать очередь прямо из таблицы, если она разошлась. */
     queueFromDom: function () {
@@ -178,6 +185,7 @@
       }
       if (track.duration) $("mus-dur").textContent = fmt(track.duration);
       M.markRow();
+      M.revealCurrent();
       store(LS.track, {track: track, time: 0});
     },
     toggle: function () {
@@ -187,8 +195,13 @@
     },
     next: function () {
       if (!st.queue.length) return;
-      if (M.shuffleOn) return M.playTrack(st.queue[Math.floor(Math.random() * st.queue.length)]);
       var i = M._indexOfNow();
+      if (i + 1 >= st.queue.length && st.page * 100 < st.total) {
+        st.page += 1;                  // дошли до конца страницы — берём следующую
+        M._playFirstAfterLoad = true;
+        M.reloadTracks();
+        return;
+      }
       M.playTrack(st.queue[(i + 1) % st.queue.length]);
     },
     prev: function () {
@@ -207,6 +220,20 @@
     toggleShuffle: function () {
       M.shuffleOn = !M.shuffleOn;
       $("mus-shuffle").classList.toggle("text-sky-600", M.shuffleOn);
+      var sel = $("mus-sort");
+      if (M.shuffleOn) {
+        // перемешиваем весь список целиком — иначе «случайные» треки берутся
+        // только из показанной страницы, то есть из начала алфавита
+        st.sortBefore = st.sort;
+        st.seed = Math.floor(Math.random() * 900000) + 1000;
+        st.sort = "random"; st.page = 1;
+        if (sel) sel.disabled = true;
+        SW.toast("Перемешано — список в случайном порядке");
+      } else {
+        st.sort = st.sortBefore || "artist"; st.seed = 0; st.page = 1;
+        if (sel) { sel.disabled = false; sel.value = st.sort + (st.desc ? ":desc" : ":asc"); }
+      }
+      M.reloadTracks();
     },
     toggleRepeat: function () {
       M.repeatOn = !M.repeatOn;
@@ -269,6 +296,13 @@
       document.querySelectorAll("#modal-host .dup-row").forEach(function (row) {
         row.classList.toggle("mus-playing", st.nowId > 0 && Number(row.dataset.copy) === st.nowId);
       });
+    },
+    /** Показать играющий трек в списке (прокрутка + фокус). */
+    revealCurrent: function () {
+      if (!st.nowId) return;
+      var row = document.querySelector('#music-tracks .mrow[data-id="' + st.nowId + '"]');
+      if (!row) return;
+      row.scrollIntoView({block: "nearest", behavior: "smooth"});
     },
     markLists: function () {
       document.querySelectorAll("#music-lists .mus-item").forEach(function (b) {

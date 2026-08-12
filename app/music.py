@@ -249,6 +249,7 @@ def _scan_worker(full: bool) -> None:
 # ---------- queries ----------
 
 SORTS = {
+    "random": "",   # подставляется отдельно: псевдослучайный порядок по seed
     "title": "title COLLATE NOCASE",
     "artist": "artist COLLATE NOCASE, album COLLATE NOCASE, track_no",
     "album": "album COLLATE NOCASE, track_no",
@@ -259,7 +260,7 @@ SORTS = {
 
 def list_tracks(q: str = "", sort: str = "artist", desc: bool = False,
                 artist: str = "", album: str = "", folder: str = "",
-                limit: int = 100, offset: int = 0) -> tuple[list[dict], int]:
+                limit: int = 100, offset: int = 0, seed: int = 0) -> tuple[list[dict], int]:
     where, args = [], []
     if folder:
         where.append("path LIKE ?")
@@ -275,7 +276,11 @@ def list_tracks(q: str = "", sort: str = "artist", desc: bool = False,
         where.append("album = ?")
         args.append(album)
     clause = ("WHERE " + " AND ".join(where)) if where else ""
-    order = SORTS.get(sort, SORTS["artist"]) + (" DESC" if desc else "")
+    if sort == "random":
+        # перемешиваем всю выборку, но одинаково для всех страниц одного seed
+        order = f"(id * {int(seed) % 999983 or 7919} % 1000003)"
+    else:
+        order = SORTS.get(sort, SORTS["artist"]) + (" DESC" if desc else "")
     with db.connect() as cx:
         total = cx.execute(f"SELECT COUNT(*) c FROM tracks {clause}", args).fetchone()["c"]
         rows = cx.execute(

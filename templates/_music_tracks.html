@@ -79,6 +79,7 @@
 <div class="px-3 pb-3 text-xs text-slate-400">Найдено треков: {{ total }}</div>
 
 <script>
+  Music.state.total = {{ total }};
   Music.setQueue({{ tracks|map(attribute='id')|list|tojson }}.map(function (id, i) {
     return {
       id: id,

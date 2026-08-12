@@ -872,11 +872,12 @@ async def htmx_music_page(request: Request, _: str = Depends(current_user)):
 @app.get("/htmx/music-tracks", response_class=HTMLResponse)
 async def htmx_music_tracks(request: Request, _: str = Depends(current_user),
                             q: str = "", sort: str = "artist", desc: str = "no",
-                            artist: str = "", album: str = "", folder: str = "", page: int = 1):
+                            artist: str = "", album: str = "", folder: str = "",
+                            page: int = 1, seed: int = 0):
     page = max(1, page)
     tracks, total = await asyncio.to_thread(
         music.list_tracks, q.strip(), sort, desc == "yes", artist, album, folder,
-        MUSIC_PAGE_SIZE, (page - 1) * MUSIC_PAGE_SIZE)
+        MUSIC_PAGE_SIZE, (page - 1) * MUSIC_PAGE_SIZE, seed)
     return templates.TemplateResponse("_music_tracks.html", {
         "request": request, "tracks": tracks, "total": total, "page": page,
         "pages": max(1, (total + MUSIC_PAGE_SIZE - 1) // MUSIC_PAGE_SIZE),
