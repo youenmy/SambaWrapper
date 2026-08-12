@@ -181,5 +181,5 @@ html.dark th.col-drop-target { box-shadow: inset 3px 0 0 #38bdf8; }
 
 /* Таблица треков: фиксированная раскладка, иначе изменение ширины одного
    столбца заставляет браузер пересчитывать все остальные («прыгают»). */
-table.mus-table { table-layout: fixed; width: max-content; min-width: 100%; }
+table.mus-table { table-layout: fixed; width: 100%; }
 table.mus-table th, table.mus-table td { overflow: hidden; }

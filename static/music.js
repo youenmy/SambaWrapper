@@ -490,7 +490,9 @@
             if (!cell) return;
             cell.style.display = cfg.hidden.indexOf(id) >= 0 ? "none" : "";
             var w = cfg.widths[id];
-            if (w && cell.tagName === "TH") { cell.style.width = w + "px"; cell.style.minWidth = w + "px"; }
+            if (w && cell.tagName === "TH" && id !== "title") {
+              cell.style.width = w + "px"; cell.style.minWidth = w + "px";
+            }
             row.appendChild(cell);
           });
         });
@@ -522,6 +524,7 @@
       /** Зафиксировать текущие ширины всех столбцов в пикселях. */
       _freezeWidths: function () {
         document.querySelectorAll("#music-tracks th[data-col]").forEach(function (th) {
+          if (th.dataset.col === "title") return;   // резиновый столбец
           if (!th.style.width) {
             var w = th.offsetWidth;
             th.style.width = w + "px"; th.style.minWidth = w + "px";
@@ -551,7 +554,7 @@
               document.body.style.userSelect = "";
               var cfg = M.columns.config();
               document.querySelectorAll("#music-tracks th[data-col]").forEach(function (x) {
-                cfg.widths[x.dataset.col] = x.offsetWidth;
+                if (x.dataset.col !== "title") cfg.widths[x.dataset.col] = x.offsetWidth;
               });
               M.columns.save(cfg);
             }
