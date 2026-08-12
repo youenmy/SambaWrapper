@@ -314,6 +314,31 @@ def random_tracks(q: str = "", artist: str = "", album: str = "", folder: str = 
             f"SELECT * FROM tracks {clause} ORDER BY RANDOM() LIMIT ?", args + [limit]).fetchall()
     return [dict(r) for r in rows]
 
+def track_page(track_id: int, q: str = "", sort: str = "artist", desc: bool = False,
+               artist: str = "", album: str = "", folder: str = "", page_size: int = 100) -> int:
+    """Номер страницы, на которой окажется трек при текущей сортировке и фильтрах."""
+    where, args = [], []
+    if q:
+        where.append("(title LIKE ? OR artist LIKE ? OR album LIKE ?)")
+        like = f"%{q}%"
+        args += [like, like, like]
+    if artist:
+        where.append("artist = ?")
+        args.append(artist)
+    if album:
+        where.append("album = ?")
+        args.append(album)
+    if folder:
+        where.append("path LIKE ?")
+        args.append(folder.rstrip("/") + "/%")
+    clause = ("WHERE " + " AND ".join(where)) if where else ""
+    order = SORTS.get(sort, SORTS["artist"]) + (" DESC" if desc else "")
+    with db.connect() as cx:
+        row = cx.execute(
+            f"SELECT pos FROM (SELECT id, ROW_NUMBER() OVER (ORDER BY {order}) - 1 AS pos "
+            f"FROM tracks {clause}) WHERE id = ?", args + [track_id]).fetchone()
+    return (row["pos"] // page_size + 1) if row else 1
+
 def list_folders() -> list[dict]:
     """Папки библиотеки (по одному уровню вложенности) с числом треков."""
     root = library_path().rstrip("/") + "/"

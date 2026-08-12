@@ -177,3 +177,9 @@ html.dark th.col-drop-target { box-shadow: inset 3px 0 0 #38bdf8; }
 /* ручка ширины — тонкая полоска у правого края, видна постоянно */
 .col-resizer { background: linear-gradient(to right, transparent 2px, rgba(148,163,184,.45) 2px, rgba(148,163,184,.45) 4px, transparent 4px); }
 .col-resizer:hover { background: linear-gradient(to right, transparent 1px, #0284c7 1px, #0284c7 5px, transparent 5px); }
+
+
+/* Таблица треков: фиксированная раскладка, иначе изменение ширины одного
+   столбца заставляет браузер пересчитывать все остальные («прыгают»). */
+table.mus-table { table-layout: fixed; width: max-content; min-width: 100%; }
+table.mus-table th, table.mus-table td { overflow: hidden; }

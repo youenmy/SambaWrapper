@@ -49,5 +49,5 @@
       duration: {{ tracks|map(attribute='duration')|list|tojson }}[i],
       cover: {{ tracks|map(attribute='has_cover')|list|tojson }}[i] === 1,
     };
-  }), {{ 'true' if page == 1 else 'false' }}, {{ 'true' if has_more else 'false' }});
+  }), {{ 'true' if is_first else 'false' }}, {{ 'true' if has_more else 'false' }}, {{ page }});
 </script>

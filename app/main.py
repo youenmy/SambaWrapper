@@ -889,7 +889,7 @@ async def htmx_music_tracks(request: Request, _: str = Depends(current_user),
 async def htmx_music_rows(request: Request, _: str = Depends(current_user),
                           q: str = "", sort: str = "artist", desc: str = "no",
                           artist: str = "", album: str = "", folder: str = "",
-                          page: int = 1, seed: int = 0):
+                          page: int = 1, seed: int = 0, reset: str = "no"):
     """Очередная порция строк для бесконечного списка."""
     page = max(1, page)
     tracks, total = await asyncio.to_thread(
@@ -898,6 +898,7 @@ async def htmx_music_rows(request: Request, _: str = Depends(current_user),
     return templates.TemplateResponse("_music_rows.html", {
         "request": request, "tracks": tracks, "total": total, "page": page,
         "has_more": page * MUSIC_PAGE_SIZE < total,
+        "is_first": page == 1 or reset == "yes",
         "q": q, "sort": sort, "desc": desc, "artist": artist, "album": album,
         "folder": folder, "seed": seed,
     })
@@ -905,7 +906,8 @@ async def htmx_music_rows(request: Request, _: str = Depends(current_user),
 @app.get("/api/music-random")
 async def api_music_random(request: Request, _: str = Depends(current_user),
                            q: str = "", artist: str = "", album: str = "",
-                           folder: str = "", exclude: str = ""):
+                           folder: str = "", exclude: str = "",
+                           sort: str = "artist", desc: str = "no"):
     """Случайный трек из всей выборки — для режима «перемешать»."""
     skip = [int(x) for x in exclude.split(",") if x.strip().isdigit()][:200]
     rows = await asyncio.to_thread(music.random_tracks, q.strip(), artist, album, folder, 1, skip)
@@ -914,7 +916,10 @@ async def api_music_random(request: Request, _: str = Depends(current_user),
     if not rows:
         return {"track": None}
     t = rows[0]
-    return {"track": {"id": t["id"], "title": t["title"], "artist": t["artist"],
+    page = await asyncio.to_thread(music.track_page, t["id"], q.strip(), sort,
+                                   desc == "yes", artist, album, folder, MUSIC_PAGE_SIZE)
+    return {"page": page,
+            "track": {"id": t["id"], "title": t["title"], "artist": t["artist"],
                       "album": t["album"], "duration": t["duration"],
                       "cover": bool(t["has_cover"])}}
 

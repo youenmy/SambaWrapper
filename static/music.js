@@ -133,9 +133,9 @@
     },
 
     /** Порция строк отрисована: первая — заменяет очередь, последующие дополняют. */
-    appendQueue: function (tracks, isFirst, hasMore) {
-      if (isFirst) { st.queue = tracks || []; st.page = 1; }
-      else st.queue = st.queue.concat(tracks || []);
+    appendQueue: function (tracks, isFirst, hasMore, page) {
+      if (isFirst) { st.queue = tracks || []; st.page = page || 1; }
+      else { st.queue = st.queue.concat(tracks || []); st.page = page || st.page; }
       st.hasMore = !!hasMore;
       st.loading = false;
       M._watchScroll();
@@ -267,15 +267,32 @@
     playRandom: function () {
       var params = new URLSearchParams({
         q: st.q, artist: st.artist, album: st.album, folder: st.folder,
-        exclude: st.recent.join(","),
+        sort: st.sort, desc: st.desc ? "yes" : "no", exclude: st.recent.join(","),
       });
       fetch("/api/music-random?" + params.toString())
         .then(function (r) { return r.json(); })
         .then(function (data) {
           if (!data || !data.track) { SW.toast("Треков не найдено"); return; }
           M.playTrack(data.track);
+          // трек может быть далеко в списке — показываем ту его часть, где он есть
+          if (!document.querySelector('#music-tracks .mrow[data-id="' + data.track.id + '"]')) {
+            M.jumpToPage(data.page || 1);
+          }
         })
         .catch(function () { SW.toast("Не удалось выбрать трек"); });
+    },
+    /** Показать список начиная с указанной страницы (для прыжка к треку). */
+    jumpToPage: function (page) {
+      st.loading = true;
+      htmx.ajax("GET", "/htmx/music-rows", {
+        target: "#mus-rows", swap: "innerHTML",
+        values: {q: st.q, sort: st.sort, desc: st.desc ? "yes" : "no",
+                 artist: st.artist, album: st.album, folder: st.folder,
+                 page: page, reset: "yes"},
+      }).then(function () {
+        st.loading = false;
+        setTimeout(M.revealCurrent, 60);
+      }).catch(function () { st.loading = false; });
     },
     toggleRepeat: function () {
       M.repeatOn = !M.repeatOn;
@@ -344,7 +361,7 @@
       if (!st.nowId) return;
       var row = document.querySelector('#music-tracks .mrow[data-id="' + st.nowId + '"]');
       if (!row) return;
-      row.scrollIntoView({block: "nearest", behavior: "smooth"});
+      row.scrollIntoView({block: "center", behavior: "smooth"});
     },
     markLists: function () {
       document.querySelectorAll("#music-lists .mus-item").forEach(function (b) {
@@ -494,6 +511,15 @@
           };
         });
       },
+      /** Зафиксировать текущие ширины всех столбцов в пикселях. */
+      _freezeWidths: function () {
+        document.querySelectorAll("#music-tracks th[data-col]").forEach(function (th) {
+          if (!th.style.width) {
+            var w = th.offsetWidth;
+            th.style.width = w + "px"; th.style.minWidth = w + "px";
+          }
+        });
+      },
       _resizers: function () {
         document.querySelectorAll("#music-tracks th[data-col]").forEach(function (th) {
           if (th.querySelector(".col-resizer") || th.dataset.col === "actions") return;
@@ -504,6 +530,7 @@
           handle.addEventListener("dragstart", function (e) { e.preventDefault(); });
           handle.addEventListener("mousedown", function (e) {
             e.preventDefault(); e.stopPropagation();
+            M.columns._freezeWidths();
             var startX = e.clientX, startW = th.offsetWidth;
             document.body.style.userSelect = "none";
             function move(ev) {
@@ -515,7 +542,9 @@
               document.removeEventListener("mouseup", up);
               document.body.style.userSelect = "";
               var cfg = M.columns.config();
-              cfg.widths[th.dataset.col] = th.offsetWidth;
+              document.querySelectorAll("#music-tracks th[data-col]").forEach(function (x) {
+                cfg.widths[x.dataset.col] = x.offsetWidth;
+              });
               M.columns.save(cfg);
             }
             document.addEventListener("mousemove", move);
