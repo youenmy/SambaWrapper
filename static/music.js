@@ -35,6 +35,8 @@
     artist: "", album: "", folder: "", page: 1,
     queue: [],      // треки текущей страницы списка
     total: 0,       // всего треков в текущей выборке
+    hasMore: false, // есть ли ещё порции для подгрузки
+    loading: false, // порция уже запрашивается
     recent: [],     // недавно сыгранные id (чтобы «случайно» не повторялось)
     dups: [],       // копии, показанные в окне дубликатов (в порядке отображения)
     now: null,      // трек, который звучит (может не быть в queue)
@@ -131,9 +133,12 @@
     },
 
     /** Порция строк отрисована: первая — заменяет очередь, последующие дополняют. */
-    appendQueue: function (tracks, isFirst) {
-      if (isFirst) st.queue = tracks || [];
+    appendQueue: function (tracks, isFirst, hasMore) {
+      if (isFirst) { st.queue = tracks || []; st.page = 1; }
       else st.queue = st.queue.concat(tracks || []);
+      st.hasMore = !!hasMore;
+      st.loading = false;
+      M._watchScroll();
       M.markRow();
       M.columns.apply();
       if (M._playAfterLoad) {
@@ -144,6 +149,29 @@
       }
       M.revealCurrent();
     },
+    /** Подгрузка следующей порции при прокрутке к низу списка. */
+    _watchScroll: function () {
+      var pane = $("music-tracks");
+      if (!pane || pane._musScroll) return;
+      pane._musScroll = true;
+      pane.addEventListener("scroll", function () {
+        if (pane.scrollHeight - pane.scrollTop - pane.clientHeight < 400) M.loadMore();
+      });
+    },
+    loadMore: function () {
+      if (st.loading || !st.hasMore) return;
+      var body = $("mus-rows");
+      if (!body) return;
+      st.loading = true;
+      var next = st.page + 1;
+      htmx.ajax("GET", "/htmx/music-rows", {
+        target: "#mus-rows", swap: "beforeend",
+        values: {q: st.q, sort: st.sort, desc: st.desc ? "yes" : "no",
+                 artist: st.artist, album: st.album, folder: st.folder, page: next},
+      }).then(function () { st.page = next; })
+        .catch(function () { st.loading = false; });
+    },
+
     /** Страховка: собрать очередь прямо из таблицы, если она разошлась. */
     queueFromDom: function () {
       var rows = document.querySelectorAll("#music-tracks .mrow[data-id]");
@@ -205,14 +233,12 @@
       var i = M._indexOfNow();
       if (i + 1 < st.queue.length) return M.playTrack(st.queue[i + 1]);
       // дошли до конца загруженного — подгружаем ещё, если есть
-      var sentinel = $("mus-sentinel");
-      if (sentinel && st.queue.length < st.total) {
-        M._playAfterLoad = -1;                 // сыграть первый из новой порции
+      if (st.hasMore) {
         var known = st.queue.length;
-        htmx.trigger(sentinel, "revealed");
+        M.loadMore();
         setTimeout(function () {
           if (st.queue.length > known) M.playTrack(st.queue[known]);
-        }, 600);
+        }, 700);
         return;
       }
       M.playTrack(st.queue[0]);                // список кончился — начинаем сначала
