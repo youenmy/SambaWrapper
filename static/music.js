@@ -443,12 +443,21 @@
           V.sources[el.id] = src;
         } catch (e) { /* элемент уже привязан к другому контексту */ }
       },
-      start: function () {
+      /* Деки заводим в граф ДО первого воспроизведения: если подключить уже
+       * звучащий элемент, Chrome оставляет звук в обход графа и анализатор
+       * получает тишину. */
+      attach: function () {
         var V = M.viz;
         if (!$("mus-viz") || !V._ensure()) return;
-        if (V.ctx.state === "suspended") V.ctx.resume().catch(function () {});
         V._connect($("mus-audio"));
         V._connect($("mus-audio-b"));
+      },
+      start: function () {
+        var V = M.viz;
+        V.attach();
+        if (!V.ctx) return;
+        // контекст создаётся приглушённым — будим его, иначе звука не будет вовсе
+        if (V.ctx.state !== "running") V.ctx.resume().catch(function () {});
         if (!V.raf) V.raf = requestAnimationFrame(V._draw);
       },
       stop: function () {
@@ -854,6 +863,13 @@
           if (!active()) return;
           $("mus-play-icon").className = "ti ti-player-play-filled text-sm";
         });
+      });
+
+      M.viz.attach();
+      // браузер разрешает звук из графа только после действия пользователя
+      document.addEventListener("pointerdown", function wake() {
+        document.removeEventListener("pointerdown", wake);
+        if (M.viz.ctx && M.viz.ctx.state !== "running") M.viz.ctx.resume().catch(function () {});
       });
 
       var seekZone = $("mus-seek-zone");
