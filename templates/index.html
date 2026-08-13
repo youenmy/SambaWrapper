@@ -45,7 +45,7 @@
       </div>
     </main>
   <!-- ===== музыкальный плеер (появляется, когда включён трек) ===== -->
-  <div id="mus-bar" class="hidden relative z-[60] h-24 shrink-0 bg-white border-t border-slate-200 flex items-center gap-3 px-3 pl-52">
+  <div id="mus-bar" class="hidden relative z-[60] h-12 shrink-0 bg-white border-t border-slate-200 flex items-center gap-3 px-3 pl-52">
     <!-- обложка поднимается над доком и вписана по ширине в панель библиотеки (w-52) -->
     <div id="mus-cover-wrap" class="absolute left-2 bottom-2 w-48 h-48 rounded-xl overflow-hidden mus-nocover shadow-lg ring-1 ring-black/10">
       <img id="mus-cover" alt="" class="w-48 h-48 object-cover hidden">
@@ -65,7 +65,7 @@
       </div>
       <div class="flex flex-1 min-w-0 items-center gap-2 text-xs text-slate-400">
         <span id="mus-cur" class="tabular-nums w-10 text-right">0:00</span>
-        <div id="mus-seek" class="relative flex-1 h-16 overflow-hidden cursor-pointer" onclick="Music.seekClick(event)">
+        <div id="mus-seek" class="relative flex-1 h-10 overflow-hidden cursor-pointer" onclick="Music.seekClick(event)">
           <canvas id="mus-viz" class="absolute inset-0 w-full h-full"></canvas>
           <div id="mus-fill" class="absolute inset-y-0 left-0 pointer-events-none" style="width:0%"></div>
           <div id="mus-head" class="absolute inset-y-0 w-0.5 bg-sky-600 pointer-events-none" style="left:0%"></div>
