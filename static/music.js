@@ -556,8 +556,9 @@
           var x = i * (barW + gap);
           g.fillStyle = (x + barW / 2 <= played) ? hot : cold;
           if (g.roundRect) {
+            var r = Math.min(radius, bar / 2);      // низкий столбик не должен стать кружком
             g.beginPath();
-            g.roundRect(x, h - bar, barW, bar, [radius, radius, 0, 0]);
+            g.roundRect(x, h - bar, barW, bar, [r, r, 0, 0]);
             g.fill();
           } else {
             g.fillRect(x, h - bar, barW, bar);

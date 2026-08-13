@@ -97,20 +97,22 @@ html.dark .bg-sky-50, html.dark .frow.bg-sky-50 { background: #0c2a47 !important
 html.dark .bg-slate-100.text-slate-500 { color: #cbd5e1 !important; }
 
 
-/* ---- единый стиль полос перемотки (видео и музыка) ---- */
-#sw-seek, #mus-seek {
+/* ---- полоса перемотки видеоплеера ----
+ * Музыкальная полоса здесь НЕ участвует: у неё высоту задаёт разметка
+ * (в ней рисуется визуализатор), а правило по id перебивало бы её. */
+#sw-seek {
   position: relative;
   height: 0.375rem;               /* толще, чтобы попадать мышью */
   border-radius: 999px;
   transition: height .12s ease;
 }
-#sw-seek:hover, #mus-seek:hover { height: 0.5rem; }
-#sw-fill, #mus-fill {
+#sw-seek:hover { height: 0.5rem; }
+#sw-fill {
   border-radius: 999px;
   position: relative;
 }
 /* бегунок-кружок на конце заполненной части */
-#sw-fill::after, #mus-fill::after {
+#sw-fill::after {
   content: "";
   position: absolute;
   right: -0.3125rem; top: 50%;
@@ -122,8 +124,8 @@ html.dark .bg-slate-100.text-slate-500 { color: #cbd5e1 !important; }
   box-shadow: 0 1px 3px rgba(0,0,0,.35);
   transition: transform .12s ease;
 }
-#sw-seek:hover #sw-fill::after, #mus-seek:hover #mus-fill::after { transform: translateY(-50%) scale(1); }
-html.dark #sw-fill::after, html.dark #mus-fill::after { border-color: #0f172a; }
+#sw-seek:hover #sw-fill::after { transform: translateY(-50%) scale(1); }
+html.dark #sw-fill::after { border-color: #0f172a; }
 
 /* ползунки громкости — в тон интерфейсу */
 #sw-vol, #mus-vol { accent-color: #0284c7; height: 0.375rem; }
