@@ -45,7 +45,21 @@
   };
 
   function $(id) { return document.getElementById(id); }
-  function audio() { return $("mus-audio"); }
+
+  /* Дек две: одна звучит, вторая заранее качает следующий трек. Когда доходит
+   * очередь до предзагруженного — деки просто меняются ролями, поэтому старт
+   * мгновенный даже на медленном канале. */
+  var deck = "mus-audio";
+  function audio() { return $(deck); }
+  function spare() { return $(deck === "mus-audio" ? "mus-audio-b" : "mus-audio"); }
+  function swapDecks() { deck = (deck === "mus-audio") ? "mus-audio-b" : "mus-audio"; }
+  function srcOf(el) { return el && el.getAttribute("src") || ""; }
+  function clear(el) {
+    if (!el) return;
+    el.pause();
+    el.removeAttribute("src");
+    el.load();
+  }
 
   function fmt(sec) {
     sec = Math.max(0, Math.floor(sec || 0));
@@ -155,6 +169,7 @@
         if (found) M.playTrack(found);
       }
       M.revealCurrent();
+      if (st.nowId) M.preloadNext();   // очередь изменилась — следующий трек мог стать другим
     },
     /** Подгрузка следующей порции при прокрутке к низу списка. */
     _watchScroll: function () {
@@ -205,11 +220,21 @@
     },
     /** Единственное место, где начинается воспроизведение. */
     playTrack: function (track) {
-      var a = audio();
+      var url = "/music-audio/" + track.id;
       st.now = track; st.nowId = track.id;
-      a.pause();                                  // корректно обрываем предыдущий поток
-      a.src = "/music-audio/" + track.id;
-      a.load();                                   // сбрасываем состояние, в т.ч. после ошибки чтения
+
+      if (srcOf(spare()) === url) {
+        clear(audio());                           // старый поток обрываем целиком
+        swapDecks();                              // предзагруженная дека становится активной
+      } else {
+        var cur = audio();
+        cur.pause();                              // корректно обрываем предыдущий поток
+        cur.src = url;
+        cur.load();                               // сбрасываем состояние, в т.ч. после ошибки чтения
+      }
+      var a = audio();
+      M._applyVolume(a);
+      if (a.readyState > 0 && a.currentTime > 0) { try { a.currentTime = 0; } catch (e) {} }
       var started = a.play();
       if (started && started.catch) started.catch(function () { /* автозапуск заблокирован */ });
       $("mus-bar").classList.remove("hidden");
@@ -228,7 +253,29 @@
       if (st.recent.length > 150) st.recent.shift();
       M.markRow();
       M.revealCurrent();
+      M.viz.start();
+      M.preloadNext();
       store(LS.track, {track: track, time: 0});
+    },
+
+    /** Заранее скачать следующий трек во вторую деку. */
+    preloadNext: function () {
+      var next = M.shuffleOn ? null : M._peekNext();   // в случайном режиме следующий неизвестен
+      var sp = spare();
+      if (!sp) return;
+      if (!next) { if (srcOf(sp)) clear(sp); return; }
+      var url = "/music-audio/" + next.id;
+      if (srcOf(sp) === url) return;                   // уже качается нужный
+      sp.pause();
+      sp.src = url;
+      sp.load();
+    },
+    /** Какой трек пойдёт следующим при обычном (не случайном) порядке. */
+    _peekNext: function () {
+      if (!st.queue.length) return null;
+      var i = M._indexOfNow();
+      if (i < 0) return null;
+      return st.queue[i + 1] || (st.hasMore ? null : st.queue[0]) || null;
     },
     toggle: function () {
       var a = audio();
@@ -324,8 +371,17 @@
       var a = audio();
       a.volume = parseFloat(value);
       a.muted = a.volume <= 0;
+      M._applyVolume(spare());                 // вторая дека должна зазвучать так же
       M._volumeIcon();
       store(LS.volume, String(a.volume));
+    },
+    /** Перенести громкость активной деки на указанный элемент. */
+    _applyVolume: function (el) {
+      if (!el) return;
+      var from = (el === audio()) ? spare() : audio();
+      if (!from) return;
+      el.volume = from.volume;
+      el.muted = from.muted;
     },
     volumeWheel: function (event) {
       event.preventDefault();
@@ -336,6 +392,7 @@
     mute: function () {
       var a = audio();
       a.muted = !a.muted;
+      M._applyVolume(spare());
       var slider = $("mus-vol"); if (slider) slider.value = a.muted ? 0 : a.volume;
       M._volumeIcon();
     },
@@ -346,13 +403,94 @@
                      : (a.volume < 0.5 ? "ti ti-volume-2" : "ti ti-volume");
     },
     close: function () {
-      var a = audio();
-      a.pause(); a.removeAttribute("src"); a.load();
+      clear(audio()); clear(spare());
+      M.viz.stop();
       st.now = null; st.nowId = 0;
       if (SW.view !== "music") $("mus-bar").classList.add("hidden");
       $("mus-title").textContent = "—";
       $("mus-artist").textContent = "";
       M.markRow();
+    },
+
+    /* ---------------------------------------------------- визуализатор
+     * Спектр рисуется прямо в полосе перемотки: сыгранная часть — синяя,
+     * оставшаяся — серая. Если Web Audio недоступен, полоса просто остаётся
+     * обычным прогрессом, воспроизведение от этого не страдает. */
+    viz: {
+      ctx: null, analyser: null, data: null, raf: 0, sources: {},
+
+      _ensure: function () {
+        var V = M.viz;
+        var Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) return false;
+        if (!V.ctx) {
+          try { V.ctx = new Ctor(); } catch (e) { return false; }
+          V.analyser = V.ctx.createAnalyser();
+          V.analyser.fftSize = 128;
+          V.analyser.smoothingTimeConstant = 0.78;
+          V.analyser.connect(V.ctx.destination);
+          V.data = new Uint8Array(V.analyser.frequencyBinCount);
+        }
+        return true;
+      },
+      /** Пропустить звук деки через анализатор (один раз на элемент). */
+      _connect: function (el) {
+        var V = M.viz;
+        if (!el || !V.ctx || V.sources[el.id]) return;
+        try {
+          var src = V.ctx.createMediaElementSource(el);
+          src.connect(V.analyser);
+          V.sources[el.id] = src;
+        } catch (e) { /* элемент уже привязан к другому контексту */ }
+      },
+      start: function () {
+        var V = M.viz;
+        if (!$("mus-viz") || !V._ensure()) return;
+        if (V.ctx.state === "suspended") V.ctx.resume().catch(function () {});
+        V._connect($("mus-audio"));
+        V._connect($("mus-audio-b"));
+        if (!V.raf) V.raf = requestAnimationFrame(V._draw);
+      },
+      stop: function () {
+        var V = M.viz;
+        if (V.raf) cancelAnimationFrame(V.raf);
+        V.raf = 0;
+        V._clear();
+      },
+      _clear: function () {
+        var c = $("mus-viz");
+        if (c && c.getContext) c.getContext("2d").clearRect(0, 0, c.width, c.height);
+      },
+      _draw: function () {
+        var V = M.viz, c = $("mus-viz");
+        if (!c || !V.analyser) { V.raf = 0; return; }
+
+        var dpr = window.devicePixelRatio || 1;
+        var w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
+        if (w < 2 || h < 2) { V.raf = requestAnimationFrame(V._draw); return; }
+        if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+
+        var g = c.getContext("2d");
+        g.clearRect(0, 0, w, h);
+        V.analyser.getByteFrequencyData(V.data);
+
+        var a = audio();
+        var played = (a && a.duration) ? (a.currentTime / a.duration) * w : 0;
+        var bins = V.data.length;
+        var step = w / bins;
+        var gap = Math.max(1, Math.round(dpr));
+
+        for (var i = 0; i < bins; i++) {
+          // верхние бины почти всегда пустые — растягиваем полезную часть спектра
+          var v = V.data[Math.floor(i * 0.72)];
+          var bar = Math.max(2 * dpr, (v / 255) * h);
+          var x = i * step;
+          g.fillStyle = (x + step / 2 <= played) ? "rgba(14,165,233,0.85)"
+                                                 : "rgba(148,163,184,0.45)";
+          g.fillRect(x, (h - bar) / 2, Math.max(1, step - gap), bar);
+        }
+        V.raf = requestAnimationFrame(V._draw);
+      },
     },
 
     // ------------------------------------------------------------ подсветка
@@ -676,31 +814,46 @@
         M._volumeIcon();
       }
 
-      a.addEventListener("timeupdate", function () {
-        var fill = $("mus-fill"), cur = $("mus-cur");
-        if (fill) fill.style.width = (a.duration ? a.currentTime / a.duration * 100 : 0) + "%";
-        if (cur) cur.textContent = fmt(a.currentTime);
-        // позицию сохраняем не чаще раза в 5 секунд
-        if (!M._savedAt || Date.now() - M._savedAt > 5000) {
-          M._savedAt = Date.now();
-          if (st.now) store(LS.track, {track: st.now, time: a.currentTime});
-        }
-      });
-      a.addEventListener("loadedmetadata", function () {
-        var d = $("mus-dur"); if (d) d.textContent = fmt(a.duration);
-      });
-      a.addEventListener("ended", function () {
-        if (M.repeatOn) { a.currentTime = 0; a.play(); } else M.next();
-      });
-      a.addEventListener("error", function () {
-        if (!a.src) return;                       // источник сняли намеренно
-        SW.toast("Не удалось воспроизвести трек");
-      });
-      a.addEventListener("play", function () {
-        $("mus-play-icon").className = "ti ti-player-pause-filled text-sm";
-      });
-      a.addEventListener("pause", function () {
-        $("mus-play-icon").className = "ti ti-player-play-filled text-sm";
+      /* События вешаем на обе деки, но реагируем только на активную —
+       * вторая в это время молча качает следующий трек. */
+      [$("mus-audio"), $("mus-audio-b")].forEach(function (el) {
+        if (!el) return;
+        function active() { return el === audio(); }
+
+        el.addEventListener("timeupdate", function () {
+          if (!active()) return;
+          var pct = el.duration ? el.currentTime / el.duration * 100 : 0;
+          var fill = $("mus-fill"), head = $("mus-head"), cur = $("mus-cur");
+          if (fill) fill.style.width = pct + "%";
+          if (head) head.style.left = pct + "%";
+          if (cur) cur.textContent = fmt(el.currentTime);
+          // позицию сохраняем не чаще раза в 5 секунд
+          if (!M._savedAt || Date.now() - M._savedAt > 5000) {
+            M._savedAt = Date.now();
+            if (st.now) store(LS.track, {track: st.now, time: el.currentTime});
+          }
+        });
+        el.addEventListener("loadedmetadata", function () {
+          if (!active()) return;
+          var d = $("mus-dur"); if (d) d.textContent = fmt(el.duration);
+        });
+        el.addEventListener("ended", function () {
+          if (!active()) return;
+          if (M.repeatOn) { el.currentTime = 0; el.play(); } else M.next();
+        });
+        el.addEventListener("error", function () {
+          if (!active() || !srcOf(el)) return;     // источник сняли намеренно
+          SW.toast("Не удалось воспроизвести трек");
+        });
+        el.addEventListener("play", function () {
+          if (!active()) return;
+          $("mus-play-icon").className = "ti ti-player-pause-filled text-sm";
+          M.viz.start();
+        });
+        el.addEventListener("pause", function () {
+          if (!active()) return;
+          $("mus-play-icon").className = "ti ti-player-play-filled text-sm";
+        });
       });
 
       var seekZone = $("mus-seek-zone");
