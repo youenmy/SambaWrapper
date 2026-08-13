@@ -255,6 +255,7 @@
       M.revealCurrent();
       M.viz.start();
       M.preloadNext();
+      M._fitLists();
       store(LS.track, {track: track, time: 0});
     },
 
@@ -406,6 +407,7 @@
       clear(audio()); clear(spare());
       M.viz.stop();
       st.now = null; st.nowId = 0;
+      M._fitLists();
       if (SW.view !== "music") $("mus-bar").classList.add("hidden");
       $("mus-title").textContent = "—";
       $("mus-artist").textContent = "";
@@ -574,6 +576,15 @@
       var row = document.querySelector('#music-tracks .mrow[data-id="' + st.nowId + '"]');
       if (!row) return;
       row.scrollIntoView({block: "center", behavior: "smooth"});
+    },
+    /* Обложка выступает над доком и перекрывала бы хвост списка папок —
+     * дотягиваем список ровно на высоту выступающей части. */
+    _fitLists: function () {
+      var tail = $("mus-lists-tail"), bar = $("mus-bar"), cover = $("mus-cover-wrap");
+      if (!tail) return;
+      if (!bar || !cover || bar.classList.contains("hidden")) { tail.style.height = "8px"; return; }
+      var over = bar.getBoundingClientRect().top - cover.getBoundingClientRect().top;
+      tail.style.height = Math.max(8, Math.round(over) + 8) + "px";
     },
     markLists: function () {
       document.querySelectorAll("#music-lists .mus-item").forEach(function (b) {
@@ -949,7 +960,7 @@
       document.body.addEventListener("htmx:afterSwap", function (e) {
         if (!e.target) return;
         if (e.target.id === "music-tracks") { M.markRow(); M.columns.apply(); }
-        if (e.target.id === "music-lists") M.markLists();
+        if (e.target.id === "music-lists") { M.markLists(); M._fitLists(); }
       });
       document.body.addEventListener("reloadMusic", function () {
         if (SW.view === "music") M.open();

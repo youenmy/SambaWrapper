@@ -56,24 +56,24 @@
     </div>
     <div id="mus-seek-zone" class="flex-1 min-w-0 h-full flex items-center gap-3">
       <div class="flex items-center gap-3 shrink-0">
-        <button title="Перемешать" id="mus-shuffle" class="text-slate-400 hover:text-sky-600" onclick="Music.toggleShuffle()"><i class="ti ti-arrows-shuffle"></i></button>
-        <button title="Предыдущий" class="text-slate-500 hover:text-slate-800" onclick="Music.prev()"><i class="ti ti-player-skip-back-filled"></i></button>
-        <button class="w-8 h-8 rounded-full bg-sky-600 hover:bg-sky-500 text-white grid place-items-center" onclick="Music.toggle()">
-          <i id="mus-play-icon" class="ti ti-player-play-filled text-sm"></i></button>
-        <button title="Следующий" class="text-slate-500 hover:text-slate-800" onclick="Music.next()"><i class="ti ti-player-skip-forward-filled"></i></button>
-        <button title="Повтор" id="mus-repeat" class="text-slate-400 hover:text-sky-600" onclick="Music.toggleRepeat()"><i class="ti ti-repeat"></i></button>
+        <button title="Перемешать" id="mus-shuffle" class="text-slate-400 hover:text-sky-600" onclick="Music.toggleShuffle()"><i class="ti ti-arrows-shuffle text-lg"></i></button>
+        <button title="Предыдущий" class="text-slate-500 hover:text-slate-800" onclick="Music.prev()"><i class="ti ti-player-skip-back-filled text-lg"></i></button>
+        <button class="w-11 h-11 rounded-full bg-sky-600 hover:bg-sky-500 text-white grid place-items-center shadow" onclick="Music.toggle()">
+          <i id="mus-play-icon" class="ti ti-player-play-filled text-lg"></i></button>
+        <button title="Следующий" class="text-slate-500 hover:text-slate-800" onclick="Music.next()"><i class="ti ti-player-skip-forward-filled text-lg"></i></button>
+        <button title="Повтор" id="mus-repeat" class="text-slate-400 hover:text-sky-600" onclick="Music.toggleRepeat()"><i class="ti ti-repeat text-lg"></i></button>
       </div>
-      <div class="flex flex-1 min-w-0 items-center gap-2 text-[0.625rem] text-slate-400">
-        <span id="mus-cur" class="tabular-nums w-8 text-right">0:00</span>
+      <div class="flex flex-1 min-w-0 items-center gap-2 text-xs text-slate-400">
+        <span id="mus-cur" class="tabular-nums w-10 text-right">0:00</span>
         <div id="mus-seek" class="relative flex-1 h-16 rounded bg-slate-100 overflow-hidden cursor-pointer" onclick="Music.seekClick(event)">
           <canvas id="mus-viz" class="absolute inset-0 w-full h-full"></canvas>
           <div id="mus-fill" class="absolute inset-y-0 left-0 bg-sky-500/10 pointer-events-none" style="width:0%"></div>
           <div id="mus-head" class="absolute inset-y-0 w-0.5 bg-sky-600 pointer-events-none" style="left:0%"></div>
         </div>
-        <span id="mus-dur" class="tabular-nums w-8">0:00</span>
+        <span id="mus-dur" class="tabular-nums w-10">0:00</span>
       </div>
     </div>
-    <div id="mus-vol-zone" class="hidden sm:flex items-center gap-1.5 w-28 h-full">
+    <div id="mus-vol-zone" class="hidden sm:flex items-center gap-2 w-32 h-full shrink-0">
       <button onclick="Music.mute()" class="text-slate-400 hover:text-slate-700"><i id="mus-vol-icon" class="ti ti-volume"></i></button>
       <input id="mus-vol" type="range" min="0" max="1" step="0.05" value="1" oninput="Music.setVolume(this.value)" class="w-full accent-sky-500 cursor-pointer">
     </div>

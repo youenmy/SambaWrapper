@@ -926,12 +926,10 @@ async def api_music_random(request: Request, _: str = Depends(current_user),
 @app.get("/htmx/music-lists", response_class=HTMLResponse)
 async def htmx_music_lists(request: Request, _: str = Depends(current_user),
                            artist: str = "", album: str = "", folder: str = ""):
-    folders, artists, albums = await asyncio.gather(
-        asyncio.to_thread(music.list_folders),
-        asyncio.to_thread(music.list_artists),
-        asyncio.to_thread(music.list_albums, artist))
+    # в панели остались только папки библиотеки — исполнителей и альбомы не запрашиваем
+    folders = await asyncio.to_thread(music.list_folders)
     return templates.TemplateResponse("_music_lists.html", {
-        "request": request, "folders": folders, "artists": artists, "albums": albums,
+        "request": request, "folders": folders,
         "cur_artist": artist, "cur_album": album, "cur_folder": folder,
     })
 
