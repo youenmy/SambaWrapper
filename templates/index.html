@@ -63,14 +63,14 @@
         <button title="Следующий" class="text-slate-500 hover:text-slate-800" onclick="Music.next()"><i class="ti ti-player-skip-forward-filled text-lg"></i></button>
         <button title="Повтор" id="mus-repeat" class="text-slate-400 hover:text-sky-600" onclick="Music.toggleRepeat()"><i class="ti ti-repeat text-lg"></i></button>
       </div>
-      <div class="flex flex-1 min-w-0 items-center gap-2 text-xs text-slate-400">
-        <span id="mus-cur" class="tabular-nums w-10 text-right">0:00</span>
+      <div class="flex flex-1 min-w-0 items-end h-full gap-2 text-xs text-slate-400">
+        <span id="mus-cur" class="tabular-nums w-10 text-right self-center">0:00</span>
         <div id="mus-seek" class="relative flex-1 h-10 overflow-hidden cursor-pointer" onclick="Music.seekClick(event)">
           <canvas id="mus-viz" class="absolute inset-0 w-full h-full"></canvas>
           <div id="mus-fill" class="absolute inset-y-0 left-0 pointer-events-none" style="width:0%"></div>
           <div id="mus-head" class="absolute inset-y-0 w-0.5 bg-sky-600 pointer-events-none" style="left:0%"></div>
         </div>
-        <span id="mus-dur" class="tabular-nums w-10">0:00</span>
+        <span id="mus-dur" class="tabular-nums w-10 self-center">0:00</span>
       </div>
     </div>
     <div id="mus-vol-zone" class="hidden sm:flex items-center gap-2 w-32 h-full shrink-0">
