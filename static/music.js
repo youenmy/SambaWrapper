@@ -470,6 +470,19 @@
         var c = $("mus-viz");
         if (c && c.getContext) c.getContext("2d").clearRect(0, 0, c.width, c.height);
       },
+      /* Если во время игры спектр остаётся ровно нулевым, звук идёт мимо графа —
+       * сообщаем в консоль один раз, чтобы причина была видна, а не гадалась. */
+      _checkSilence: function (peak) {
+        var V = M.viz, a = audio();
+        if (peak > 0) { V._silentSince = 0; return; }
+        if (!a || a.paused) { V._silentSince = 0; return; }
+        if (!V._silentSince) { V._silentSince = Date.now(); return; }
+        if (V._warned || Date.now() - V._silentSince < 2500) return;
+        V._warned = true;
+        console.warn("SambaWrapper: визуализатор не получает звук.",
+                     "состояние контекста:", V.ctx && V.ctx.state,
+                     "деки в графе:", Object.keys(V.sources).join(",") || "нет");
+      },
       _draw: function () {
         var V = M.viz, c = $("mus-viz");
         if (!c || !V.analyser) { V.raf = 0; return; }
@@ -488,16 +501,19 @@
         var bins = V.data.length;
         var step = w / bins;
         var gap = Math.max(1, Math.round(dpr));
+        var peak = 0;
 
         for (var i = 0; i < bins; i++) {
           // верхние бины почти всегда пустые — растягиваем полезную часть спектра
           var v = V.data[Math.floor(i * 0.72)];
-          var bar = Math.max(2 * dpr, (v / 255) * h);
+          if (v > peak) peak = v;
+          var bar = Math.max(3 * dpr, (v / 255) * h);
           var x = i * step;
-          g.fillStyle = (x + step / 2 <= played) ? "rgba(14,165,233,0.85)"
-                                                 : "rgba(148,163,184,0.45)";
+          g.fillStyle = (x + step / 2 <= played) ? "rgba(56,189,248,0.9)"
+                                                 : "rgba(148,163,184,0.4)";
           g.fillRect(x, (h - bar) / 2, Math.max(1, step - gap), bar);
         }
+        V._checkSilence(peak);
         V.raf = requestAnimationFrame(V._draw);
       },
     },
@@ -865,10 +881,13 @@
         });
       });
 
-      M.viz.attach();
-      // браузер разрешает звук из графа только после действия пользователя
+      /* Аудиограф строим на первом же действии пользователя: созданный до жеста
+       * контекст остаётся «спящим», и подключённые к нему деки играли бы мимо
+       * анализатора. pointerdown приходит раньше click, которым включают трек,
+       * поэтому к моменту play() деки уже в графе. */
       document.addEventListener("pointerdown", function wake() {
         document.removeEventListener("pointerdown", wake);
+        M.viz.attach();
         if (M.viz.ctx && M.viz.ctx.state !== "running") M.viz.ctx.resume().catch(function () {});
       });
 
