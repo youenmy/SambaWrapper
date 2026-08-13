@@ -429,7 +429,11 @@
           try { V.ctx = new Ctor(); } catch (e) { return false; }
           V.analyser = V.ctx.createAnalyser();
           V.analyser.fftSize = 128;
-          V.analyser.smoothingTimeConstant = 0.78;
+          V.analyser.smoothingTimeConstant = 0.75;
+          // окно по умолчанию (−100…−30 дБ) для музыки слишком широкое: реальные
+          // уровни жмутся к нулю и столбики шевелятся на пару пикселей
+          V.analyser.minDecibels = -78;
+          V.analyser.maxDecibels = -22;
           // немой выход: граф должен доходить до устройства, иначе он не считается,
           // но сам анализатор звучать не должен
           V.sink = V.ctx.createGain();
@@ -540,11 +544,15 @@
         cold.addColorStop(0, "rgba(148,163,184,0.35)");
         cold.addColorStop(1, "rgba(148,163,184,0.6)");
 
+        // тихую запись растягиваем на всю высоту: делим не на 255, а на текущий
+        // пик, который медленно оседает, — громкая всё равно не упрётся в потолок
+        for (var k = 0; k < bins; k++) if (V.data[k] > peak) peak = V.data[k];
+        V.norm = Math.max(peak, (V.norm || 0) * 0.97, 32);
+
         for (var i = 0; i < count; i++) {
           // верхние бины почти всегда пустые — растягиваем полезную часть спектра
           var v = V.data[Math.min(bins - 1, Math.floor(i / count * bins * 0.75))];
-          if (v > peak) peak = v;
-          var bar = Math.max(2 * dpr, Math.pow(v / 255, 0.8) * h);
+          var bar = Math.max(2 * dpr, Math.min(1, Math.pow(v / V.norm, 0.85)) * h);
           var x = i * (barW + gap);
           g.fillStyle = (x + barW / 2 <= played) ? hot : cold;
           if (g.roundRect) {
