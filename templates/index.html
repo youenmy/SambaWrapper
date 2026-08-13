@@ -45,17 +45,17 @@
       </div>
     </main>
   <!-- ===== музыкальный плеер (появляется, когда включён трек) ===== -->
-  <div id="mus-bar" class="hidden relative z-[60] h-24 shrink-0 bg-white border-t border-slate-200 flex items-center gap-3 px-3 pl-44">
-    <!-- обложка поднимается над доком, поэтому позиционируется абсолютно -->
-    <div id="mus-cover-wrap" class="absolute left-3 bottom-2 w-40 h-40 rounded-xl overflow-hidden mus-nocover shadow-lg ring-1 ring-black/10">
-      <img id="mus-cover" alt="" class="w-40 h-40 object-cover hidden">
+  <div id="mus-bar" class="hidden relative z-[60] h-24 shrink-0 bg-white border-t border-slate-200 flex items-center gap-3 px-3 pl-52">
+    <!-- обложка поднимается над доком и вписана по ширине в панель библиотеки (w-52) -->
+    <div id="mus-cover-wrap" class="absolute left-2 bottom-2 w-48 h-48 rounded-xl overflow-hidden mus-nocover shadow-lg ring-1 ring-black/10">
+      <img id="mus-cover" alt="" class="w-48 h-48 object-cover hidden">
     </div>
     <div class="min-w-0 w-36 sm:w-56 shrink-0">
       <div id="mus-title" class="text-sm truncate">—</div>
       <div id="mus-artist" class="text-[0.6875rem] text-slate-400 truncate"></div>
     </div>
-    <div id="mus-seek-zone" class="flex-1 min-w-0 h-full flex flex-col justify-center gap-1">
-      <div class="flex items-center justify-center gap-3">
+    <div id="mus-seek-zone" class="flex-1 min-w-0 h-full flex items-center gap-3">
+      <div class="flex items-center gap-3 shrink-0">
         <button title="Перемешать" id="mus-shuffle" class="text-slate-400 hover:text-sky-600" onclick="Music.toggleShuffle()"><i class="ti ti-arrows-shuffle"></i></button>
         <button title="Предыдущий" class="text-slate-500 hover:text-slate-800" onclick="Music.prev()"><i class="ti ti-player-skip-back-filled"></i></button>
         <button class="w-8 h-8 rounded-full bg-sky-600 hover:bg-sky-500 text-white grid place-items-center" onclick="Music.toggle()">
@@ -63,9 +63,9 @@
         <button title="Следующий" class="text-slate-500 hover:text-slate-800" onclick="Music.next()"><i class="ti ti-player-skip-forward-filled"></i></button>
         <button title="Повтор" id="mus-repeat" class="text-slate-400 hover:text-sky-600" onclick="Music.toggleRepeat()"><i class="ti ti-repeat"></i></button>
       </div>
-      <div class="flex items-center gap-2 text-[0.625rem] text-slate-400">
+      <div class="flex flex-1 min-w-0 items-center gap-2 text-[0.625rem] text-slate-400">
         <span id="mus-cur" class="tabular-nums w-8 text-right">0:00</span>
-        <div id="mus-seek" class="relative flex-1 h-12 rounded bg-slate-100 overflow-hidden cursor-pointer" onclick="Music.seekClick(event)">
+        <div id="mus-seek" class="relative flex-1 h-16 rounded bg-slate-100 overflow-hidden cursor-pointer" onclick="Music.seekClick(event)">
           <canvas id="mus-viz" class="absolute inset-0 w-full h-full"></canvas>
           <div id="mus-fill" class="absolute inset-y-0 left-0 bg-sky-500/10 pointer-events-none" style="width:0%"></div>
           <div id="mus-head" class="absolute inset-y-0 w-0.5 bg-sky-600 pointer-events-none" style="left:0%"></div>

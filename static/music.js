@@ -524,8 +524,8 @@
         var a = audio();
         var played = (a && a.duration) ? (a.currentTime / a.duration) * w : 0;
         var bins = V.data.length;
-        var barW = Math.round(5 * dpr);
-        var gap = Math.round(3 * dpr);
+        var barW = Math.round(9 * dpr);
+        var gap = Math.round(4 * dpr);
         var count = Math.max(8, Math.floor(w / (barW + gap)));
         var radius = barW / 2;
         var peak = 0;

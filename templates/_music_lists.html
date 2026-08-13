@@ -1,8 +1,11 @@
 <div class="p-2 space-y-0.5">
-  <button class="w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-sm flex items-center gap-2"
-          onclick="Music.clearFilters()">
-    <i class="ti ti-list text-sky-600"></i>Все треки
-  </button>
+  <!-- «Все треки» не уезжает вместе со списком: закреплена у верхнего края панели -->
+  <div class="sticky top-0 z-10 -mx-2 -mt-2 px-2 pt-2 pb-1 bg-white border-b border-slate-100">
+    <button class="w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-sm flex items-center gap-2"
+            onclick="Music.clearFilters()">
+      <i class="ti ti-list text-sky-600"></i>Все треки
+    </button>
+  </div>
 
   <div class="px-2 pt-3 pb-1 text-[0.6875rem] uppercase tracking-wide text-slate-400">Папки библиотеки</div>
   {% if not folders %}<div class="px-2 text-xs text-slate-400">Нет подпапок.</div>{% endif %}
