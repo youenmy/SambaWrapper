@@ -524,19 +524,34 @@
         var a = audio();
         var played = (a && a.duration) ? (a.currentTime / a.duration) * w : 0;
         var bins = V.data.length;
-        var step = w / bins;
-        var gap = Math.max(1, Math.round(dpr));
+        var barW = Math.round(5 * dpr);
+        var gap = Math.round(3 * dpr);
+        var count = Math.max(8, Math.floor(w / (barW + gap)));
+        var radius = barW / 2;
         var peak = 0;
 
-        for (var i = 0; i < bins; i++) {
+        // сыгранная часть — яркий градиент снизу вверх, остаток — приглушённый
+        var hot = g.createLinearGradient(0, h, 0, 0);
+        hot.addColorStop(0, "#0284c7");
+        hot.addColorStop(1, "#7dd3fc");
+        var cold = g.createLinearGradient(0, h, 0, 0);
+        cold.addColorStop(0, "rgba(148,163,184,0.35)");
+        cold.addColorStop(1, "rgba(148,163,184,0.6)");
+
+        for (var i = 0; i < count; i++) {
           // верхние бины почти всегда пустые — растягиваем полезную часть спектра
-          var v = V.data[Math.floor(i * 0.72)];
+          var v = V.data[Math.min(bins - 1, Math.floor(i / count * bins * 0.75))];
           if (v > peak) peak = v;
-          var bar = Math.max(3 * dpr, (v / 255) * h);
-          var x = i * step;
-          g.fillStyle = (x + step / 2 <= played) ? "rgba(56,189,248,0.9)"
-                                                 : "rgba(148,163,184,0.4)";
-          g.fillRect(x, (h - bar) / 2, Math.max(1, step - gap), bar);
+          var bar = Math.max(2 * dpr, Math.pow(v / 255, 0.8) * h);
+          var x = i * (barW + gap);
+          g.fillStyle = (x + barW / 2 <= played) ? hot : cold;
+          if (g.roundRect) {
+            g.beginPath();
+            g.roundRect(x, h - bar, barW, bar, [radius, radius, 0, 0]);
+            g.fill();
+          } else {
+            g.fillRect(x, h - bar, barW, bar);
+          }
         }
         V._checkSilence(peak);
         V.raf = requestAnimationFrame(V._draw);

@@ -45,7 +45,7 @@
       </div>
     </main>
   <!-- ===== музыкальный плеер (появляется, когда включён трек) ===== -->
-  <div id="mus-bar" class="hidden relative z-[60] h-20 shrink-0 bg-white border-t border-slate-200 flex items-center gap-3 px-3 pl-44">
+  <div id="mus-bar" class="hidden relative z-[60] h-24 shrink-0 bg-white border-t border-slate-200 flex items-center gap-3 px-3 pl-44">
     <!-- обложка поднимается над доком, поэтому позиционируется абсолютно -->
     <div id="mus-cover-wrap" class="absolute left-3 bottom-2 w-40 h-40 rounded-xl overflow-hidden mus-nocover shadow-lg ring-1 ring-black/10">
       <img id="mus-cover" alt="" class="w-40 h-40 object-cover hidden">
@@ -65,9 +65,9 @@
       </div>
       <div class="flex items-center gap-2 text-[0.625rem] text-slate-400">
         <span id="mus-cur" class="tabular-nums w-8 text-right">0:00</span>
-        <div id="mus-seek" class="relative flex-1 h-7 rounded bg-slate-100 overflow-hidden cursor-pointer" onclick="Music.seekClick(event)">
+        <div id="mus-seek" class="relative flex-1 h-12 rounded bg-slate-100 overflow-hidden cursor-pointer" onclick="Music.seekClick(event)">
           <canvas id="mus-viz" class="absolute inset-0 w-full h-full"></canvas>
-          <div id="mus-fill" class="absolute inset-y-0 left-0 bg-sky-500/20 pointer-events-none" style="width:0%"></div>
+          <div id="mus-fill" class="absolute inset-y-0 left-0 bg-sky-500/10 pointer-events-none" style="width:0%"></div>
           <div id="mus-head" class="absolute inset-y-0 w-0.5 bg-sky-600 pointer-events-none" style="left:0%"></div>
         </div>
         <span id="mus-dur" class="tabular-nums w-8">0:00</span>
