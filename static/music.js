@@ -962,7 +962,22 @@
         if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
         var dialog = $("confirm-host");
         if (dialog && !dialog.classList.contains("hidden")) return;
-        if (e.key === "Delete" && SW.view === "music") { e.preventDefault(); M.deleteCurrent(); }
+        if (SW.view !== "music") return;
+        if (e.key === "Delete") { e.preventDefault(); M.deleteCurrent(); return; }
+
+        // стрелки: перемотка на 10 секунд и громкость шагом 5%, как в видеоплеере
+        var a = audio();
+        if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+          if (!a || !a.duration) return;
+          e.preventDefault();
+          var to = a.currentTime + (e.key === "ArrowRight" ? 10 : -10);
+          a.currentTime = Math.max(0, Math.min(a.duration - 0.5, to));
+        } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          if (!a) return;
+          e.preventDefault();
+          M.setVolume(Math.max(0, Math.min(1, a.volume + (e.key === "ArrowUp" ? 0.05 : -0.05))));
+          var slider = $("mus-vol"); if (slider) slider.value = a.muted ? 0 : a.volume;
+        }
       });
 
       // после подмены списка/боковых панелей восстанавливаем подсветку и столбцы
