@@ -209,6 +209,8 @@
 
     // ---------------------------------------------------------------- плеер
     play: function (id) {
+      // повторный клик по звучащему треку — пауза, следующий — продолжение
+      if (id === st.nowId && srcOf(audio())) { M.toggle(); return; }
       var track = M._find(id);
       if (!track) { M.queueFromDom(); track = M._find(id); }
       if (track) M.playTrack(track);
@@ -964,6 +966,13 @@
         if (dialog && !dialog.classList.contains("hidden")) return;
         if (SW.view !== "music") return;
         if (e.key === "Delete") { e.preventDefault(); M.deleteCurrent(); return; }
+        if (e.key === " " || e.key === "Spacebar") {
+          // гасим и прокрутку страницы, и нажатие кнопки, если фокус на ней:
+          // иначе пробел сработал бы дважды
+          e.preventDefault();
+          M.toggle();
+          return;
+        }
 
         // стрелки: перемотка на 10 секунд и громкость шагом 5%, как в видеоплеере
         var a = audio();
