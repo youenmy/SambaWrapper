@@ -598,8 +598,10 @@
       tail.style.height = Math.max(8, Math.round(over) + 8) + "px";
     },
     markLists: function () {
+      var nothingPicked = !st.folder && !st.artist && !st.album;
       document.querySelectorAll("#music-lists .mus-item").forEach(function (b) {
-        var on = (b.dataset.folder && b.dataset.folder === st.folder)
+        var on = b.dataset.all ? nothingPicked          // «Все треки» — когда фильтров нет
+              : (b.dataset.folder && b.dataset.folder === st.folder)
               || (b.dataset.artist && b.dataset.artist === st.artist)
               || (b.dataset.album && b.dataset.album === st.album);
         b.classList.toggle("mus-on", !!on);
