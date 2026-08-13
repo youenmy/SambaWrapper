@@ -36,6 +36,14 @@ _scan_lock = threading.Lock()
 def library_path() -> str:
     return db.get_setting(SETTING_LIBRARY) or DEFAULT_LIBRARY
 
+def library_ready() -> bool:
+    """Папка библиотеки на месте и читается: диск смонтирован."""
+    try:
+        p = Path(library_path())
+        return p.is_dir() and os.access(p, os.R_OK)
+    except OSError:
+        return False
+
 def set_library_path(path: str) -> tuple[bool, str]:
     try:
         p = Path(path).expanduser().resolve()
@@ -175,6 +183,8 @@ def _iter_audio(root: Path):
 def _scan_worker(full: bool) -> None:
     try:
         root = Path(library_path())
+        if not root.is_dir():
+            raise RuntimeError(f"Папка библиотеки недоступна: {root}")
         files = list(_iter_audio(root))
         with _scan_lock:
             _scan["found"] = len(files)
@@ -224,6 +234,12 @@ def _scan_worker(full: bool) -> None:
             with _scan_lock:
                 _scan["done"] = i
                 _scan["added"] = added
+
+        # Пустой обход при непустой базе означает отвалившийся диск, а не то, что
+        # музыку стёрли: удалять в этом случае нечего, иначе одно размонтирование
+        # обнуляет всю библиотеку вместе с обложками.
+        if known and not files:
+            raise RuntimeError("Библиотека пуста — диск отключён? Записи в базе сохранены")
 
         # убрать из БД треки, которых больше нет на диске
         gone = [p for p in known if p not in seen]

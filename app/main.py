@@ -25,6 +25,7 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 log = logging.getLogger("sambawrapper")
 
 AUTOMOUNT_INTERVAL = 20  # seconds — covers hot-plug; runs once immediately at startup
+MUSIC_WATCH_INTERVAL = 300  # seconds — подхватывает файлы, положенные в библиотеку мимо интерфейса
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,13 +40,31 @@ async def lifespan(app: FastAPI):
             except Exception as e:  # never let the loop die
                 log.warning("automount loop error: %s", e)
             await asyncio.sleep(AUTOMOUNT_INTERVAL)
-    task = asyncio.create_task(automount_loop())
+    async def music_watch_loop():
+        """Библиотека пополняется и мимо интерфейса — по сети, с другой машины,
+        копированием прямо на диск. Инкрементальное сканирование пропускает файлы
+        с неизменившимися mtime и размером, поэтому обход десяти тысяч треков
+        стоит доли секунды и его не жалко повторять."""
+        while True:
+            await asyncio.sleep(MUSIC_WATCH_INTERVAL)
+            try:
+                if not music.library_ready() or music.scan_state()["running"]:
+                    continue
+                ok, msg = await asyncio.to_thread(music.start_scan, False)
+                if not ok:
+                    log.debug("music watch: %s", msg)
+            except Exception as e:  # never let the loop die
+                log.warning("music watch loop error: %s", e)
+
+    tasks = [asyncio.create_task(automount_loop()), asyncio.create_task(music_watch_loop())]
     try:
         yield
     finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
 app = FastAPI(title="SambaWrapper", lifespan=lifespan)
 _TLS_ON = (DATA_DIR / "tls" / "cert.pem").exists() and (DATA_DIR / "tls" / "key.pem").exists()
