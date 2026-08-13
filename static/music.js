@@ -428,29 +428,49 @@
           V.analyser = V.ctx.createAnalyser();
           V.analyser.fftSize = 128;
           V.analyser.smoothingTimeConstant = 0.78;
-          V.analyser.connect(V.ctx.destination);
+          // немой выход: граф должен доходить до устройства, иначе он не считается,
+          // но сам анализатор звучать не должен
+          V.sink = V.ctx.createGain();
+          V.sink.gain.value = 0;
+          V.analyser.connect(V.sink);
+          V.sink.connect(V.ctx.destination);
           V.data = new Uint8Array(V.analyser.frequencyBinCount);
         }
         return true;
       },
-      /** Пропустить звук деки через анализатор (один раз на элемент). */
+      /* Снять звук с деки для анализа (один раз на элемент).
+       *
+       * Основной путь — captureStream(): он даёт отдельный отвод и не трогает
+       * собственный выход элемента, поэтому не важно, играет тот уже или нет.
+       * Запасной путь — createMediaElementSource(), который выход перехватывает,
+       * и тогда звук приходится вернуть на устройство вручную. */
       _connect: function (el) {
         var V = M.viz;
         if (!el || !V.ctx || V.sources[el.id]) return;
+        var capture = el.captureStream || el.mozCaptureStream;
+        if (capture) {
+          try {
+            var stream = capture.call(el);
+            if (stream && stream.getAudioTracks().length) {
+              var tap = V.ctx.createMediaStreamSource(stream);
+              tap.connect(V.analyser);
+              V.sources[el.id] = tap;
+              return;
+            }
+          } catch (e) { /* поток ещё не готов — попробуем на следующем старте */ }
+        }
         try {
           var src = V.ctx.createMediaElementSource(el);
           src.connect(V.analyser);
+          src.connect(V.ctx.destination);      // выход перехвачен — возвращаем звук
           V.sources[el.id] = src;
-        } catch (e) { /* элемент уже привязан к другому контексту */ }
+        } catch (e) { /* элемент уже привязан к контексту */ }
       },
-      /* Деки заводим в граф ДО первого воспроизведения: если подключить уже
-       * звучащий элемент, Chrome оставляет звук в обход графа и анализатор
-       * получает тишину. */
+      /** Завести в граф деку, которая звучит прямо сейчас. */
       attach: function () {
         var V = M.viz;
         if (!$("mus-viz") || !V._ensure()) return;
-        V._connect($("mus-audio"));
-        V._connect($("mus-audio-b"));
+        V._connect(audio());
       },
       start: function () {
         var V = M.viz;
@@ -477,6 +497,11 @@
         if (peak > 0) { V._silentSince = 0; return; }
         if (!a || a.paused) { V._silentSince = 0; return; }
         if (!V._silentSince) { V._silentSince = Date.now(); return; }
+        // отвод мог не сняться с деки при старте — пробуем ещё раз, не чаще раза в секунду
+        if (!V.sources[a.id] && (!V._retriedAt || Date.now() - V._retriedAt > 1000)) {
+          V._retriedAt = Date.now();
+          V._connect(a);
+        }
         if (V._warned || Date.now() - V._silentSince < 2500) return;
         V._warned = true;
         console.warn("SambaWrapper: визуализатор не получает звук.",
@@ -875,20 +900,22 @@
           $("mus-play-icon").className = "ti ti-player-pause-filled text-sm";
           M.viz.start();
         });
+        // звук пошёл — только теперь у деки есть готовая аудиодорожка для отвода
+        el.addEventListener("playing", function () {
+          if (active()) M.viz.start();
+        });
         el.addEventListener("pause", function () {
           if (!active()) return;
           $("mus-play-icon").className = "ti ti-player-play-filled text-sm";
         });
       });
 
-      /* Аудиограф строим на первом же действии пользователя: созданный до жеста
-       * контекст остаётся «спящим», и подключённые к нему деки играли бы мимо
-       * анализатора. pointerdown приходит раньше click, которым включают трек,
-       * поэтому к моменту play() деки уже в графе. */
+      /* Контекст создаём внутри жеста пользователя — созданный раньше остаётся
+       * «спящим» и звука не пропускает. */
       document.addEventListener("pointerdown", function wake() {
         document.removeEventListener("pointerdown", wake);
-        M.viz.attach();
-        if (M.viz.ctx && M.viz.ctx.state !== "running") M.viz.ctx.resume().catch(function () {});
+        if (!M.viz._ensure()) return;
+        if (M.viz.ctx.state !== "running") M.viz.ctx.resume().catch(function () {});
       });
 
       var seekZone = $("mus-seek-zone");
