@@ -892,11 +892,11 @@ async def htmx_music_page(request: Request, _: str = Depends(current_user)):
 async def htmx_music_tracks(request: Request, _: str = Depends(current_user),
                             q: str = "", sort: str = "artist", desc: str = "no",
                             artist: str = "", album: str = "", folder: str = "",
-                            page: int = 1, seed: int = 0):
+                            page: int = 1, seed: int = 0, only: str = "no"):
     page = max(1, page)
     tracks, total = await asyncio.to_thread(
         music.list_tracks, q.strip(), sort, desc == "yes", artist, album, folder,
-        MUSIC_PAGE_SIZE, (page - 1) * MUSIC_PAGE_SIZE, seed)
+        MUSIC_PAGE_SIZE, (page - 1) * MUSIC_PAGE_SIZE, seed, only == "yes")
     return templates.TemplateResponse("_music_tracks.html", {
         "request": request, "tracks": tracks, "total": total, "page": page,
         "pages": max(1, (total + MUSIC_PAGE_SIZE - 1) // MUSIC_PAGE_SIZE),
@@ -908,12 +908,13 @@ async def htmx_music_tracks(request: Request, _: str = Depends(current_user),
 async def htmx_music_rows(request: Request, _: str = Depends(current_user),
                           q: str = "", sort: str = "artist", desc: str = "no",
                           artist: str = "", album: str = "", folder: str = "",
-                          page: int = 1, seed: int = 0, reset: str = "no"):
+                          page: int = 1, seed: int = 0, reset: str = "no",
+                          only: str = "no"):
     """Очередная порция строк для бесконечного списка."""
     page = max(1, page)
     tracks, total = await asyncio.to_thread(
         music.list_tracks, q.strip(), sort, desc == "yes", artist, album, folder,
-        MUSIC_PAGE_SIZE, (page - 1) * MUSIC_PAGE_SIZE, seed)
+        MUSIC_PAGE_SIZE, (page - 1) * MUSIC_PAGE_SIZE, seed, only == "yes")
     return templates.TemplateResponse("_music_rows.html", {
         "request": request, "tracks": tracks, "total": total, "page": page,
         "has_more": page * MUSIC_PAGE_SIZE < total,
@@ -926,17 +927,22 @@ async def htmx_music_rows(request: Request, _: str = Depends(current_user),
 async def api_music_random(request: Request, _: str = Depends(current_user),
                            q: str = "", artist: str = "", album: str = "",
                            folder: str = "", exclude: str = "",
-                           sort: str = "artist", desc: str = "no", seed: int = 0):
+                           sort: str = "artist", desc: str = "no", seed: int = 0,
+                           only: str = "no"):
     """Случайный трек из всей выборки — для режима «перемешать»."""
     skip = [int(x) for x in exclude.split(",") if x.strip().isdigit()][:200]
-    rows = await asyncio.to_thread(music.random_tracks, q.strip(), artist, album, folder, 1, skip)
+    here = only == "yes"
+    rows = await asyncio.to_thread(music.random_tracks, q.strip(), artist, album, folder,
+                                   1, skip, here)
     if not rows:
-        rows = await asyncio.to_thread(music.random_tracks, q.strip(), artist, album, folder, 1, [])
+        rows = await asyncio.to_thread(music.random_tracks, q.strip(), artist, album, folder,
+                                       1, [], here)
     if not rows:
         return {"track": None}
     t = rows[0]
     page = await asyncio.to_thread(music.track_page, t["id"], q.strip(), sort,
-                                   desc == "yes", artist, album, folder, MUSIC_PAGE_SIZE, seed)
+                                   desc == "yes", artist, album, folder, MUSIC_PAGE_SIZE,
+                                   seed, here)
     return {"page": page,
             "track": {"id": t["id"], "title": t["title"], "artist": t["artist"],
                       "album": t["album"], "duration": t["duration"],
@@ -952,11 +958,14 @@ async def htmx_music_lists(request: Request, _: str = Depends(current_user),
         return templates.TemplateResponse("_music_lists.html", {
             "request": request, "nodes": nodes, "tree": True,
             "library": music.library_path(),
+            "loose": await asyncio.to_thread(music.count_loose, ""),
             "cur_artist": artist, "cur_album": album, "cur_folder": folder,
         })
     folders = await asyncio.to_thread(music.list_folders)
     return templates.TemplateResponse("_music_lists.html", {
         "request": request, "folders": folders, "tree": False,
+        "library": music.library_path(),
+        "loose": await asyncio.to_thread(music.count_loose, ""),
         "cur_artist": artist, "cur_album": album, "cur_folder": folder,
     })
 
@@ -1008,8 +1017,10 @@ async def htmx_music_library_picker(request: Request, _: str = Depends(require_a
 
 @app.get("/htmx/music-duplicates", response_class=HTMLResponse)
 async def htmx_music_duplicates(request: Request, _: str = Depends(current_user),
-                                folder: str = "", artist: str = "", album: str = ""):
-    dups = await asyncio.to_thread(music.find_duplicates, folder, artist, album)
+                                folder: str = "", artist: str = "", album: str = "",
+                                only: str = "no"):
+    dups = await asyncio.to_thread(music.find_duplicates, folder, artist, album,
+                                   200, only == "yes")
     scope = folder.split("/")[-1] if folder else (album or artist or "вся библиотека")
     return templates.TemplateResponse("_music_duplicates.html", {
         "request": request, "dups": dups, "scope": scope,

@@ -52,7 +52,7 @@
 
   <div id="music-tracks" class="flex-1 min-w-0 overflow-auto"
        hx-get="/htmx/music-tracks" hx-trigger="load, refreshMusicTracks from:body" hx-swap="innerHTML"
-       hx-vals="js:{q: Music.state.q, sort: Music.state.sort, desc: Music.state.desc ? 'yes' : 'no', artist: Music.state.artist, album: Music.state.album, folder: Music.state.folder, page: Music.state.page}">
+       hx-vals="js:{q: Music.state.q, sort: Music.state.sort, desc: Music.state.desc ? 'yes' : 'no', artist: Music.state.artist, album: Music.state.album, folder: Music.state.folder, page: Music.state.page, only: Music.state.only ? 'yes' : 'no'}">
     <div class="p-6 text-slate-400 text-sm">Загрузка…</div>
   </div>
 </div>

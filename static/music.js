@@ -44,6 +44,7 @@
     now: null,      // трек, который звучит (может не быть в queue)
     nowId: 0,
     tree: false,    // библиотека показана деревом папок, а не плоским списком
+    only: false,    // показывать только треки самой папки, без вложенных
   };
 
   function $(id) { return document.getElementById(id); }
@@ -109,7 +110,7 @@
     query: function () {
       return {q: st.q, sort: st.sort, desc: st.desc ? "yes" : "no",
               artist: st.artist, album: st.album, folder: st.folder,
-              page: st.page, seed: st.seed};
+              page: st.page, seed: st.seed, only: st.only ? "yes" : "no"};
     },
 
     search: function (value) {
@@ -140,9 +141,14 @@
       st.album = name; st.page = 1;
       M.reloadTracks(); M.markLists();
     },
+    /** Треки, лежащие прямо в корне библиотеки, без содержимого подпапок. */
+    filterLoose: function (root) {
+      st.folder = root; st.artist = ""; st.album = ""; st.page = 1; st.only = true;
+      M.reloadTracks(); M.markLists();
+    },
     filterFolder: function (path) {
-      var same = st.folder === path;       // второй клик двойного нажатия ничего не меняет
-      st.folder = path; st.artist = ""; st.album = ""; st.page = 1;
+      var same = st.folder === path && !st.only;   // второй клик двойного нажатия ничего не меняет
+      st.folder = path; st.artist = ""; st.album = ""; st.page = 1; st.only = false;
       if (!same) M.reloadTracks();
       M.markLists();
     },
@@ -295,7 +301,7 @@
     },
 
     clearFilters: function () {
-      st.q = ""; st.artist = ""; st.album = ""; st.folder = ""; st.page = 1;
+      st.q = ""; st.artist = ""; st.album = ""; st.folder = ""; st.page = 1; st.only = false;
       var box = $("mus-search"); if (box) box.value = "";
       M.reloadTracks(); M.reloadLists();
     },
@@ -342,7 +348,7 @@
         target: "#mus-rows", swap: "beforeend",
         values: {q: st.q, sort: st.sort, desc: st.desc ? "yes" : "no",
                  artist: st.artist, album: st.album, folder: st.folder,
-                 page: next, seed: st.seed},
+                 page: next, seed: st.seed, only: st.only ? "yes" : "no"},
       }).then(function () { st.page = next; })
         .catch(function () { st.loading = false; });
     },
@@ -479,7 +485,7 @@
       var params = new URLSearchParams({
         q: st.q, artist: st.artist, album: st.album, folder: st.folder,
         sort: st.sort, desc: st.desc ? "yes" : "no", seed: st.seed,
-        exclude: st.recent.join(","),
+        exclude: st.recent.join(","), only: st.only ? "yes" : "no",
       });
       fetch("/api/music-random?" + params.toString())
         .then(function (r) { return r.json(); })
@@ -500,7 +506,7 @@
         target: "#mus-rows", swap: "innerHTML",
         values: {q: st.q, sort: st.sort, desc: st.desc ? "yes" : "no",
                  artist: st.artist, album: st.album, folder: st.folder,
-                 page: page, seed: st.seed, reset: "yes"},
+                 page: page, seed: st.seed, reset: "yes", only: st.only ? "yes" : "no"},
       }).then(function () {
         st.loading = false;
         setTimeout(M.revealCurrent, 60);
@@ -768,8 +774,9 @@
     markLists: function () {
       var nothingPicked = !st.folder && !st.artist && !st.album;
       document.querySelectorAll("#music-lists .mus-item").forEach(function (b) {
-        var on = b.dataset.all ? nothingPicked          // «Все треки» — когда фильтров нет
-              : (b.dataset.folder && b.dataset.folder === st.folder)
+        var on = b.dataset.loose ? st.only
+              : b.dataset.all ? (nothingPicked && !st.only)  // «Все треки» — когда фильтров нет
+              : (b.dataset.folder && b.dataset.folder === st.folder && !st.only)
               || (b.dataset.artist && b.dataset.artist === st.artist)
               || (b.dataset.album && b.dataset.album === st.album);
         b.classList.toggle("mus-on", !!on);
@@ -811,7 +818,8 @@
 
     // ------------------------------------------------------------ дубликаты
     openDuplicates: function () {
-      var p = new URLSearchParams({folder: st.folder, artist: st.artist, album: st.album});
+      var p = new URLSearchParams({folder: st.folder, artist: st.artist, album: st.album,
+                                   only: st.only ? "yes" : "no"});
       SW.openModal("/htmx/music-duplicates?" + p.toString());
     },
     /** Окно дубликатов отрисовано — запоминаем порядок копий. */

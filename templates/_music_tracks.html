@@ -35,7 +35,7 @@
   <tbody id="mus-rows"
          hx-get="/htmx/music-rows"
          hx-trigger="load"
-         hx-vals="js:{q: Music.state.q, sort: Music.state.sort, desc: Music.state.desc ? 'yes' : 'no', artist: Music.state.artist, album: Music.state.album, folder: Music.state.folder, page: 1, seed: Music.state.seed}"
+         hx-vals="js:{q: Music.state.q, sort: Music.state.sort, desc: Music.state.desc ? 'yes' : 'no', artist: Music.state.artist, album: Music.state.album, folder: Music.state.folder, page: 1, seed: Music.state.seed, only: Music.state.only ? 'yes' : 'no'}"
          hx-swap="innerHTML">
     <tr><td colspan="10" class="text-center text-slate-400 py-10">Загрузка…</td></tr>
   </tbody>

@@ -315,13 +315,27 @@ SORTS = {
     "added": "added",
 }
 
+def _folder_where(folder: str, only_here: bool) -> tuple[str, list]:
+    """Условие отбора по папке.
+
+    Обычно фильтр рекурсивный — папка вместе со всем содержимым. Режим
+    «только здесь» нужен трекам, лежащим прямо в папке рядом с подпапками:
+    иначе такой пункт показывал бы вообще всё, что внутри.
+    """
+    base = folder.rstrip("/")
+    if only_here:
+        return "path LIKE ? AND path NOT LIKE ?", [base + "/%", base + "/%/%"]
+    return "path LIKE ?", [base + "/%"]
+
 def list_tracks(q: str = "", sort: str = "artist", desc: bool = False,
                 artist: str = "", album: str = "", folder: str = "",
-                limit: int = 100, offset: int = 0, seed: int = 0) -> tuple[list[dict], int]:
+                limit: int = 100, offset: int = 0, seed: int = 0,
+                only_here: bool = False) -> tuple[list[dict], int]:
     where, args = [], []
     if folder:
-        where.append("path LIKE ?")
-        args.append(folder.rstrip("/") + "/%")
+        clause, extra = _folder_where(folder, only_here)
+        where.append(clause)
+        args += extra
     if q:
         where.append("(title LIKE ? OR artist LIKE ? OR album LIKE ?)")
         like = f"%{q}%"
@@ -352,7 +366,8 @@ def list_tracks(q: str = "", sort: str = "artist", desc: bool = False,
     return out, total
 
 def random_tracks(q: str = "", artist: str = "", album: str = "", folder: str = "",
-                  limit: int = 1, exclude: list[int] | None = None) -> list[dict]:
+                  limit: int = 1, exclude: list[int] | None = None,
+                  only_here: bool = False) -> list[dict]:
     """Случайные треки в пределах текущего фильтра — для режима «перемешать».
 
     Выбор делается по всей выборке в БД, а не по показанной части списка,
@@ -370,8 +385,9 @@ def random_tracks(q: str = "", artist: str = "", album: str = "", folder: str = 
         where.append("album = ?")
         args.append(album)
     if folder:
-        where.append("path LIKE ?")
-        args.append(folder.rstrip("/") + "/%")
+        clause, extra = _folder_where(folder, only_here)
+        where.append(clause)
+        args += extra
     if exclude:
         exclude = list(exclude)[:200]
         where.append("id NOT IN (%s)" % ",".join("?" * len(exclude)))
@@ -384,7 +400,7 @@ def random_tracks(q: str = "", artist: str = "", album: str = "", folder: str = 
 
 def track_page(track_id: int, q: str = "", sort: str = "artist", desc: bool = False,
                artist: str = "", album: str = "", folder: str = "", page_size: int = 100,
-               seed: int = 0) -> int:
+               seed: int = 0, only_here: bool = False) -> int:
     """Номер страницы, на которой окажется трек при текущей сортировке и фильтрах."""
     where, args = [], []
     if q:
@@ -398,8 +414,9 @@ def track_page(track_id: int, q: str = "", sort: str = "artist", desc: bool = Fa
         where.append("album = ?")
         args.append(album)
     if folder:
-        where.append("path LIKE ?")
-        args.append(folder.rstrip("/") + "/%")
+        clause, extra = _folder_where(folder, only_here)
+        where.append(clause)
+        args += extra
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     if sort == "random":
         order = f"(id * {int(seed) % 999983 or 7919} % 1000003)"
@@ -497,13 +514,22 @@ def paths_removed(abs_path: str) -> int:
         cx.execute(f"DELETE FROM tracks WHERE {where}", args)
     return len(ids)
 
+def count_loose(parent: str = "") -> int:
+    """Сколько треков лежит прямо в папке, не считая вложенных."""
+    base = (parent.rstrip("/") if parent else library_path().rstrip("/"))
+    with db.connect() as cx:
+        return cx.execute(
+            "SELECT COUNT(*) c FROM tracks WHERE path LIKE ? AND path NOT LIKE ?",
+            (base + "/%", base + "/%/%")).fetchone()["c"]
+
 def find_duplicates(folder: str = "", artist: str = "", album: str = "",
-                    limit: int = 200) -> list[dict]:
+                    limit: int = 200, only_here: bool = False) -> list[dict]:
     """Дубли по исполнителю+названию в пределах текущего фильтра (папка/исполнитель/альбом)."""
     where, args = ["title <> ''"], []
     if folder:
-        where.append("path LIKE ?")
-        args.append(folder.rstrip("/") + "/%")
+        clause, extra = _folder_where(folder, only_here)
+        where.append(clause)
+        args += extra
     if artist:
         where.append("artist = ?")
         args.append(artist)
