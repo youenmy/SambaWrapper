@@ -200,3 +200,12 @@ html.dark .mus-cover-frame {
   border-color: #475569;
   box-shadow: 0 0.625rem 1.75rem rgba(0, 0, 0, .6);
 }
+
+/* Заголовок столбца не должен переноситься на вторую строку: при узком
+   столбце он налезал на первую строку таблицы. Лишнее срезается многоточием,
+   полное название остаётся в подсказке. */
+.mus-table thead th {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
