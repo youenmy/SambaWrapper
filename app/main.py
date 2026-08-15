@@ -1030,6 +1030,17 @@ async def music_audio(track_id: int, request: Request, _: str = Depends(current_
     mime, _enc = mimetypes.guess_type(track["path"])
     return FileResponse(track["path"], media_type=mime or "audio/mpeg")
 
+def _fs_error(e: Exception) -> str:
+    """Понятное сообщение вместо 500: чаще всего это атрибут «только чтение» на NTFS."""
+    if isinstance(e, fileops.FileOpError):
+        return str(e)
+    if isinstance(e, PermissionError):
+        return ("Нет прав на изменение — у папки на диске стоит атрибут «только чтение». "
+                "Снять его можно из Windows или командой chmod u+w на сервере.")
+    if isinstance(e, OSError):
+        return f"Ошибка файловой системы: {e.strerror or e}"
+    raise e
+
 def _music_rel(abs_path: str) -> str:
     """Абсолютный путь внутри библиотеки -> путь относительно MOUNT_ROOT для fileops."""
     if not music.inside_library(abs_path):
@@ -1044,8 +1055,8 @@ async def htmx_music_fs_rename(request: Request, _: str = Depends(require_admin)
         new_rel = await asyncio.to_thread(fileops.rename, rel, name)
         new_abs = str(MOUNT_ROOT.resolve() / new_rel)
         moved = await asyncio.to_thread(music.paths_moved, path, new_abs)
-    except fileops.FileOpError as e:
-        return _resp(request, False, str(e), [])
+    except (fileops.FileOpError, OSError) as e:
+        return _resp(request, False, _fs_error(e), [])
     return _resp(request, True, f"Переименовано, треков обновлено: {moved}",
                  ["reloadMusicLists", "refreshMusicTracks"])
 
@@ -1056,8 +1067,8 @@ async def htmx_music_fs_delete(request: Request, _: str = Depends(require_admin)
         rel = await asyncio.to_thread(_music_rel, path)
         await asyncio.to_thread(fileops.delete, rel)
         gone = await asyncio.to_thread(music.paths_removed, path)
-    except fileops.FileOpError as e:
-        return _resp(request, False, str(e), [])
+    except (fileops.FileOpError, OSError) as e:
+        return _resp(request, False, _fs_error(e), [])
     return _resp(request, True, f"Удалено с диска, треков убрано: {gone}",
                  ["reloadMusicLists", "refreshMusicTracks"])
 
@@ -1070,8 +1081,8 @@ async def htmx_music_fs_move(request: Request, _: str = Depends(require_admin),
         new_rel = await asyncio.to_thread(fileops.move, rel_src, rel_dest)
         new_abs = str(MOUNT_ROOT.resolve() / new_rel)
         moved = await asyncio.to_thread(music.paths_moved, src, new_abs)
-    except fileops.FileOpError as e:
-        return _resp(request, False, str(e), [])
+    except (fileops.FileOpError, OSError) as e:
+        return _resp(request, False, _fs_error(e), [])
     return _resp(request, True, f"Перемещено, треков обновлено: {moved}",
                  ["reloadMusicLists", "refreshMusicTracks"])
 
