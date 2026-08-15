@@ -454,7 +454,20 @@
        * и тогда звук приходится вернуть на устройство вручную. */
       _connect: function (el) {
         var V = M.viz;
-        if (!el || !V.ctx || V.sources[el.id]) return;
+        if (!el || !V.ctx) return;
+        var url = srcOf(el);
+        var have = V.sources[el.id];
+        /* Отвод через captureStream живёт ровно до смены файла на деке: дорожка
+         * завершается, и узел молча отдаёт тишину. Поэтому при новом src его
+         * пересоздаём. Отвод через createMediaElementSource, наоборот, снимается
+         * с элемента один раз навсегда — второй вызов бросает исключение. */
+        var dead = have && have.track && have.track.readyState === "ended";
+        if (have && !dead && (have.kind === "element" || have.url === url)) return;
+        if (have) {
+          try { have.node.disconnect(); } catch (e) { /* уже отключён */ }
+          delete V.sources[el.id];
+        }
+
         var capture = el.captureStream || el.mozCaptureStream;
         if (capture) {
           try {
@@ -462,7 +475,8 @@
             if (stream && stream.getAudioTracks().length) {
               var tap = V.ctx.createMediaStreamSource(stream);
               tap.connect(V.analyser);
-              V.sources[el.id] = tap;
+              V.sources[el.id] = {node: tap, kind: "stream", url: url,
+                                  track: stream.getAudioTracks()[0]};
               return;
             }
           } catch (e) { /* поток ещё не готов — попробуем на следующем старте */ }
@@ -471,7 +485,7 @@
           var src = V.ctx.createMediaElementSource(el);
           src.connect(V.analyser);
           src.connect(V.ctx.destination);      // выход перехвачен — возвращаем звук
-          V.sources[el.id] = src;
+          V.sources[el.id] = {node: src, kind: "element", url: url};
         } catch (e) { /* элемент уже привязан к контексту */ }
       },
       /** Завести в граф деку, которая звучит прямо сейчас. */
@@ -506,7 +520,7 @@
         if (!a || a.paused) { V._silentSince = 0; return; }
         if (!V._silentSince) { V._silentSince = Date.now(); return; }
         // отвод мог не сняться с деки при старте — пробуем ещё раз, не чаще раза в секунду
-        if (!V.sources[a.id] && (!V._retriedAt || Date.now() - V._retriedAt > 1000)) {
+        if (!V._retriedAt || Date.now() - V._retriedAt > 1000) {
           V._retriedAt = Date.now();
           V._connect(a);
         }
