@@ -606,11 +606,12 @@
     /* Обложка выступает над доком и перекрывала бы хвост списка папок —
      * дотягиваем список ровно на высоту выступающей части. */
     _fitLists: function () {
-      var tail = $("mus-lists-tail"), bar = $("mus-bar"), cover = $("mus-cover-wrap");
-      if (!tail) return;
-      if (!bar || !cover || bar.classList.contains("hidden")) { tail.style.height = "8px"; return; }
+      var lists = $("music-lists"), bar = $("mus-bar"), cover = $("mus-cover-wrap");
+      if (!lists) return;
+      if (!bar || !cover || bar.classList.contains("hidden")) { lists.style.marginBottom = ""; return; }
+      // панель заканчивается над обложкой — вместе с ней и полоса прокрутки
       var over = bar.getBoundingClientRect().top - cover.getBoundingClientRect().top;
-      tail.style.height = Math.max(8, Math.round(over) + 8) + "px";
+      lists.style.marginBottom = Math.max(0, Math.round(over) + 6) + "px";
     },
     markLists: function () {
       var nothingPicked = !st.folder && !st.artist && !st.album;

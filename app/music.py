@@ -60,10 +60,50 @@ def set_library_path(path: str) -> tuple[bool, str]:
 
 # ---------- tag reading ----------
 
+# Кодировки, в которых встречаются теги старых файлов. Мутаген отдаёт такие
+# строки как latin-1 (в ID3v1 и в ID3v2 с флагом ISO-8859-1 иначе нельзя), и
+# кириллица превращается в «Ãæêòîð». Байты те же — достаточно перечитать их.
+_TAG_ENCODINGS = ("cp1251", "cp866", "koi8-r", "cp1252")
+
+def _cyrillic_share(s: str) -> tuple[int, float]:
+    """Сколько в строке кириллицы и какую долю букв она составляет."""
+    cyr = sum(1 for ch in s if "Ѐ" <= ch <= "ӿ")
+    letters = sum(1 for ch in s if ch.isalpha())
+    return cyr, (cyr / letters if letters else 0.0)
+
+def _fix_encoding(s: str) -> str:
+    """Перечитать тег, ошибочно разобранный как latin-1.
+
+    Осторожность важнее полноты: «Mattéo» или «Björk» — это верно прочитанная
+    латиница с диакритикой, и превращать её в кириллицу нельзя. Поэтому чиним
+    только то, что после перекодировки становится преимущественно кириллическим.
+    """
+    if not s or s.isascii():
+        return s
+    if any("Ѐ" <= ch <= "ӿ" for ch in s):
+        return s                      # уже нормальная кириллица
+    if sum(1 for ch in s if not ch.isascii()) < 2:
+        return s                      # одиночный акцент — это диакритика, а не поломка
+    try:
+        raw = s.encode("latin-1")
+    except UnicodeEncodeError:
+        return s                      # не latin-1 — значит, тег прочитан верно
+
+    best, best_cyr = s, 0
+    for enc in _TAG_ENCODINGS:
+        try:
+            candidate = raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+        cyr, share = _cyrillic_share(candidate)
+        if share >= 0.5 and cyr > best_cyr:
+            best, best_cyr = candidate, cyr
+    return best
+
 def _first(value) -> str:
     if isinstance(value, (list, tuple)):
-        return str(value[0]) if value else ""
-    return str(value or "")
+        value = value[0] if value else ""
+    return _fix_encoding(str(value or ""))
 
 def _int(value) -> int:
     s = _first(value)

@@ -12,24 +12,24 @@
 <table class="mus-table text-sm border-collapse">
   <thead class="sticky {{ 'top-8' if (artist or album or folder) else 'top-0' }} bg-slate-50 text-[0.6875rem] uppercase tracking-wide text-slate-400 select-none z-10">
     <tr>
-      <th data-col="cover" class="w-10 px-2 py-2"></th>
-      <th data-col="title" class="text-left font-medium px-2 py-2">
+      <th data-col="cover" class="w-10 px-2 py-1"></th>
+      <th data-col="title" class="text-left font-medium px-2 py-1">
         {{ grip() }}<span class="col-label" onclick="Music.sortBy('title')">Название{{ arrow('title') }}</span></th>
-      <th data-col="artist" class="text-left font-medium px-2 py-2 w-44">
+      <th data-col="artist" class="text-left font-medium px-2 py-1 w-44">
         {{ grip() }}<span class="col-label" onclick="Music.sortBy('artist')">Исполнитель{{ arrow('artist') }}</span></th>
-      <th data-col="album" class="text-left font-medium px-2 py-2 w-44">
+      <th data-col="album" class="text-left font-medium px-2 py-1 w-44">
         {{ grip() }}<span class="col-label" onclick="Music.sortBy('album')">Альбом{{ arrow('album') }}</span></th>
-      <th data-col="year" class="text-right font-medium px-2 py-2 w-16">
+      <th data-col="year" class="text-right font-medium px-2 py-1 w-16">
         {{ grip() }}<span class="col-label" onclick="Music.sortBy('year')">Год{{ arrow('year') }}</span></th>
-      <th data-col="genre" class="text-left font-medium px-2 py-2 w-32">
+      <th data-col="genre" class="text-left font-medium px-2 py-1 w-32">
         {{ grip() }}<span class="col-label">Жанр</span></th>
-      <th data-col="bitrate" class="text-right font-medium px-2 py-2 w-20">
+      <th data-col="bitrate" class="text-right font-medium px-2 py-1 w-20">
         {{ grip() }}<span class="col-label">Битрейт</span></th>
-      <th data-col="path" class="text-left font-medium px-2 py-2 w-64">
+      <th data-col="path" class="text-left font-medium px-2 py-1 w-64">
         {{ grip() }}<span class="col-label" onclick="Music.sortBy('path')">Путь{{ arrow('path') }}</span></th>
-      <th data-col="duration" class="text-right font-medium px-2 py-2 w-20">
+      <th data-col="duration" class="text-right font-medium px-2 py-1 w-20">
         {{ grip() }}<span class="col-label" onclick="Music.sortBy('duration')">Время{{ arrow('duration') }}</span></th>
-      <th data-col="actions" class="px-2 py-2"></th>
+      <th data-col="actions" class="px-2 py-1"></th>
     </tr>
   </thead>
   <tbody id="mus-rows"
