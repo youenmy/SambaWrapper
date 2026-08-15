@@ -313,7 +313,18 @@ SORTS = {
     "year": "year",
     "duration": "duration",
     "added": "added",
+    "size": "size",
 }
+
+def _human_size(n: int) -> str:
+    """Размер файла для таблицы: те же единицы, что в файловом браузере."""
+    units = ["Б", "КБ", "МБ", "ГБ"]
+    f = float(n or 0)
+    i = 0
+    while f >= 1024 and i < len(units) - 1:
+        f /= 1024
+        i += 1
+    return f"{f:.1f} {units[i]}" if i else f"{int(f)} {units[i]}"
 
 def _folder_where(folder: str, only_here: bool) -> tuple[str, list]:
     """Условие отбора по папке.
@@ -362,6 +373,7 @@ def list_tracks(q: str = "", sort: str = "artist", desc: bool = False,
         item = dict(r)
         # путь показываем от корня библиотеки — полный и так известен
         item["rel"] = item["path"][len(root):] if item["path"].startswith(root) else item["path"]
+        item["size_human"] = _human_size(item.get("size") or 0)
         out.append(item)
     return out, total
 

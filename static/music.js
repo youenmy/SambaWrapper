@@ -26,6 +26,7 @@
     {id: "genre", name: "Жанр"},
     {id: "bitrate", name: "Битрейт"},
     {id: "path", name: "Путь в библиотеке"},
+    {id: "size", name: "Размер"},
     {id: "duration", name: "Время"},
     {id: "actions", name: "Действия", fixed: true},
   ];
