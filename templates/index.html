@@ -47,8 +47,10 @@
   <!-- ===== музыкальный плеер (появляется, когда включён трек) ===== -->
   <div id="mus-bar" class="hidden relative z-[60] h-12 shrink-0 bg-white border-t border-slate-200 flex items-center gap-3 px-3 pl-52">
     <!-- обложка поднимается над доком и вписана по ширине в панель библиотеки (w-52) -->
-    <div id="mus-cover-wrap" class="absolute left-2 bottom-2 w-48 h-48 rounded-xl overflow-hidden mus-nocover shadow-lg ring-1 ring-black/10">
-      <img id="mus-cover" alt="" class="w-48 h-48 object-cover hidden">
+    <div id="mus-cover-wrap" class="mus-cover-frame absolute left-2 bottom-2 w-48 h-48">
+      <div class="w-full h-full rounded-md overflow-hidden mus-nocover">
+        <img id="mus-cover" alt="" class="w-full h-full object-cover hidden">
+      </div>
     </div>
     <div class="min-w-0 w-36 sm:w-56 shrink-0">
       <div id="mus-title" class="text-sm truncate">—</div>

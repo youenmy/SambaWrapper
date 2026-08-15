@@ -185,3 +185,18 @@ html.dark th.col-drop-target { box-shadow: inset 3px 0 0 #38bdf8; }
    столбца заставляет браузер пересчитывать все остальные («прыгают»). */
 table.mus-table { table-layout: fixed; width: 100%; }
 table.mus-table th, table.mus-table td { overflow: hidden; }
+
+/* ---- рамка-паспарту вокруг обложки в доке ----
+ * Обложка висит над списком, и без оправы её край сливается с фоном панели. */
+.mus-cover-frame {
+  padding: 0.3125rem;                       /* поле паспарту вокруг картинки */
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.625rem 1.75rem rgba(0, 0, 0, .35);
+}
+html.dark .mus-cover-frame {
+  background: #0f172a;
+  border-color: #475569;
+  box-shadow: 0 0.625rem 1.75rem rgba(0, 0, 0, .6);
+}
