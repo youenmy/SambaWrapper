@@ -325,9 +325,11 @@
         var wanted = M._playAfterLoad;
         M._playAfterLoad = null;
         var found = M._find(wanted);
-        if (found) M.playTrack(found);
+        if (found) M.playTrack(found);          // playTrack сам покажет строку
+      } else if (isFirst) {
+        M.revealCurrent();                      // список перерисован целиком
       }
-      M.revealCurrent();
+      // очередная порция при прокрутке ничего не двигает: пользователь смотрит список
       if (st.nowId) M.preloadNext();   // очередь изменилась — следующий трек мог стать другим
     },
     /** Подгрузка следующей порции при прокрутке к низу списка. */
@@ -771,7 +773,9 @@
       var top = p.top + (head ? head.getBoundingClientRect().height : 0);
       if (r.top >= top && r.bottom <= p.bottom) return;
 
-      row.scrollIntoView({block: "center", behavior: "smooth"});
+      // «nearest» подтягивает строку к ближнему краю, а не в центр: смещение
+      // минимальное, и без анимации это не читается как рывок
+      row.scrollIntoView({block: "nearest", behavior: "auto"});
     },
     /* Обложка выступает над доком и перекрывала бы хвост списка папок —
      * дотягиваем список ровно на высоту выступающей части. */
