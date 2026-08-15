@@ -879,13 +879,22 @@
       st.dups = Array.prototype.map.call(
         document.querySelectorAll("#modal-host .dup-row"),
         function (row) {
-          return {id: Number(row.dataset.copy), label: row.dataset.label || ""};
+          return {id: Number(row.dataset.copy), label: row.dataset.label || "",
+                  title: row.dataset.title || row.dataset.label || "",
+                  artist: row.dataset.artist || "",
+                  duration: Number(row.dataset.dur || 0),
+                  cover: row.dataset.cover === "1"};
         });
       M.markRow();
     },
     /** Проиграть конкретную копию из окна дубликатов. */
-    playCopy: function (id, label) {
-      M.playTrack({id: id, title: label, artist: "", album: "", duration: 0, cover: false});
+    playCopy: function (id) {
+      var copy = null;
+      for (var i = 0; i < st.dups.length; i++) if (st.dups[i].id === id) { copy = st.dups[i]; break; }
+      // у копии те же теги и обложка, что у трека в списке: берём их, а не одну подпись
+      M.playTrack(copy ? {id: id, title: copy.title, artist: copy.artist, album: "",
+                          duration: copy.duration, cover: copy.cover}
+                       : {id: id, title: "", artist: "", album: "", duration: 0, cover: true});
     },
     /**
      * Удалить копию. Следующий трек выбирается по сохранённому порядку (st.dups),
@@ -913,7 +922,7 @@
             if (group && group.querySelectorAll(".dup-row").length < 2) group.remove();
           }
           if (wasPlaying) {
-            if (following) M.playCopy(following.id, following.label);
+            if (following) M.playCopy(following.id);
             else {
               var next = M._nextInQueue(id);
               if (next) M.playTrack(next); else M.close();

@@ -20,13 +20,15 @@
         </div>
         {% for c in d.copies %}
           <div class="dup-row flex items-start gap-2 text-[0.75rem] py-1 border-t border-slate-100 first:border-0"
-               data-copy="{{ c.id }}" data-label="{{ d.artist }} — {{ d.title }}">
+               data-copy="{{ c.id }}" data-label="{{ d.artist }} — {{ d.title }}"
+               data-artist="{{ d.artist }}" data-title="{{ d.title }}"
+               data-dur="{{ c.duration|int }}" data-cover="{{ 1 if c.has_cover else 0 }}">
             <i class="ti ti-file-music text-slate-400 shrink-0 mt-0.5"></i>
             <span class="flex-1 min-w-0 text-slate-500 break-all leading-snug" title="{{ c.path }}">{{ c.rel }}</span>
             <span class="text-slate-400 shrink-0 tabular-nums mt-0.5">{{ (c.size / 1048576)|round(1) }} МБ</span>
             <button title="Воспроизвести" data-play="{{ c.id }}" data-label="{{ d.artist }} — {{ d.title }}"
                     class="shrink-0 w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white grid place-items-center"
-                    onclick="Music.playCopy({{ c.id }}, {{ (d.artist ~ ' — ' ~ d.title)|tojson|forceescape }})">
+                    onclick="Music.playCopy({{ c.id }})">
               <i class="ti ti-player-play-filled text-base"></i></button>
             <button title="Удалить эту копию" data-del="{{ c.id }}"
                     class="shrink-0 w-8 h-8 rounded-full bg-slate-100 hover:bg-red-600 text-slate-500 hover:text-white grid place-items-center"

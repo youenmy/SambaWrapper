@@ -557,7 +557,7 @@ def find_duplicates(folder: str = "", artist: str = "", album: str = "",
         out = []
         for g in groups:
             copies = cx.execute(
-                f"SELECT id, path, size, duration FROM tracks WHERE {clause} "
+                f"SELECT id, path, size, duration, has_cover FROM tracks WHERE {clause} "
                 f"AND artist = ? COLLATE NOCASE AND title = ? COLLATE NOCASE ORDER BY size DESC",
                 args + [g["artist"], g["title"]]).fetchall()
             root = library_path().rstrip("/") + "/"
