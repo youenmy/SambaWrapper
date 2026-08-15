@@ -756,10 +756,21 @@
       });
     },
     /** Показать играющий трек в списке (прокрутка + фокус). */
+    /* Показать играющий трек, но только если он ушёл за пределы окна списка:
+     * дёргать прокрутку под треком, который и так на виду, незачем. */
     revealCurrent: function () {
       if (!st.nowId) return;
+      var pane = $("music-tracks");
       var row = document.querySelector('#music-tracks .mrow[data-id="' + st.nowId + '"]');
-      if (!row) return;
+      if (!row || !pane) return;
+
+      var r = row.getBoundingClientRect();
+      var p = pane.getBoundingClientRect();
+      // строку под липкой шапкой считаем невидимой — она ею перекрыта
+      var head = pane.querySelector("thead");
+      var top = p.top + (head ? head.getBoundingClientRect().height : 0);
+      if (r.top >= top && r.bottom <= p.bottom) return;
+
       row.scrollIntoView({block: "center", behavior: "smooth"});
     },
     /* Обложка выступает над доком и перекрывала бы хвост списка папок —
