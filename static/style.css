@@ -216,3 +216,10 @@ html.dark .tbb.tbb-on { background: #0c2a47 !important; color: #7dd3fc; }
 /* стрелка раскрытия ветки дерева */
 .mus-caret { line-height: 1; }
 html.dark .mus-node .mus-kids { border-color: #334155; }
+
+/* папка дерева под курсором перетаскивания */
+.mus-item.mus-drop {
+  background: rgb(224 242 254) !important;
+  box-shadow: inset 0 0 0 2px #0284c7;
+}
+html.dark .mus-item.mus-drop { background: #0c2a47 !important; box-shadow: inset 0 0 0 2px #38bdf8; }

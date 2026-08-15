@@ -2,6 +2,8 @@
   <tr class="mrow border-b border-slate-100 hover:bg-slate-50 cursor-pointer align-middle"
       data-id="{{ t.id }}" data-title="{{ t.title }}" data-artist="{{ t.artist }}"
       data-album="{{ t.album }}" data-dur="{{ t.duration|int }}" data-cover="{{ 1 if t.has_cover else 0 }}"
+      data-path="{{ t.path }}" draggable="true"
+      ondragstart="Music.fs.start(event, 'track', {{ t.path|tojson|forceescape }}, {{ (t.title or t.rel)|tojson|forceescape }})"
       onclick="Music.play({{ t.id }})">
     <td data-col="cover" class="px-2 py-1.5">
       <button class="w-8 h-8 rounded bg-slate-100 overflow-hidden grid place-items-center text-slate-400 hover:text-sky-600 shrink-0"

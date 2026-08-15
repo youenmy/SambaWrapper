@@ -455,6 +455,48 @@ def list_subfolders(parent: str = "") -> list[dict]:
     return [{"name": k, "abs": base + k, "n": v, "kids": kids[k]}
             for k, v in sorted(counts.items(), key=lambda kv: kv[0].lower())]
 
+def inside_library(abs_path: str) -> bool:
+    """Путь лежит внутри библиотеки и не является её корнем.
+
+    Сравнивать строки нельзя: «…/Музыка/../../etc» начинается с корня библиотеки,
+    но ведёт наружу, поэтому путь сначала разрешается.
+    """
+    if not abs_path:
+        return False
+    try:
+        p = Path(abs_path).resolve()
+        root = Path(library_path()).resolve()
+    except OSError:
+        return False
+    return p != root and root in p.parents
+
+def paths_moved(old_abs: str, new_abs: str) -> int:
+    """Папку или файл переименовали/перенесли — переписать пути треков под ними.
+
+    Дешевле и честнее, чем пересканирование: id треков сохраняются, а вместе
+    с ними обложки и то, что сейчас играет.
+    """
+    old = old_abs.rstrip("/")
+    new = new_abs.rstrip("/")
+    with db.connect() as cx:
+        cur = cx.execute(
+            "UPDATE tracks SET path = ? || substr(path, ?) "
+            "WHERE path = ? OR path LIKE ? ESCAPE '\\'",
+            (new, len(old) + 1, old, _like_prefix(old + "/") + "%"))
+        return cur.rowcount
+
+def paths_removed(abs_path: str) -> int:
+    """Папку или файл удалили с диска — убрать треки под ними вместе с обложками."""
+    p = abs_path.rstrip("/")
+    where = "path = ? OR path LIKE ? ESCAPE '\\'"
+    args = (p, _like_prefix(p + "/") + "%")
+    with db.connect() as cx:
+        ids = [r["id"] for r in cx.execute(f"SELECT id FROM tracks WHERE {where}", args)]
+        for tid in ids:
+            (COVER_DIR / f"{tid}.img").unlink(missing_ok=True)
+        cx.execute(f"DELETE FROM tracks WHERE {where}", args)
+    return len(ids)
+
 def find_duplicates(folder: str = "", artist: str = "", album: str = "",
                     limit: int = 200) -> list[dict]:
     """Дубли по исполнителю+названию в пределах текущего фильтра (папка/исполнитель/альбом)."""

@@ -10,9 +10,14 @@
         <span class="w-4 shrink-0"></span>
       {% endif %}
       <button class="mus-item flex-1 min-w-0 text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-[0.8125rem] flex items-center gap-1.5 {{ 'mus-on' if f.abs == cur_folder else '' }}"
-              data-folder="{{ f.abs }}"
+              data-folder="{{ f.abs }}" draggable="true"
               onclick="Music.filterFolder({{ f.abs|tojson|forceescape }})"
               ondblclick="Music.toggleFolderNode(this, {{ f.abs|tojson|forceescape }})"
+              ondragstart="Music.fs.start(event, 'folder', {{ f.abs|tojson|forceescape }}, {{ f.name|tojson|forceescape }})"
+              ondragover="Music.fs.over(event, {{ f.abs|tojson|forceescape }})"
+              ondragleave="Music.fs.leave(event)"
+              ondrop="Music.fs.drop(event, {{ f.abs|tojson|forceescape }})"
+              oncontextmenu="Music.fs.menu(event, {{ f.abs|tojson|forceescape }}, {{ f.name|tojson|forceescape }})"
               title="{{ f.abs }}">
         <i class="ti ti-folder text-amber-500 shrink-0"></i>
         <span class="flex-1 min-w-0 truncate">{{ f.name }}</span>

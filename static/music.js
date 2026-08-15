@@ -146,6 +146,79 @@
       if (!same) M.reloadTracks();
       M.markLists();
     },
+    /* --------------------------------------------------- дерево: файлы
+     * Перетаскивание и контекстное меню работают только в режиме дерева и
+     * только у администратора: это операции с диском, а не с базой. */
+    fs: {
+      dragged: null,          // {kind: "folder"|"track", path, name}
+
+      canEdit: function () { return st.tree && SW.role === "admin"; },
+
+      start: function (event, kind, path, name) {
+        if (!M.fs.canEdit()) { event.preventDefault(); return; }
+        M.fs.dragged = {kind: kind, path: path, name: name};
+        try {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", path);
+        } catch (e) { /* некоторым браузерам достаточно объекта выше */ }
+      },
+      over: function (event, path) {
+        var d = M.fs.dragged;
+        if (!d || !M.fs.canEdit()) return;
+        if (d.kind === "folder" && (d.path === path || path.indexOf(d.path + "/") === 0)) return;
+        event.preventDefault();                       // разрешаем бросить
+        event.dataTransfer.dropEffect = "move";
+        event.currentTarget.classList.add("mus-drop");
+      },
+      leave: function (event) { event.currentTarget.classList.remove("mus-drop"); },
+      drop: function (event, path) {
+        event.preventDefault();
+        event.currentTarget.classList.remove("mus-drop");
+        var d = M.fs.dragged;
+        M.fs.dragged = null;
+        if (!d || !M.fs.canEdit() || d.path === path) return;
+        SW.confirm("Переместить «" + d.name + "» в «" + path.split("/").pop() + "»?",
+          function () { SW.post("/htmx/music-fs-move", {src: d.path, dest: path}); },
+          {ok: "Переместить"});
+      },
+
+      /** Контекстное меню папки: переименовать или удалить с диска. */
+      menu: function (event, path, name) {
+        if (!M.fs.canEdit()) return;
+        event.preventDefault();
+        var menu = document.getElementById("ctxmenu");
+        if (!menu) return;
+        menu.innerHTML = "";
+        [["ti-edit", "Переименовать", function () { M.fs.rename(path, name); }, ""],
+         ["ti-trash", "Удалить с диска", function () { M.fs.remove(path, name); }, "text-red-600"],
+        ].forEach(function (item) {
+          var b = document.createElement("button");
+          b.className = "w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md " +
+                        "hover:bg-slate-100 " + item[3];
+          // иконка и подпись — свои константы; имя папки сюда не попадает
+          b.innerHTML = '<i class="ti ' + item[0] + ' text-slate-500"></i>' + item[1];
+          b.onclick = function () { menu.classList.add("hidden"); item[2](); };
+          menu.appendChild(b);
+        });
+        menu.style.left = Math.min(event.clientX, window.innerWidth - 200) + "px";
+        menu.style.top = Math.min(event.clientY, window.innerHeight - 120) + "px";
+        menu.classList.remove("hidden");
+      },
+      rename: function (path, name) {
+        SW.prompt("Новое имя папки", name, function (value) {
+          value = (value || "").trim();
+          if (!value || value === name) return;
+          SW.post("/htmx/music-fs-rename", {path: path, name: value});
+        });
+      },
+      remove: function (path, name) {
+        SW.confirm("Удалить папку «" + name + "» со всем содержимым?\n" +
+                   "Файлы будут стёрты с диска безвозвратно.",
+          function () { SW.post("/htmx/music-fs-delete", {path: path}); },
+          {ok: "Удалить", danger: true});
+      },
+    },
+
     /** Двойной клик по папке в дереве — раскрыть или свернуть её ветку. */
     toggleFolderNode: function (item, path) {
       var node = item.closest(".mus-node");

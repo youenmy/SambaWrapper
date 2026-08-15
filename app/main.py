@@ -1030,6 +1030,51 @@ async def music_audio(track_id: int, request: Request, _: str = Depends(current_
     mime, _enc = mimetypes.guess_type(track["path"])
     return FileResponse(track["path"], media_type=mime or "audio/mpeg")
 
+def _music_rel(abs_path: str) -> str:
+    """Абсолютный путь внутри библиотеки -> путь относительно MOUNT_ROOT для fileops."""
+    if not music.inside_library(abs_path):
+        raise fileops.FileOpError("Путь вне библиотеки")
+    return str(Path(abs_path).resolve().relative_to(MOUNT_ROOT.resolve()))
+
+@app.post("/htmx/music-fs-rename", response_class=HTMLResponse)
+async def htmx_music_fs_rename(request: Request, _: str = Depends(require_admin),
+                               path: str = Form(...), name: str = Form(...)):
+    try:
+        rel = await asyncio.to_thread(_music_rel, path)
+        new_rel = await asyncio.to_thread(fileops.rename, rel, name)
+        new_abs = str(MOUNT_ROOT.resolve() / new_rel)
+        moved = await asyncio.to_thread(music.paths_moved, path, new_abs)
+    except fileops.FileOpError as e:
+        return _resp(request, False, str(e), [])
+    return _resp(request, True, f"Переименовано, треков обновлено: {moved}",
+                 ["reloadMusicLists", "refreshMusicTracks"])
+
+@app.post("/htmx/music-fs-delete", response_class=HTMLResponse)
+async def htmx_music_fs_delete(request: Request, _: str = Depends(require_admin),
+                               path: str = Form(...)):
+    try:
+        rel = await asyncio.to_thread(_music_rel, path)
+        await asyncio.to_thread(fileops.delete, rel)
+        gone = await asyncio.to_thread(music.paths_removed, path)
+    except fileops.FileOpError as e:
+        return _resp(request, False, str(e), [])
+    return _resp(request, True, f"Удалено с диска, треков убрано: {gone}",
+                 ["reloadMusicLists", "refreshMusicTracks"])
+
+@app.post("/htmx/music-fs-move", response_class=HTMLResponse)
+async def htmx_music_fs_move(request: Request, _: str = Depends(require_admin),
+                             src: str = Form(...), dest: str = Form(...)):
+    try:
+        rel_src = await asyncio.to_thread(_music_rel, src)
+        rel_dest = await asyncio.to_thread(_music_rel, dest)
+        new_rel = await asyncio.to_thread(fileops.move, rel_src, rel_dest)
+        new_abs = str(MOUNT_ROOT.resolve() / new_rel)
+        moved = await asyncio.to_thread(music.paths_moved, src, new_abs)
+    except fileops.FileOpError as e:
+        return _resp(request, False, str(e), [])
+    return _resp(request, True, f"Перемещено, треков обновлено: {moved}",
+                 ["reloadMusicLists", "refreshMusicTracks"])
+
 @app.post("/htmx/music-delete", response_class=HTMLResponse)
 async def htmx_music_delete(request: Request, _: str = Depends(current_user), id: int = Form(...)):
     ok, msg = await asyncio.to_thread(music.delete_track, id)
