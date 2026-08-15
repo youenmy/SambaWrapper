@@ -788,6 +788,12 @@ const SW = {
       r.classList.toggle("bg-sky-50", Number(r.dataset.tid) === this.trSel);
     });
   },
+  trFileClick(evt, rel, name, ready) {
+    // клик по флажку, приоритету или кнопке — это управление файлом, не просмотр
+    if (evt.target.closest("input, select, button, label, option")) return;
+    if (!ready) { this.toast("Файл ещё не готов к просмотру"); return; }
+    this.trPlay(rel, name);
+  },
   trPlay(rel, name) {
     const kind = this._mediaKind(name);
     if (kind) this.playMedia(rel, name, kind);
