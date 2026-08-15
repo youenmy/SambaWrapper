@@ -1,0 +1,348 @@
+/* Оформление SambaWrapper: шесть тем на одном наборе токенов.
+ *
+ * Разметка написана классами Tailwind, поэтому тема не переписывает шаблоны,
+ * а переопределяет сами классы через переменные. Один блок правил в конце
+ * файла читает токены — добавить седьмую тему значит дописать только её
+ * :root-блок, а не копировать сотню селекторов.
+ *
+ * Тема выбирается атрибутом data-theme на <html>; «classic» — то, как
+ * приложение выглядело всегда, поэтому её токены повторяют прежние цвета
+ * один в один и уважают переключатель день/ночь.
+ */
+
+:root,
+html[data-theme="classic"] {
+  --sw-bg:        #f1f5f9;
+  --sw-surface:   #ffffff;
+  --sw-surface-2: #f8fafc;
+  --sw-surface-3: #f1f5f9;
+  --sw-text:      #0f172a;
+  --sw-text-2:    #475569;
+  --sw-muted:     #64748b;
+  --sw-faint:     #94a3b8;
+  --sw-border:    #e2e8f0;
+  --sw-border-2:  #cbd5e1;
+  --sw-accent:      #0284c7;
+  --sw-accent-hover:#0369a1;
+  --sw-accent-text: #ffffff;
+  --sw-accent-soft: #e0f2fe;
+  --sw-accent-ink:  #0369a1;
+  --sw-danger:    #dc2626;
+  --sw-ok:        #059669;
+  --sw-warn:      #d97706;
+  --sw-radius:    0.5rem;
+  --sw-radius-sm: 0.375rem;
+  --sw-radius-lg: 0.75rem;
+  --sw-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sw-row-pad: 0.375rem;
+  --sw-shadow: 0 1px 3px rgba(0,0,0,.12);
+  --sw-viz-hot-a: #0284c7;
+  --sw-viz-hot-b: #7dd3fc;
+  --sw-viz-cold:  rgba(148,163,184,.4);
+}
+
+html.dark,
+html.dark[data-theme="classic"] {
+  --sw-bg:        #0b1220;
+  --sw-surface:   #1e293b;
+  --sw-surface-2: #273449;
+  --sw-surface-3: #334155;
+  --sw-text:      #e2e8f0;
+  --sw-text-2:    #cbd5e1;
+  --sw-muted:     #94a3b8;
+  --sw-faint:     #64748b;
+  --sw-border:    #1f2b3e;
+  --sw-border-2:  #334155;
+  --sw-accent:      #0284c7;
+  --sw-accent-hover:#0ea5e9;
+  --sw-accent-text: #ffffff;
+  --sw-accent-soft: #0c2a47;
+  --sw-accent-ink:  #7dd3fc;
+  --sw-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+
+/* ---------------------------------------------------------------- Spotify */
+html[data-theme="spotify"] {
+  --sw-bg:        #000000;
+  --sw-surface:   #121212;
+  --sw-surface-2: #1a1a1a;
+  --sw-surface-3: #282828;
+  --sw-text:      #ffffff;
+  --sw-text-2:    #d6d6d6;
+  --sw-muted:     #a7a7a7;
+  --sw-faint:     #757575;
+  --sw-border:    #232323;
+  --sw-border-2:  #3e3e3e;
+  --sw-accent:      #1db954;
+  --sw-accent-hover:#1ed760;
+  --sw-accent-text: #000000;
+  --sw-accent-soft: #14301f;
+  --sw-accent-ink:  #1ed760;
+  --sw-danger:    #f15e6c;
+  --sw-ok:        #1db954;
+  --sw-warn:      #f5a524;
+  --sw-radius:    0.5rem;
+  --sw-radius-sm: 62.5rem;      /* кнопки-таблетки, как в оригинале */
+  --sw-radius-lg: 0.75rem;
+  --sw-font: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --sw-row-pad: 0.5rem;
+  --sw-shadow: 0 8px 24px rgba(0,0,0,.6);
+  --sw-viz-hot-a: #1db954;
+  --sw-viz-hot-b: #b6ff9e;
+  --sw-viz-cold:  rgba(255,255,255,.18);
+}
+
+/* ------------------------------------------------------------- Медиацентр */
+html[data-theme="cinema"] {
+  --sw-bg:        #08080d;
+  --sw-surface:   #14141c;
+  --sw-surface-2: #1c1c26;
+  --sw-surface-3: #262633;
+  --sw-text:      #f2f2f5;
+  --sw-text-2:    #c9c9d4;
+  --sw-muted:     #8b8b9c;
+  --sw-faint:     #6a6a7a;
+  --sw-border:    #23232d;
+  --sw-border-2:  #33333f;
+  --sw-accent:      #f5a524;
+  --sw-accent-hover:#ffb84d;
+  --sw-accent-text: #16110a;
+  --sw-accent-soft: #2a1f0a;
+  --sw-accent-ink:  #f7c46c;
+  --sw-danger:    #ef4444;
+  --sw-ok:        #34d399;
+  --sw-warn:      #f5a524;
+  --sw-radius:    0.875rem;
+  --sw-radius-sm: 0.625rem;
+  --sw-radius-lg: 1.125rem;
+  --sw-font: "Segoe UI Variable Display", system-ui, -apple-system, sans-serif;
+  --sw-row-pad: 0.625rem;
+  --sw-shadow: 0 10px 30px rgba(0,0,0,.6);
+  --sw-viz-hot-a: #f5a524;
+  --sw-viz-hot-b: #ffe0a3;
+  --sw-viz-cold:  rgba(255,255,255,.16);
+}
+
+/* ---------------------------------------------------------------- Консоль */
+html[data-theme="console"] {
+  --sw-bg:        #0f1319;
+  --sw-surface:   #161b22;
+  --sw-surface-2: #1c222c;
+  --sw-surface-3: #262d38;
+  --sw-text:      #d7dee6;
+  --sw-text-2:    #b3bdc9;
+  --sw-muted:     #8794a4;
+  --sw-faint:     #6b7684;
+  --sw-border:    #232b35;
+  --sw-border-2:  #2f3945;
+  --sw-accent:      #2f9e52;
+  --sw-accent-hover:#3cb862;
+  --sw-accent-text: #04120a;
+  --sw-accent-soft: #102117;
+  --sw-accent-ink:  #6ede8f;
+  --sw-danger:    #e05561;
+  --sw-ok:        #3cb862;
+  --sw-warn:      #d0a215;
+  --sw-radius:    0.1875rem;
+  --sw-radius-sm: 0.125rem;
+  --sw-radius-lg: 0.25rem;
+  --sw-font: ui-monospace, "Cascadia Mono", "Consolas", "DejaVu Sans Mono", monospace;
+  --sw-row-pad: 0.1875rem;      /* плотные строки: на экран влезает заметно больше */
+  --sw-shadow: none;
+  --sw-viz-hot-a: #2f9e52;
+  --sw-viz-hot-b: #8ff0ad;
+  --sw-viz-cold:  rgba(135,148,164,.35);
+}
+
+/* ---------------------------------------------------------------- Аметист */
+html[data-theme="amethyst"] {
+  --sw-bg:        #131119;
+  --sw-surface:   #1c1a24;
+  --sw-surface-2: #24212e;
+  --sw-surface-3: #2e2b3a;
+  --sw-text:      #ece9f2;
+  --sw-text-2:    #c8c2d6;
+  --sw-muted:     #9d97ad;
+  --sw-faint:     #7c7790;
+  --sw-border:    #2a2735;
+  --sw-border-2:  #3a3648;
+  --sw-accent:      #7c6cf0;
+  --sw-accent-hover:#9385ff;
+  --sw-accent-text: #ffffff;
+  --sw-accent-soft: #241f3d;
+  --sw-accent-ink:  #c4b8ff;
+  --sw-danger:    #f2647d;
+  --sw-ok:        #4ade80;
+  --sw-warn:      #fbbf24;
+  --sw-radius:    0.625rem;
+  --sw-radius-sm: 0.5rem;
+  --sw-radius-lg: 0.875rem;
+  --sw-font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --sw-row-pad: 0.5rem;
+  --sw-shadow: 0 6px 20px rgba(0,0,0,.45);
+  --sw-viz-hot-a: #7c6cf0;
+  --sw-viz-hot-b: #d6ccff;
+  --sw-viz-cold:  rgba(157,151,173,.35);
+}
+
+/* ------------------------------------------------------------------ Бумага */
+html[data-theme="paper"] {
+  --sw-bg:        #f4f1ea;
+  --sw-surface:   #fffdf8;
+  --sw-surface-2: #f7f4ec;
+  --sw-surface-3: #ece7db;
+  --sw-text:      #2b2721;
+  --sw-text-2:    #524b40;
+  --sw-muted:     #7a7264;
+  --sw-faint:     #9c9384;
+  --sw-border:    #e2dccd;
+  --sw-border-2:  #cfc7b4;
+  --sw-accent:      #9a5b2c;
+  --sw-accent-hover:#b06a34;
+  --sw-accent-text: #fffdf8;
+  --sw-accent-soft: #f0e4d6;
+  --sw-accent-ink:  #8a4f24;
+  --sw-danger:    #b3261e;
+  --sw-ok:        #4d7c37;
+  --sw-warn:      #a97400;
+  --sw-radius:    0.375rem;
+  --sw-radius-sm: 0.25rem;
+  --sw-radius-lg: 0.5rem;
+  --sw-font: "Georgia", "Iowan Old Style", "Segoe UI", serif;
+  --sw-row-pad: 0.4375rem;
+  --sw-shadow: 0 1px 2px rgba(80,70,50,.18);
+  --sw-viz-hot-a: #9a5b2c;
+  --sw-viz-hot-b: #d8a06a;
+  --sw-viz-cold:  rgba(122,114,100,.3);
+}
+
+/* ========================================================================
+   Один набор правил для всех тем: классы Tailwind читают токены.
+   Применяется только когда тема выбрана явно — «classic» ничего не трогает,
+   чтобы прежний вид остался в точности прежним.
+   ===================================================================== */
+html[data-theme]:not([data-theme="classic"]) body {
+  background: var(--sw-bg) !important;
+  color: var(--sw-text) !important;
+  font-family: var(--sw-font);
+}
+
+html[data-theme]:not([data-theme="classic"]) {
+  /* поверхности */
+  --tw-any: 0;
+}
+html[data-theme]:not([data-theme="classic"]) .bg-white,
+html[data-theme]:not([data-theme="classic"]) .bg-slate-50\/60 { background: var(--sw-surface) !important; }
+html[data-theme]:not([data-theme="classic"]) .bg-slate-50   { background: var(--sw-surface-2) !important; }
+html[data-theme]:not([data-theme="classic"]) .bg-slate-100  { background: var(--sw-surface-3) !important; }
+html[data-theme]:not([data-theme="classic"]) .bg-slate-200  { background: var(--sw-surface-3) !important; }
+html[data-theme]:not([data-theme="classic"]) .hover\:bg-slate-50:hover  { background: var(--sw-surface-2) !important; }
+html[data-theme]:not([data-theme="classic"]) .hover\:bg-slate-100:hover { background: var(--sw-surface-3) !important; }
+html[data-theme]:not([data-theme="classic"]) .hover\:bg-red-50:hover    { background: color-mix(in srgb, var(--sw-danger) 18%, transparent) !important; }
+
+/* текст */
+html[data-theme]:not([data-theme="classic"]) .text-slate-800,
+html[data-theme]:not([data-theme="classic"]) .text-slate-700 { color: var(--sw-text) !important; }
+html[data-theme]:not([data-theme="classic"]) .text-slate-600 { color: var(--sw-text-2) !important; }
+html[data-theme]:not([data-theme="classic"]) .text-slate-500 { color: var(--sw-muted) !important; }
+html[data-theme]:not([data-theme="classic"]) .text-slate-400 { color: var(--sw-faint) !important; }
+html[data-theme]:not([data-theme="classic"]) .text-slate-300 { color: var(--sw-faint) !important; }
+html[data-theme]:not([data-theme="classic"]) .hover\:text-slate-800:hover,
+html[data-theme]:not([data-theme="classic"]) .hover\:text-slate-700:hover { color: var(--sw-text) !important; }
+
+/* границы */
+html[data-theme]:not([data-theme="classic"]) .border-slate-100 { border-color: var(--sw-border) !important; }
+html[data-theme]:not([data-theme="classic"]) .border-slate-200 { border-color: var(--sw-border) !important; }
+html[data-theme]:not([data-theme="classic"]) .border-slate-300 { border-color: var(--sw-border-2) !important; }
+html[data-theme]:not([data-theme="classic"]) .divide-slate-100 > * + * { border-color: var(--sw-border) !important; }
+
+/* акцент */
+html[data-theme]:not([data-theme="classic"]) .text-sky-600,
+html[data-theme]:not([data-theme="classic"]) .text-sky-700,
+html[data-theme]:not([data-theme="classic"]) .hover\:text-sky-600:hover { color: var(--sw-accent-ink) !important; }
+html[data-theme]:not([data-theme="classic"]) .bg-sky-600 { background: var(--sw-accent) !important; color: var(--sw-accent-text) !important; }
+html[data-theme]:not([data-theme="classic"]) .hover\:bg-sky-500:hover { background: var(--sw-accent-hover) !important; }
+html[data-theme]:not([data-theme="classic"]) .bg-sky-100,
+html[data-theme]:not([data-theme="classic"]) .bg-sky-50 { background: var(--sw-accent-soft) !important; color: var(--sw-accent-ink) !important; }
+html[data-theme]:not([data-theme="classic"]) .accent-sky-500 { accent-color: var(--sw-accent); }
+html[data-theme]:not([data-theme="classic"]) .text-emerald-600,
+html[data-theme]:not([data-theme="classic"]) .text-emerald-700 { color: var(--sw-ok) !important; }
+html[data-theme]:not([data-theme="classic"]) .bg-emerald-600 { background: var(--sw-ok) !important; }
+html[data-theme]:not([data-theme="classic"]) .text-red-600,
+html[data-theme]:not([data-theme="classic"]) .hover\:text-red-600:hover { color: var(--sw-danger) !important; }
+html[data-theme]:not([data-theme="classic"]) .bg-red-600 { background: var(--sw-danger) !important; }
+html[data-theme]:not([data-theme="classic"]) .text-amber-500,
+html[data-theme]:not([data-theme="classic"]) .text-amber-600,
+html[data-theme]:not([data-theme="classic"]) .text-amber-700 { color: var(--sw-warn) !important; }
+html[data-theme]:not([data-theme="classic"]) .bg-amber-100 { background: color-mix(in srgb, var(--sw-warn) 20%, transparent) !important; }
+html[data-theme]:not([data-theme="classic"]) .bg-emerald-100 { background: color-mix(in srgb, var(--sw-ok) 18%, transparent) !important; }
+
+/* поля ввода */
+html[data-theme]:not([data-theme="classic"]) input,
+html[data-theme]:not([data-theme="classic"]) select,
+html[data-theme]:not([data-theme="classic"]) textarea {
+  background: var(--sw-surface-2) !important;
+  border-color: var(--sw-border-2) !important;
+  color: var(--sw-text) !important;
+}
+html[data-theme]:not([data-theme="classic"]) input::placeholder { color: var(--sw-faint) !important; }
+
+/* геометрия и плотность */
+html[data-theme]:not([data-theme="classic"]) .rounded-lg  { border-radius: var(--sw-radius) !important; }
+html[data-theme]:not([data-theme="classic"]) .rounded-xl  { border-radius: var(--sw-radius-lg) !important; }
+html[data-theme]:not([data-theme="classic"]) .rounded-md  { border-radius: var(--sw-radius-sm) !important; }
+html[data-theme]:not([data-theme="classic"]) .rounded     { border-radius: var(--sw-radius-sm) !important; }
+html[data-theme]:not([data-theme="classic"]) .mus-table tbody td {
+  padding-top: var(--sw-row-pad) !important;
+  padding-bottom: var(--sw-row-pad) !important;
+}
+html[data-theme]:not([data-theme="classic"]) .shadow,
+html[data-theme]:not([data-theme="classic"]) .shadow-lg { box-shadow: var(--sw-shadow) !important; }
+
+/* элементы музыкального раздела */
+html[data-theme]:not([data-theme="classic"]) .mus-item.mus-on,
+html[data-theme]:not([data-theme="classic"]) .mus-item.mus-on:hover {
+  background: var(--sw-accent-soft) !important;
+  color: var(--sw-accent-ink) !important;
+  box-shadow: inset 0 0 0 1.5px var(--sw-accent);
+}
+html[data-theme]:not([data-theme="classic"]) tr.mrow.mus-playing > td {
+  background: var(--sw-accent-soft) !important;
+  color: var(--sw-accent-ink) !important;
+}
+html[data-theme]:not([data-theme="classic"]) .mus-item.mus-drop {
+  background: var(--sw-accent-soft) !important;
+  box-shadow: inset 0 0 0 2px var(--sw-accent);
+}
+html[data-theme]:not([data-theme="classic"]) .mus-cover-frame {
+  background: var(--sw-surface-2);
+  border-color: var(--sw-border-2);
+  box-shadow: var(--sw-shadow);
+}
+html[data-theme]:not([data-theme="classic"]) .mus-nocover { background-color: var(--sw-surface-3); }
+html[data-theme]:not([data-theme="classic"]) .tbb:hover { background: var(--sw-surface-3) !important; }
+html[data-theme]:not([data-theme="classic"]) .tbb.tbb-on {
+  background: var(--sw-accent-soft) !important; color: var(--sw-accent-ink) !important;
+}
+html[data-theme]:not([data-theme="classic"]) #sw-fill,
+html[data-theme]:not([data-theme="classic"]) #sw-fill::after { background: var(--sw-accent); }
+html[data-theme]:not([data-theme="classic"]) #mus-head { background: var(--sw-accent); }
+
+/* полосы прокрутки */
+html[data-theme]:not([data-theme="classic"]) ::-webkit-scrollbar-thumb {
+  background: var(--sw-border-2);
+}
+html[data-theme]:not([data-theme="classic"]) ::-webkit-scrollbar-track { background: transparent; }
+
+/* Spotify: кнопки-таблетки и подчёркнуто чёрный фон вокруг панелей */
+html[data-theme="spotify"] .bg-slate-50 { background: var(--sw-surface) !important; }
+html[data-theme="spotify"] .px-4.py-1\.5,
+html[data-theme="spotify"] .px-3.py-1\.5 { letter-spacing: .02em; }
+html[data-theme="spotify"] .bg-sky-600 { font-weight: 700; }
+
+/* Консоль: убираем скругления даже там, где они заданы напрямую */
+html[data-theme="console"] .rounded-full { border-radius: var(--sw-radius-sm) !important; }
+html[data-theme="console"] .mus-table { font-variant-numeric: tabular-nums; }
+
+/* Бумага: тени мягче, обложки без резких краёв */
+html[data-theme="paper"] .mus-cover-frame { background: var(--sw-surface); }

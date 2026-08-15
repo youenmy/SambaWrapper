@@ -11,6 +11,11 @@
       <button id="theme-btn" title="Сменить тему" class="px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800"
               onclick="SW.toggleTheme()"><i id="theme-icon" class="ti ti-moon text-lg"></i></button>
       <div class="relative">
+        <button id="skin-btn" title="Оформление" class="px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800"
+                onclick="event.stopPropagation();SW.toggleSkins()"><i class="ti ti-palette text-lg"></i></button>
+        <div id="skinmenu" class="hidden absolute right-0 top-10 w-60 bg-white border border-slate-200 rounded-lg shadow-lg p-1.5 z-50 text-sm"></div>
+      </div>
+      <div class="relative">
         <button id="userchip" class="flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg hover:bg-slate-100"
                 onclick="event.stopPropagation();SW.toggleUserMenu()">
           <span class="w-6 h-6 rounded-full bg-sky-100 text-sky-700 grid place-items-center text-xs uppercase">{{ (username or 'a')[0] }}</span>
@@ -256,6 +261,56 @@ const SW = {
   },
 
   toggleUserMenu() { document.getElementById("usermenu").classList.toggle("hidden"); },
+
+  /* Оформление. Тема — это только набор токенов в themes.css, поэтому
+     переключение сводится к атрибуту на <html> и не требует перезагрузки. */
+  skins: [
+    ["classic",  "Классическая",   "#0284c7", "Прежний вид: slate и голубой акцент"],
+    ["spotify",  "Spotify",        "#1db954", "Чёрный фон, зелёный акцент, кнопки-таблетки"],
+    ["cinema",   "Медиацентр",     "#f5a524", "Почти чёрный, янтарь, крупные скругления"],
+    ["console",  "Консоль",        "#2f9e52", "Моноширинный шрифт, плотные строки"],
+    ["amethyst", "Аметист",        "#7c6cf0", "Фиолетовый акцент по тёплому тёмному"],
+    ["paper",    "Бумага",         "#9a5b2c", "Светлая, тёплая, с засечками"],
+  ],
+  skin() { return localStorage.getItem("sw.skin") || "classic"; },
+  setSkin(id) {
+    localStorage.setItem("sw.skin", id);
+    document.documentElement.dataset.theme = id;
+    // тёмные темы не должны зависеть от переключателя дня и ночи
+    if (id !== "classic" && id !== "paper") document.documentElement.classList.add("dark");
+    if (id === "paper") document.documentElement.classList.remove("dark");
+    this.closeSkins();
+    if (window.Music && Music.viz) Music.viz.recolor();
+    this.toast("Оформление: " + (this.skins.find(s => s[0] === id) || [,id])[1]);
+  },
+  toggleSkins() {
+    const menu = document.getElementById("skinmenu");
+    if (!menu.classList.contains("hidden")) return this.closeSkins();
+    const cur = this.skin();
+    menu.innerHTML = "";
+    this.skins.forEach(([id, name, color, hint]) => {
+      const b = document.createElement("button");
+      b.className = "w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-md hover:bg-slate-100" +
+                    (id === cur ? " bg-sky-50" : "");
+      const dot = document.createElement("span");
+      dot.className = "w-3 h-3 rounded-full shrink-0 mt-1 border border-black/20";
+      dot.style.background = color;
+      const box = document.createElement("span");
+      box.className = "min-w-0";
+      const t = document.createElement("span");
+      t.className = "block" + (id === cur ? " font-medium" : "");
+      t.textContent = name;
+      const h = document.createElement("span");
+      h.className = "block text-[0.6875rem] text-slate-400 leading-snug";
+      h.textContent = hint;
+      box.appendChild(t); box.appendChild(h);
+      b.appendChild(dot); b.appendChild(box);
+      b.onclick = () => this.setSkin(id);
+      menu.appendChild(b);
+    });
+    menu.classList.remove("hidden");
+  },
+  closeSkins() { document.getElementById("skinmenu").classList.add("hidden"); },
 
   toggleTheme() {
     const on = !document.documentElement.classList.contains("dark");
@@ -1100,6 +1155,7 @@ document.body.addEventListener("htmx:afterSwap", (e) => {
 document.addEventListener("click", (e) => {
   document.getElementById("ctxmenu").classList.add("hidden");
   if (!e.target.closest("#userchip")) document.getElementById("usermenu").classList.add("hidden");
+  if (!e.target.closest("#skin-btn") && !e.target.closest("#skinmenu")) SW.closeSkins();
 });
 document.getElementById("modal-host").addEventListener("click", () => SW.closeModal());
 

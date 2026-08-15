@@ -670,6 +670,25 @@
         V.raf = 0;
         V._clear();
       },
+      /* Цвета спектра живут в теме: читаем токены, а не зашиваем константы.
+         Значение кэшируется — getComputedStyle на каждый кадр слишком дорог. */
+      _colors: function () {
+        var V = M.viz;
+        if (V._skin) return V._skin;
+        var css = getComputedStyle(document.documentElement);
+        var pick = function (name, fallback) {
+          var v = (css.getPropertyValue(name) || "").trim();
+          return v || fallback;
+        };
+        V._skin = {
+          a: pick("--sw-viz-hot-a", "#0284c7"),
+          b: pick("--sw-viz-hot-b", "#7dd3fc"),
+          cold: pick("--sw-viz-cold", "rgba(148,163,184,0.4)"),
+        };
+        return V._skin;
+      },
+      /** Тема сменилась — пересчитать цвета на следующем кадре. */
+      recolor: function () { M.viz._skin = null; },
       _clear: function () {
         var c = $("mus-viz");
         if (c && c.getContext) c.getContext("2d").clearRect(0, 0, c.width, c.height);
@@ -715,12 +734,13 @@
         var peak = 0;
 
         // сыгранная часть — яркий градиент снизу вверх, остаток — приглушённый
+        var skin = M.viz._colors();
         var hot = g.createLinearGradient(0, h, 0, 0);
-        hot.addColorStop(0, "#0284c7");
-        hot.addColorStop(1, "#7dd3fc");
+        hot.addColorStop(0, skin.a);
+        hot.addColorStop(1, skin.b);
         var cold = g.createLinearGradient(0, h, 0, 0);
-        cold.addColorStop(0, "rgba(148,163,184,0.35)");
-        cold.addColorStop(1, "rgba(148,163,184,0.6)");
+        cold.addColorStop(0, skin.cold);
+        cold.addColorStop(1, skin.cold);
 
         // тихую запись растягиваем на всю высоту: делим не на 255, а на текущий
         // пик, который медленно оседает, — громкая всё равно не упрётся в потолок
