@@ -31,10 +31,8 @@
           <button title="Запустить" class="text-slate-400 hover:text-emerald-600"
                   onclick="SW.post('/htmx/torrent-action',{id:{{ t.id }},action:'start'})"><i class="ti ti-player-play text-base"></i></button>
         {% endif %}
-        <button title="Убрать из списка (файлы оставить)" class="text-slate-400 hover:text-sky-600 ml-1"
-                onclick="SW.torrentRemove({{ t.id }},{{ t.name|tojson|forceescape }},false)"><i class="ti ti-x text-base"></i></button>
-        <button title="Удалить вместе с файлами" class="text-slate-400 hover:text-red-600 ml-1"
-                onclick="SW.torrentRemove({{ t.id }},{{ t.name|tojson|forceescape }},true)"><i class="ti ti-trash text-base"></i></button>
+        <button title="Удалить торрент" class="text-slate-400 hover:text-red-600 ml-1"
+                onclick="SW.torrentRemove({{ t.id }},{{ t.name|tojson|forceescape }})"><i class="ti ti-trash text-base"></i></button>
       </td>
     </tr>
   {% endfor %}

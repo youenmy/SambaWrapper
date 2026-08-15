@@ -811,11 +811,37 @@ const SW = {
       .then((html) => { document.getElementById("toast-host").insertAdjacentHTML("beforeend", html); })
       .catch(() => this.toast("Не удалось загрузить .torrent"));
   },
-  torrentRemove(id, name, withData) {
-    this.confirm(
-      withData ? `Удалить торрент «${name}» вместе со скачанными файлами?` : `Убрать торрент «${name}» из списка? Файлы останутся на диске.`,
-      () => this.post("/htmx/torrent-action", {id, action: withData ? "remove-data" : "remove"}),
-      {ok: "Удалить", danger: !!withData});
+  torrentRemove(id, name) {
+    // Выбор делается в самом диалоге: две отдельные кнопки в строке торрента
+    // легко перепутать, а разница между ними — стёртые с диска файлы.
+    const host = document.getElementById("confirm-host");
+    const safe = String(name).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    host.innerHTML = `<div class="bg-white rounded-xl p-5 w-full max-w-md shadow-xl" onclick="event.stopPropagation()">
+      <p class="text-sm mb-1">Удалить торрент</p>
+      <p class="text-sm font-medium mb-4 break-words">${safe}</p>
+      <div class="flex flex-col gap-2">
+        <button id="tr-keep" class="w-full text-left px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50">
+          <span class="text-sm">Только торрент</span>
+          <span class="block text-xs text-slate-500">Скачанные файлы останутся на диске</span></button>
+        <button id="tr-data" class="w-full text-left px-3 py-2 rounded-lg border border-red-200 hover:bg-red-50">
+          <span class="text-sm text-red-600">Торрент и файлы</span>
+          <span class="block text-xs text-slate-500">Скачанное будет стёрто безвозвратно</span></button>
+      </div>
+      <div class="flex justify-end mt-4">
+        <button id="tr-no" class="px-3 py-1.5 text-slate-500 rounded-lg hover:bg-slate-100">Отмена</button>
+      </div>
+    </div>`;
+    host.classList.remove("hidden");
+    const close = () => { host.classList.add("hidden"); host.innerHTML = ""; };
+    host.onclick = close;
+    document.getElementById("tr-no").onclick = close;
+    document.getElementById("tr-keep").onclick = () => {
+      close(); this.post("/htmx/torrent-action", {id, action: "remove"});
+    };
+    document.getElementById("tr-data").onclick = () => {
+      close(); this.post("/htmx/torrent-action", {id, action: "remove-data"});
+    };
+    setTimeout(() => document.getElementById("tr-no").focus(), 20);
   },
 
   upload() { document.getElementById("uploader").click(); },
