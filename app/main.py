@@ -951,6 +951,7 @@ async def htmx_music_lists(request: Request, _: str = Depends(current_user),
         nodes = await asyncio.to_thread(music.list_subfolders, "")
         return templates.TemplateResponse("_music_lists.html", {
             "request": request, "nodes": nodes, "tree": True,
+            "library": music.library_path(),
             "cur_artist": artist, "cur_album": album, "cur_folder": folder,
         })
     folders = await asyncio.to_thread(music.list_folders)
@@ -1041,10 +1042,17 @@ def _fs_error(e: Exception) -> str:
         return f"Ошибка файловой системы: {e.strerror or e}"
     raise e
 
-def _music_rel(abs_path: str) -> str:
-    """Абсолютный путь внутри библиотеки -> путь относительно MOUNT_ROOT для fileops."""
+def _music_rel(abs_path: str, allow_root: bool = False) -> str:
+    """Абсолютный путь внутри библиотеки -> путь относительно MOUNT_ROOT для fileops.
+
+    Корень библиотеки допустим только как папка назначения: переносить в него
+    можно, а переименовывать или удалять его самого — нет.
+    """
     if not music.inside_library(abs_path):
-        raise fileops.FileOpError("Путь вне библиотеки")
+        is_root = (allow_root and abs_path
+                   and Path(abs_path).resolve() == Path(music.library_path()).resolve())
+        if not is_root:
+            raise fileops.FileOpError("Путь вне библиотеки")
     return str(Path(abs_path).resolve().relative_to(MOUNT_ROOT.resolve()))
 
 @app.post("/htmx/music-fs-rename", response_class=HTMLResponse)
@@ -1077,7 +1085,7 @@ async def htmx_music_fs_move(request: Request, _: str = Depends(require_admin),
                              src: str = Form(...), dest: str = Form(...)):
     try:
         rel_src = await asyncio.to_thread(_music_rel, src)
-        rel_dest = await asyncio.to_thread(_music_rel, dest)
+        rel_dest = await asyncio.to_thread(_music_rel, dest, True)
         new_rel = await asyncio.to_thread(fileops.move, rel_src, rel_dest)
         new_abs = str(MOUNT_ROOT.resolve() / new_rel)
         moved = await asyncio.to_thread(music.paths_moved, src, new_abs)

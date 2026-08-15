@@ -2,7 +2,13 @@
   <!-- «Все треки» не уезжает вместе со списком: закреплена у верхнего края панели -->
   <div class="sticky top-0 z-10 -mx-2 -mt-2 px-2 pt-2 pb-1 bg-white border-b border-slate-100">
     <button class="mus-item w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-sm flex items-center gap-2"
-            data-all="1" onclick="Music.clearFilters()">
+            data-all="1" onclick="Music.clearFilters()"
+            {% if tree %}
+            ondragover="Music.fs.over(event, {{ library|tojson|forceescape }})"
+            ondragleave="Music.fs.leave(event)"
+            ondrop="Music.fs.drop(event, {{ library|tojson|forceescape }})"
+            title="Все треки — сюда можно перетащить папку, чтобы вынести её в корень библиотеки"
+            {% endif %}>
       <i class="ti ti-list text-sky-600"></i>Все треки
     </button>
   </div>
