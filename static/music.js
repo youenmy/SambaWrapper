@@ -802,8 +802,44 @@
     // -------------------------------------------------------------- удаление
     deleteTrack: function (id, name) {
       SW.confirm("Удалить трек «" + name + "» с диска?\nФайл будет стёрт безвозвратно.",
-        function () { SW.post("/htmx/music-delete", {id: id}); },
+        function () {
+          var playing = (id === st.nowId);
+          var following = playing ? M._nextInQueue(id) : null;
+          M._request(id, function () {
+            if (playing) { if (following) M.playTrack(following); else M.close(); }
+            M.dropRow(id);
+          });
+        },
         {ok: "Удалить", danger: true});
+    },
+    /* Убрать строку удалённого трека, не перерисовывая список.
+     *
+     * Перезапрос списка сбрасывал бы и прокрутку, и позицию играющего трека —
+     * поэтому строка гаснет на месте, а нижние подтягиваются на её высоту.
+     * Сдвиг делается смещением, а не пересчётом вёрстки: высоту строк таблицы
+     * браузеры анимировать не умеют. */
+    dropRow: function (id) {
+      var row = document.querySelector('#music-tracks .mrow[data-id="' + id + '"]');
+      for (var k = 0; k < st.queue.length; k++) {
+        if (st.queue[k].id === id) { st.queue.splice(k, 1); break; }
+      }
+      if (st.total > 0) st.total--;
+      if (!row) return;
+
+      var h = row.getBoundingClientRect().height;
+      var below = [];
+      for (var el = row.nextElementSibling; el; el = el.nextElementSibling) below.push(el);
+
+      row.style.transition = "opacity .12s ease";
+      row.style.opacity = "0";
+      below.forEach(function (e) {
+        e.style.transition = "transform .18s ease";
+        e.style.transform = "translateY(-" + h + "px)";
+      });
+      setTimeout(function () {
+        below.forEach(function (e) { e.style.transition = ""; e.style.transform = ""; });
+        row.remove();
+      }, 190);
     },
     /** Del в разделе музыки — удалить то, что сейчас звучит. */
     deleteCurrent: function () {
@@ -815,7 +851,7 @@
           var following = M._nextInQueue(track.id);
           M._request(track.id, function () {
             if (following) M.playTrack(following); else M.close();
-            M.reloadTracks();
+            M.dropRow(track.id);
           });
         }, {ok: "Удалить", danger: true, quick: true});
     },
@@ -883,7 +919,7 @@
               if (next) M.playTrack(next); else M.close();
             }
           }
-          M.reloadTracks();
+          M.dropRow(id);          // и в списке за окном строка уходит на месте
         });
       }, {ok: "Удалить", danger: true});
     },
