@@ -14,6 +14,7 @@
     track: "sw.musTrack",     // что играло и на какой секунде
     volume: "sw.musVolume",
     cols: "sw.musCols",
+    tree: "sw.musTree",       // режим дерева папок
   };
 
   var COLUMNS = [
@@ -42,6 +43,7 @@
     dups: [],       // копии, показанные в окне дубликатов (в порядке отображения)
     now: null,      // трек, который звучит (может не быть в queue)
     nowId: 0,
+    tree: false,    // библиотека показана деревом папок, а не плоским списком
   };
 
   function $(id) { return document.getElementById(id); }
@@ -142,6 +144,38 @@
       st.folder = path; st.artist = ""; st.album = ""; st.page = 1;
       M.reloadTracks(); M.markLists();
     },
+    /* Дерево папок: включается кнопкой на панели и переживает перезагрузку.
+     * Уровни подгружаются по мере раскрытия — строить всё дерево из десяти
+     * тысяч путей на каждое открытие панели незачем. */
+    toggleTree: function () {
+      st.tree = !st.tree;
+      store(LS.tree, st.tree ? "1" : "");
+      M._treeButton();
+      M.reloadLists();
+    },
+    _treeButton: function () {
+      var b = $("mus-tree-btn");
+      if (b) b.classList.toggle("tbb-on", st.tree);
+    },
+    /** Раскрыть или свернуть ветку; дети запрашиваются при первом раскрытии. */
+    toggleNode: function (button, path) {
+      var node = button.closest(".mus-node");
+      var kids = node && node.querySelector(".mus-kids");
+      var icon = button.querySelector("i");
+      if (!kids) return;
+      var opening = kids.classList.contains("hidden");
+      kids.classList.toggle("hidden", !opening);
+      if (icon) icon.className = "ti ti-chevron-" + (opening ? "down" : "right") + " text-sm";
+      if (opening && !kids.dataset.loaded) {
+        kids.dataset.loaded = "1";
+        kids.innerHTML = '<div class="px-2 py-1 text-xs text-slate-400">Загрузка…</div>';
+        htmx.ajax("GET", "/htmx/music-subfolders", {
+          target: kids, swap: "innerHTML",
+          values: {parent: path, folder: st.folder},
+        }).then(function () { M.markLists(); });
+      }
+    },
+
     clearFilters: function () {
       st.q = ""; st.artist = ""; st.album = ""; st.folder = ""; st.page = 1;
       var box = $("mus-search"); if (box) box.value = "";
@@ -874,6 +908,8 @@
                       artist: st.artist, album: st.album, folder: st.folder});
     },
     restoreFilters: function () {
+      st.tree = !!localStorage.getItem(LS.tree);
+      setTimeout(M._treeButton, 120);        // кнопка приезжает вместе с панелью
       var s = load(LS.view, null);
       if (!s) return;
       st.q = s.q || ""; st.sort = s.sort || "path"; st.desc = !!s.desc;
@@ -1011,7 +1047,7 @@
       document.body.addEventListener("htmx:afterSwap", function (e) {
         if (!e.target) return;
         if (e.target.id === "music-tracks") { M.markRow(); M.columns.apply(); }
-        if (e.target.id === "music-lists") { M.markLists(); M._fitLists(); }
+        if (e.target.id === "music-lists") { M.markLists(); M._fitLists(); M._treeButton(); }
       });
       document.body.addEventListener("reloadMusic", function () {
         if (SW.view === "music") M.open();

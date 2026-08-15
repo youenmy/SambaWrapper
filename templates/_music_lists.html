@@ -7,7 +7,12 @@
     </button>
   </div>
 
-  <div class="px-2 pt-3 pb-1 text-[0.6875rem] uppercase tracking-wide text-slate-400">Папки библиотеки</div>
+  <div class="px-2 pt-3 pb-1 text-[0.6875rem] uppercase tracking-wide text-slate-400">
+    {{ 'Дерево папок' if tree else 'Папки библиотеки' }}</div>
+
+  {% if tree %}
+    {% include "_music_tree.html" %}
+  {% else %}
   {% if not folders %}<div class="px-2 text-xs text-slate-400">Нет подпапок.</div>{% endif %}
   {% for f in folders %}
     <button class="mus-item w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-[0.8125rem] flex items-center gap-1.5 {{ 'mus-on' if f.abs == cur_folder else '' }}"
@@ -18,5 +23,5 @@
       <span class="text-[0.625rem] text-slate-400 shrink-0">{{ f.n }}</span>
     </button>
   {% endfor %}
-
+  {% endif %}
 </div>

@@ -944,12 +944,28 @@ async def api_music_random(request: Request, _: str = Depends(current_user),
 
 @app.get("/htmx/music-lists", response_class=HTMLResponse)
 async def htmx_music_lists(request: Request, _: str = Depends(current_user),
-                           artist: str = "", album: str = "", folder: str = ""):
+                           artist: str = "", album: str = "", folder: str = "",
+                           tree: bool = False):
     # в панели остались только папки библиотеки — исполнителей и альбомы не запрашиваем
+    if tree:
+        nodes = await asyncio.to_thread(music.list_subfolders, "")
+        return templates.TemplateResponse("_music_lists.html", {
+            "request": request, "nodes": nodes, "tree": True,
+            "cur_artist": artist, "cur_album": album, "cur_folder": folder,
+        })
     folders = await asyncio.to_thread(music.list_folders)
     return templates.TemplateResponse("_music_lists.html", {
-        "request": request, "folders": folders,
+        "request": request, "folders": folders, "tree": False,
         "cur_artist": artist, "cur_album": album, "cur_folder": folder,
+    })
+
+@app.get("/htmx/music-subfolders", response_class=HTMLResponse)
+async def htmx_music_subfolders(request: Request, _: str = Depends(current_user),
+                                parent: str = "", folder: str = ""):
+    """Ветка дерева: подпапки раскрываются по требованию, а не строятся целиком."""
+    nodes = await asyncio.to_thread(music.list_subfolders, parent)
+    return templates.TemplateResponse("_music_tree.html", {
+        "request": request, "nodes": nodes, "cur_folder": folder,
     })
 
 @app.get("/htmx/music-scan-status", response_class=HTMLResponse)

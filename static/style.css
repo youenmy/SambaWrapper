@@ -209,3 +209,10 @@ html.dark .mus-cover-frame {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* включённый режим на кнопке панели */
+.tbb.tbb-on { background: rgb(224 242 254); color: #0369a1; }
+html.dark .tbb.tbb-on { background: #0c2a47 !important; color: #7dd3fc; }
+/* стрелка раскрытия ветки дерева */
+.mus-caret { line-height: 1; }
+html.dark .mus-node .mus-kids { border-color: #334155; }

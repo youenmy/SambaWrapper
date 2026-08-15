@@ -426,6 +426,35 @@ def list_folders() -> list[dict]:
     return [{"name": k, "abs": root + k, "n": v}
             for k, v in sorted(counts.items(), key=lambda kv: kv[0].lower())]
 
+def _like_prefix(prefix: str) -> str:
+    """Экранировать спецсимволы LIKE, иначе папка с «_» или «%» захватит лишнее."""
+    return prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+def list_subfolders(parent: str = "") -> list[dict]:
+    """Прямые подпапки указанной папки (по умолчанию — корня библиотеки).
+
+    Возвращает число треков внутри с учётом вложенности и признак того, есть ли
+    у папки свои подпапки: по нему рисуется раскрывающая стрелка.
+    """
+    root = library_path().rstrip("/") + "/"
+    base = (parent.rstrip("/") + "/") if parent else root
+    if not base.startswith(root):
+        base = root                      # чужой путь снаружи библиотеки не обслуживаем
+    with db.connect() as cx:
+        rows = cx.execute("SELECT path FROM tracks WHERE path LIKE ? ESCAPE '\\'",
+                          (_like_prefix(base) + "%",)).fetchall()
+    counts: dict[str, int] = {}
+    kids: dict[str, bool] = {}
+    for r in rows:
+        rel = r["path"][len(base):]
+        if "/" not in rel:
+            continue                     # файл лежит прямо здесь, а не в подпапке
+        top, rest = rel.split("/", 1)
+        counts[top] = counts.get(top, 0) + 1
+        kids[top] = kids.get(top, False) or ("/" in rest)
+    return [{"name": k, "abs": base + k, "n": v, "kids": kids[k]}
+            for k, v in sorted(counts.items(), key=lambda kv: kv[0].lower())]
+
 def find_duplicates(folder: str = "", artist: str = "", album: str = "",
                     limit: int = 200) -> list[dict]:
     """Дубли по исполнителю+названию в пределах текущего фильтра (папка/исполнитель/альбом)."""

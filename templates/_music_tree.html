@@ -1,0 +1,25 @@
+{# Ветка дерева библиотеки. Дети подгружаются, когда узел раскрывают. #}
+{% for f in nodes %}
+  <div class="mus-node">
+    <div class="flex items-center gap-0.5">
+      {% if f.kids %}
+        <button class="mus-caret text-slate-400 hover:text-sky-600 shrink-0 w-4 grid place-items-center"
+                onclick="Music.toggleNode(this, {{ f.abs|tojson|forceescape }})" title="Раскрыть">
+          <i class="ti ti-chevron-right text-sm"></i></button>
+      {% else %}
+        <span class="w-4 shrink-0"></span>
+      {% endif %}
+      <button class="mus-item flex-1 min-w-0 text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-[0.8125rem] flex items-center gap-1.5 {{ 'mus-on' if f.abs == cur_folder else '' }}"
+              data-folder="{{ f.abs }}"
+              onclick="Music.filterFolder({{ f.abs|tojson|forceescape }})" title="{{ f.abs }}">
+        <i class="ti ti-folder text-amber-500 shrink-0"></i>
+        <span class="flex-1 min-w-0 truncate">{{ f.name }}</span>
+        <span class="text-[0.625rem] text-slate-400 shrink-0">{{ f.n }}</span>
+      </button>
+    </div>
+    <div class="mus-kids hidden pl-3 border-l border-slate-200 ml-2"></div>
+  </div>
+{% endfor %}
+{% if not nodes %}
+  <div class="px-2 py-1 text-xs text-slate-400">Внутри только файлы.</div>
+{% endif %}
