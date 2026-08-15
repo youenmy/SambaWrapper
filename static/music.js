@@ -182,27 +182,64 @@
           {ok: "Переместить"});
       },
 
+      /** Контекстное меню трека в таблице. */
+      trackMenu: function (event, id, path, title) {
+        event.preventDefault();
+        var menu = document.getElementById("ctxmenu");
+        if (!menu) return;
+        var name = String(path).split("/").pop();
+        var folder = String(path).slice(0, String(path).length - name.length - 1);
+        var items = [
+          ["ti-player-play", "Воспроизвести", function () { M.play(id); }, ""],
+          ["ti-folder", "Показать папку", function () { M.filterFolder(folder); }, ""],
+          ["ti-download", "Скачать", function () { M.fs.download(path); }, ""],
+        ];
+        if (SW.role === "admin") {
+          items.push(["ti-edit", "Переименовать файл",
+                      function () { M.fs.renameFile(path, name); }, ""]);
+        }
+        items.push(["ti-trash", "Удалить с диска",
+                    function () { M.deleteTrack(id, title || name); }, "text-red-600"]);
+        M.fs._render(menu, items, event);
+      },
+      download: function (path) {
+        var root = (SW.mountRoot || "").replace(/\/$/, "");
+        var rel = path.indexOf(root + "/") === 0 ? path.slice(root.length + 1) : path;
+        window.location = "/download?path=" + encodeURIComponent(rel);
+      },
+      renameFile: function (path, name) {
+        SW.prompt("Новое имя файла", name, function (value) {
+          value = (value || "").trim();
+          if (!value || value === name) return;
+          SW.post("/htmx/music-fs-rename", {path: path, name: value});
+        });
+      },
+      /** Собрать меню из готовых пунктов: подписи свои, чужой текст в HTML не попадает. */
+      _render: function (menu, items, event) {
+        menu.innerHTML = "";
+        items.forEach(function (item) {
+          var b = document.createElement("button");
+          b.className = "w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md " +
+                        "hover:bg-slate-100 " + item[3];
+          b.innerHTML = '<i class="ti ' + item[0] + ' text-slate-500"></i>' + item[1];
+          b.onclick = function () { menu.classList.add("hidden"); item[2](); };
+          menu.appendChild(b);
+        });
+        menu.style.left = Math.min(event.clientX, window.innerWidth - 210) + "px";
+        menu.style.top = Math.min(event.clientY, window.innerHeight - 40 - items.length * 34) + "px";
+        menu.classList.remove("hidden");
+      },
+
       /** Контекстное меню папки: переименовать или удалить с диска. */
       menu: function (event, path, name) {
         if (!M.fs.canEdit()) return;
         event.preventDefault();
         var menu = document.getElementById("ctxmenu");
         if (!menu) return;
-        menu.innerHTML = "";
-        [["ti-edit", "Переименовать", function () { M.fs.rename(path, name); }, ""],
-         ["ti-trash", "Удалить с диска", function () { M.fs.remove(path, name); }, "text-red-600"],
-        ].forEach(function (item) {
-          var b = document.createElement("button");
-          b.className = "w-full text-left flex items-center gap-2 px-2.5 py-1.5 rounded-md " +
-                        "hover:bg-slate-100 " + item[3];
-          // иконка и подпись — свои константы; имя папки сюда не попадает
-          b.innerHTML = '<i class="ti ' + item[0] + ' text-slate-500"></i>' + item[1];
-          b.onclick = function () { menu.classList.add("hidden"); item[2](); };
-          menu.appendChild(b);
-        });
-        menu.style.left = Math.min(event.clientX, window.innerWidth - 200) + "px";
-        menu.style.top = Math.min(event.clientY, window.innerHeight - 120) + "px";
-        menu.classList.remove("hidden");
+        M.fs._render(menu, [
+          ["ti-edit", "Переименовать", function () { M.fs.rename(path, name); }, ""],
+          ["ti-trash", "Удалить с диска", function () { M.fs.remove(path, name); }, "text-red-600"],
+        ], event);
       },
       rename: function (path, name) {
         SW.prompt("Новое имя папки", name, function (value) {
