@@ -143,6 +143,16 @@
     filterFolder: function (path) {
       st.folder = path; st.artist = ""; st.album = ""; st.page = 1;
       M.reloadTracks(); M.markLists();
+      if (st.tree) M._expandNode(path);      // выбранная папка сразу показывает содержимое
+    },
+    /** Раскрыть ветку выбранной папки, если она свёрнута (свёрнутую не трогаем). */
+    _expandNode: function (path) {
+      var item = document.querySelector('#music-lists .mus-item[data-folder="' +
+                                        (window.CSS && CSS.escape ? CSS.escape(path) : path) + '"]');
+      var node = item && item.closest(".mus-node");
+      var caret = node && node.querySelector(".mus-caret");
+      var kids = node && node.querySelector(".mus-kids");
+      if (caret && kids && kids.classList.contains("hidden")) M.toggleNode(caret, path);
     },
     /* Дерево папок: включается кнопкой на панели и переживает перезагрузку.
      * Уровни подгружаются по мере раскрытия — строить всё дерево из десяти

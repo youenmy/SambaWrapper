@@ -48,7 +48,7 @@
 <div class="flex-1 min-h-0 flex">
   <div id="music-lists" class="w-52 shrink-0 border-r border-slate-100 overflow-y-auto hidden lg:block"
        hx-get="/htmx/music-lists" hx-trigger="load, reloadMusicLists from:body" hx-swap="innerHTML"
-       hx-vals="js:{artist: Music.state.artist, album: Music.state.album, folder: Music.state.folder, tree: Music.state.tree ? 'yes' : ''}"></div>
+       hx-vals="js:{artist: Music.state.artist, album: Music.state.album, folder: Music.state.folder, tree: Music.state.tree ? 'yes' : 'no'}"></div>
 
   <div id="music-tracks" class="flex-1 min-w-0 overflow-auto"
        hx-get="/htmx/music-tracks" hx-trigger="load, refreshMusicTracks from:body" hx-swap="innerHTML"
