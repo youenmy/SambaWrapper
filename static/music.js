@@ -239,7 +239,8 @@
       if (a.readyState > 0 && a.currentTime > 0) { try { a.currentTime = 0; } catch (e) {} }
       var started = a.play();
       if (started && started.catch) started.catch(function () { /* автозапуск заблокирован */ });
-      $("mus-bar").classList.remove("hidden");
+      // смена трека в фоне (доиграл, next) не должна вытаскивать док в чужой раздел
+      if (SW.view === "music") $("mus-bar").classList.remove("hidden");
       $("mus-title").textContent = track.title || "—";
       $("mus-artist").textContent = [track.artist, track.album].filter(Boolean).join(" — ");
       var cover = $("mus-cover");

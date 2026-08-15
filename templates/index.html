@@ -127,7 +127,13 @@ const SW = {
   abs(rel) { return this.mountRoot + (rel ? "/" + rel : ""); },
 
   view: "files",  // files | torrents | dlna | music — что открыто в правой панели
-  setView(v) { this.view = v; document.body.dataset.view = v; },
+  setView(v) {
+    this.view = v; document.body.dataset.view = v;
+    // док с обложкой принадлежит разделу музыки: в других разделах он только мешает
+    const bar = document.getElementById("mus-bar");
+    if (bar) bar.classList.toggle("hidden", v !== "music");
+    if (window.Music) Music._fitLists();
+  },
   navigate(path) {
     this.setView("files");
     htmx.ajax("GET", "/htmx/browse?path=" + encodeURIComponent(path), {target:"#browser", swap:"innerHTML"});
