@@ -1,7 +1,7 @@
 <div class="flex items-center gap-2 px-3 h-12 border-b border-slate-200 shrink-0">
   <i class="ti ti-music text-sky-600 text-lg"></i>
   <span class="font-medium text-sm">Музыка</span>
-  <span class="text-[0.6875rem] text-slate-400">{{ st.tracks }} треков · {{ st.artists }} исполнителей · {{ (st.duration / 3600)|round|int }} ч</span>
+  <span id="mus-stats" class="text-[0.6875rem] text-slate-400">{{ st.tracks }} треков · {{ st.artists }} исполнителей · {{ (st.duration / 3600)|round|int }} ч</span>
   <div id="music-scan" class="flex items-center gap-2 text-[0.6875rem] ml-2"
        hx-get="/htmx/music-scan-status" hx-trigger="load, every 2s" hx-swap="innerHTML"></div>
 

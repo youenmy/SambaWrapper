@@ -980,17 +980,27 @@ async def htmx_music_subfolders(request: Request, _: str = Depends(current_user)
 
 @app.get("/htmx/music-scan-status", response_class=HTMLResponse)
 async def htmx_music_scan_status(request: Request, _: str = Depends(current_user)):
+    """Прогресс сканирования и заодно свежая статистика.
+
+    Шапка раздела рисуется один раз при открытии, поэтому во время сканирования
+    её счётчик отставал от списка дисков, который перерисовывается сам. Отдаём
+    статистику попутно этим же опросом — отдельный таймер заводить незачем.
+    """
     s = music.scan_state()
+    stats = await asyncio.to_thread(music.stats)
+    counter = (f'<span id="mus-stats" hx-swap-oob="true" class="text-[0.6875rem] text-slate-400">'
+               f'{stats["tracks"]} треков · {stats["artists"]} исполнителей · '
+               f'{round(stats["duration"] / 3600)} ч</span>')
     if not s["running"]:
         if s["error"]:
-            return HTMLResponse(f'<span class="text-red-500">Ошибка: {s["error"]}</span>')
-        return HTMLResponse("")
+            return HTMLResponse(f'<span class="text-red-500">Ошибка: {s["error"]}</span>{counter}')
+        return HTMLResponse(counter)
     pct = round(s["done"] / s["found"] * 100) if s["found"] else 0
     return HTMLResponse(
         f'<i class="ti ti-loader-2 animate-spin text-sky-500"></i>'
         f'<span class="text-sky-600">Сканирую… {s["done"]}/{s["found"]} ({pct}%)</span>'
         f'<div class="w-32 h-1.5 bg-slate-200 rounded overflow-hidden">'
-        f'<div class="h-full bg-sky-500" style="width:{pct}%"></div></div>')
+        f'<div class="h-full bg-sky-500" style="width:{pct}%"></div></div>{counter}')
 
 @app.post("/htmx/music-scan", response_class=HTMLResponse)
 async def htmx_music_scan(request: Request, _: str = Depends(require_admin), full: str = "no"):
