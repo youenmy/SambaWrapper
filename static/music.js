@@ -788,14 +788,17 @@
 
       var r = row.getBoundingClientRect();
       var p = pane.getBoundingClientRect();
-      // строку под липкой шапкой считаем невидимой — она ею перекрыта
+      // липкая шапка висит поверх списка: строка под ней невидима, поэтому
+      // рабочий верх окна — её нижний край
       var head = pane.querySelector("thead");
       var top = p.top + (head ? head.getBoundingClientRect().height : 0);
-      if (r.top >= top && r.bottom <= p.bottom) return;
+      var gap = 8;
 
-      // «nearest» подтягивает строку к ближнему краю, а не в центр: смещение
-      // минимальное, и без анимации это не читается как рывок
-      row.scrollIntoView({block: "nearest", behavior: "auto"});
+      /* Прокручиваем вручную. scrollIntoView про липкую шапку не знает и
+         прижимает строку к краю контейнера — она оказывается под заголовками,
+         снова считается невидимой, и так каждый раз. */
+      if (r.top < top) pane.scrollTop -= (top - r.top) + gap;
+      else if (r.bottom > p.bottom) pane.scrollTop += (r.bottom - p.bottom) + gap;
     },
     /* Обложка выступает над доком и перекрывала бы хвост списка папок —
      * дотягиваем список ровно на высоту выступающей части. */
