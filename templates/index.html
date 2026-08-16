@@ -232,8 +232,17 @@ const SW = {
       document.getElementById("cf-no").addEventListener("click", cleanup, {once: true});
       setTimeout(() => document.getElementById("cf-yes").focus(), 20);
     } else {
-      // обычные диалоги: фокус на «Отмена», чтобы ничего не удалить случайно
-      setTimeout(() => document.getElementById("cf-no").focus(), 20);
+      // Enter подтверждает, Esc отменяет. Фокус ставим на подтверждение, чтобы
+      // Enter срабатывал штатно, а не мимо кнопки.
+      const onKey = (e) => {
+        if (e.key === "Escape") { e.preventDefault(); cleanup(); close(); }
+      };
+      const cleanup = () => document.removeEventListener("keydown", onKey, true);
+      document.addEventListener("keydown", onKey, true);
+      host.addEventListener("click", cleanup, {once: true});
+      document.getElementById("cf-yes").addEventListener("click", cleanup, {once: true});
+      document.getElementById("cf-no").addEventListener("click", cleanup, {once: true});
+      setTimeout(() => document.getElementById("cf-yes").focus(), 20);
     }
   },
   prompt(message, def, onOk, opts) {
