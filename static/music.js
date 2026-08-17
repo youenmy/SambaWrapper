@@ -1036,7 +1036,10 @@
       /** Зафиксировать текущие ширины всех столбцов в пикселях. */
       _freezeWidths: function () {
         document.querySelectorAll("#music-tracks th[data-col]").forEach(function (th) {
-          if (th.dataset.col === "actions") return;   // остаток отдаём ему
+          // остаток ширины забирает «Путь»: он длинный и тянется без ущерба.
+          // Раньше остаток доставался столбцу с кнопкой, и корзина оказывалась
+          // в начале широкой пустой колонки, далеко от края списка.
+          if (th.dataset.col === "path" || th.dataset.col === "actions") return;
           if (!th.style.width) {
             var w = th.offsetWidth;
             th.style.width = w + "px"; th.style.minWidth = w + "px";
