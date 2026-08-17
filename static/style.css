@@ -240,12 +240,11 @@ tr.mrow > td {
    прижата к правому краю окна списка. По вертикали остаётся на своей строке —
    у абсолютного элемента без top сохраняется исходная позиция. */
 #music-tracks { position: relative; }
-.mus-table td[data-col="actions"] { width: 2.75rem; min-width: 2.75rem; padding: 0; }
-.mus-table th[data-col="actions"] { width: 2.75rem; min-width: 2.75rem; padding: 0; }
+.mus-table td[data-col="actions"],
+.mus-table th[data-col="actions"] { width: 2.75rem; min-width: 2.75rem; padding: 0.375rem 0; }
 .mus-table td[data-col="actions"] > button {
   position: absolute;
   right: 0.75rem;
-  margin-top: 0.125rem;
 }
 
 /* Шапка таблицы уже окна списка, поэтому серая полоска обрывалась, не дойдя
