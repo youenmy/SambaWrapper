@@ -1037,29 +1037,44 @@
       },
 
       /** Зафиксировать текущие ширины всех столбцов в пикселях. */
-      /* Один столбец обязан остаться «резиновым», иначе сумма жёстких ширин
-         окажется меньше окна и таблица не дотянется до правого края — там
-         повиснет пустая полоса, а кнопка удаления отъедет от края списка.
-         Тянем последний видимый столбец с текстом. */
+      /* Один столбец растягиваем на весь остаток ширины.
+         Полагаться на то, что таблица сама раздаст свободное место, нельзя:
+         при жёстких ширинах остальных столбцов справа оставалась мёртвая зона.
+         Поэтому остаток считаем арифметикой и присваиваем явно. */
       _freezeWidths: function () {
+        var pane = $("music-tracks");
         var heads = Array.prototype.slice.call(
           document.querySelectorAll("#music-tracks th[data-col]"));
-        var flexible = null;
-        heads.forEach(function (th) {
-          if (th.dataset.col === "actions" || th.style.display === "none") return;
-          flexible = th;                        // последний видимый — он и растянется
+        if (!pane || !heads.length) return;
+
+        var visible = heads.filter(function (th) {
+          return th.style.display !== "none" && th.dataset.col !== "actions";
         });
+        if (!visible.length) return;
+        var flexible = visible[visible.length - 1];   // тянем последний видимый
+
+        var used = 0;
         heads.forEach(function (th) {
-          if (th === flexible || th.dataset.col === "actions") {
-            th.style.width = ""; th.style.minWidth = "";
-            return;
-          }
           if (th.style.display === "none") return;
+          if (th.dataset.col === "actions") { used += th.offsetWidth; return; }
+          if (th === flexible) return;
           if (!th.style.width) {
             var w = th.offsetWidth;
             th.style.width = w + "px"; th.style.minWidth = w + "px";
           }
+          used += parseFloat(th.style.width) || th.offsetWidth;
         });
+
+        var rest = Math.max(80, pane.clientWidth - used);
+        flexible.style.width = rest + "px";
+        flexible.style.minWidth = rest + "px";
+      },
+      /** Ширина окна изменилась — пересчитать растянутый столбец. */
+      refit: function () {
+        var heads = document.querySelectorAll("#music-tracks th[data-col]");
+        if (!heads.length) return;
+        heads[heads.length - 1].style.width = "";     // снимем прежний остаток
+        M.columns._freezeWidths();
       },
       _resizers: function () {
         document.querySelectorAll("#music-tracks th[data-col]").forEach(function (th) {
@@ -1235,6 +1250,11 @@
         document.removeEventListener("pointerdown", wake);
         if (!M.viz._ensure()) return;
         if (M.viz.ctx.state !== "running") M.viz.ctx.resume().catch(function () {});
+      });
+
+      window.addEventListener("resize", function () {
+        clearTimeout(M._refitTimer);
+        M._refitTimer = setTimeout(function () { M.columns.refit(); M._fitLists(); }, 150);
       });
 
       var seekZone = $("mus-seek-zone");
