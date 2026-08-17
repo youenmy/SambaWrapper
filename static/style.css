@@ -235,3 +235,27 @@ tr.mrow > td {
 @media (prefers-reduced-motion: reduce) {
   tr.mrow > td, .dup-row { transition: none; }
 }
+
+/* Столбец с удалением всегда у правого края: таблица шире окна и прокручивается
+   по горизонтали, поэтому кнопка иначе уезжает вместе с содержимым. */
+.mus-table th[data-col="actions"],
+.mus-table td[data-col="actions"] {
+  position: sticky;
+  right: 0;
+  background: var(--sw-surface, #ffffff);
+}
+.mus-table th[data-col="actions"] {
+  z-index: 12;                       /* выше липкой шапки, иначе перекрывается */
+  background: var(--sw-surface-2, #f8fafc);
+}
+.mus-table td[data-col="actions"] { z-index: 2; }
+/* у выделенных и наведённых строк подложка должна совпадать с самой строкой */
+.mus-table tbody tr:hover td[data-col="actions"] { background: var(--sw-surface-2, #f8fafc); }
+.mus-table tbody tr.mus-playing td[data-col="actions"] { background: rgb(224 242 254); }
+html.dark .mus-table th[data-col="actions"],
+html.dark .mus-table td[data-col="actions"] { background: #1e293b; }
+html.dark .mus-table tbody tr:hover td[data-col="actions"] { background: #273449; }
+html.dark .mus-table tbody tr.mus-playing td[data-col="actions"] { background: #0c2a47; }
+html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing td[data-col="actions"] {
+  background: var(--sw-accent-soft);
+}
