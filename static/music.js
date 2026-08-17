@@ -962,6 +962,9 @@
         var all = COLUMNS.map(function (c) { return c.id; });
         var order = (cfg.order || []).filter(function (id) { return all.indexOf(id) >= 0; });
         all.forEach(function (id) { if (order.indexOf(id) < 0) order.push(id); });
+        // новые столбцы дописываются в конец, поэтому кнопку всегда возвращаем
+        // на последнее место — иначе она уезжает в середину таблицы
+        order = order.filter(function (id) { return id !== "actions"; }).concat("actions");
         return {order: order, hidden: cfg.hidden || HIDDEN_BY_DEFAULT.slice(), widths: cfg.widths || {}};
       },
       save: function (cfg) { store(LS.cols, cfg); },
@@ -1034,12 +1037,24 @@
       },
 
       /** Зафиксировать текущие ширины всех столбцов в пикселях. */
+      /* Один столбец обязан остаться «резиновым», иначе сумма жёстких ширин
+         окажется меньше окна и таблица не дотянется до правого края — там
+         повиснет пустая полоса, а кнопка удаления отъедет от края списка.
+         Тянем последний видимый столбец с текстом. */
       _freezeWidths: function () {
-        document.querySelectorAll("#music-tracks th[data-col]").forEach(function (th) {
-          // остаток ширины забирает «Путь»: он длинный и тянется без ущерба.
-          // Раньше остаток доставался столбцу с кнопкой, и корзина оказывалась
-          // в начале широкой пустой колонки, далеко от края списка.
-          if (th.dataset.col === "path" || th.dataset.col === "actions") return;
+        var heads = Array.prototype.slice.call(
+          document.querySelectorAll("#music-tracks th[data-col]"));
+        var flexible = null;
+        heads.forEach(function (th) {
+          if (th.dataset.col === "actions" || th.style.display === "none") return;
+          flexible = th;                        // последний видимый — он и растянется
+        });
+        heads.forEach(function (th) {
+          if (th === flexible || th.dataset.col === "actions") {
+            th.style.width = ""; th.style.minWidth = "";
+            return;
+          }
+          if (th.style.display === "none") return;
           if (!th.style.width) {
             var w = th.offsetWidth;
             th.style.width = w + "px"; th.style.minWidth = w + "px";
