@@ -183,7 +183,12 @@ html.dark th.col-drop-target { box-shadow: inset 3px 0 0 #38bdf8; }
 
 /* Таблица треков: фиксированная раскладка, иначе изменение ширины одного
    столбца заставляет браузер пересчитывать все остальные («прыгают»). */
-table.mus-table { table-layout: fixed; width: 100%; }
+/* Ширина таблицы — сумма ширин столбцов, а не ширина окна.
+   При растянутой на 100% таблице сумма обязана совпадать с окном, поэтому
+   изменение одного столбца всегда компенсировалось соседним: тянешь «Название»,
+   а меняется «Альбом». Теперь каждый столбец держит ровно свою ширину, а
+   свободное место просто остаётся справа. */
+table.mus-table { table-layout: fixed; width: max-content; }
 table.mus-table th, table.mus-table td { overflow: hidden; }
 
 /* ---- рамка-паспарту вокруг обложки в доке ----
@@ -274,3 +279,17 @@ html.dark .mus-table tbody tr.mus-playing td[data-col="actions"] > button { back
 html[data-theme]:not([data-theme="classic"]) .mus-table td[data-col="actions"] > button { background: var(--sw-surface); }
 html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr:hover td[data-col="actions"] > button { background: var(--sw-surface-2); }
 html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing td[data-col="actions"] > button { background: var(--sw-accent-soft); }
+
+
+/* Раз таблица может быть уже окна, подсветка строки должна дотягиваться до
+   правого края — закрашиваем остаток тем же приёмом, что и шапку. */
+.mus-table tbody tr:hover > td:last-child { box-shadow: 60rem 0 0 rgb(248 250 252); }
+.mus-table tbody tr.mus-playing > td:last-child { box-shadow: 60rem 0 0 rgb(224 242 254); }
+html.dark .mus-table tbody tr:hover > td:last-child { box-shadow: 60rem 0 0 #273449; }
+html.dark .mus-table tbody tr.mus-playing > td:last-child { box-shadow: 60rem 0 0 #0c2a47; }
+html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr:hover > td:last-child {
+  box-shadow: 60rem 0 0 var(--sw-surface-2);
+}
+html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing > td:last-child {
+  box-shadow: 60rem 0 0 var(--sw-accent-soft);
+}
