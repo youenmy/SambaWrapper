@@ -1,27 +1,18 @@
 <div class="flex items-center gap-2 px-3 h-12 border-b border-slate-200 shrink-0">
-  <i class="ti ti-music text-sky-600 text-lg"></i>
-  <span class="font-medium text-sm">Музыка</span>
-  <span id="mus-stats" class="text-[0.6875rem] text-slate-400">{{ st.tracks }} треков · {{ st.artists }} исполнителей · {{ (st.duration / 3600)|round|int }} ч</span>
-  <div id="music-scan" class="flex items-center gap-2 text-[0.6875rem] ml-2"
-       hx-get="/htmx/music-scan-status" hx-trigger="load, every 2s" hx-swap="innerHTML"></div>
+  <i class="ti ti-music text-sky-600 text-lg shrink-0"></i>
+  <span class="font-medium text-sm shrink-0 hidden sm:inline">Музыка</span>
+  {# статистика и путь к библиотеке — первые кандидаты на скрытие при нехватке ширины #}
+  <span id="mus-stats" class="text-[0.6875rem] text-slate-400 shrink-0 hidden 2xl:inline"
+        title="{{ library }}">{{ st.tracks }} треков · {{ st.artists }} исполнителей · {{ (st.duration / 3600)|round|int }} ч</span>
 
-  {% if role == 'admin' %}
-  <button class="tbb ml-auto" onclick="SW.post('/htmx/music-scan',{full:'no'})" title="Найти новые и изменённые файлы">
-    <i class="ti ti-refresh"></i>Обновить</button>
-  <button class="tbb" onclick="SW.openModal('/htmx/music-library-picker')" title="Выбрать папку с музыкой">
-    <i class="ti ti-folder"></i>Библиотека</button>
-  {% endif %}
-</div>
-
-<div class="flex items-center gap-2 px-3 h-11 border-b border-slate-100 shrink-0">
-  <div class="relative flex-1 max-w-sm">
+  <div class="relative flex-1 min-w-0 max-w-xs ml-1">
     <i class="ti ti-search absolute left-2.5 top-1.5 text-slate-400 text-sm"></i>
     <input id="mus-search" type="search" placeholder="поиск: трек, исполнитель, альбом…"
            oninput="Music.search(this.value)"
            class="w-full border border-slate-300 rounded-lg pl-8 pr-3 py-1 text-sm">
   </div>
   <select id="mus-sort" title="Сортировка" onchange="Music.sortSelect(this.value)"
-          class="border border-slate-300 rounded-lg px-2 py-1 text-sm">
+          class="border border-slate-300 rounded-lg px-2 py-1 text-sm shrink-0 max-w-[11rem]">
     <option value="path:asc" selected>По порядку (как в папках)</option>
     <option value="random:asc">Перемешать ⤨</option>
     <option value="title:asc">Название: А→Я</option>
@@ -34,15 +25,23 @@
     <option value="duration:desc">Длительность: ↓</option>
     <option value="duration:asc">Длительность: ↑</option>
   </select>
-  <button id="mus-tree-btn" class="tbb" onclick="Music.toggleTree()"
+  <button id="mus-tree-btn" class="tbb shrink-0" onclick="Music.toggleTree()"
           title="Показывать библиотеку деревом папок">
-    <i class="ti ti-binary-tree"></i>Дерево</button>
-  <button class="tbb" onclick="Music.columns.modal()" title="Какие столбцы показывать">
-    <i class="ti ti-columns"></i>Столбцы</button>
-  <button class="tbb" onclick="Music.openDuplicates()" title="Найти дубликаты в текущей папке/фильтре">
-    <i class="ti ti-copy"></i>Дубликаты</button>
-  <span class="text-[0.6875rem] text-slate-400 truncate hidden xl:inline ml-auto" title="{{ library }}">
-    <i class="ti ti-folder"></i> {{ library }}</span>
+    <i class="ti ti-binary-tree"></i><span class="hidden lg:inline">Дерево</span></button>
+  <button class="tbb shrink-0" onclick="Music.columns.modal()" title="Какие столбцы показывать">
+    <i class="ti ti-columns"></i><span class="hidden lg:inline">Столбцы</span></button>
+  <button class="tbb shrink-0" onclick="Music.openDuplicates()" title="Найти дубликаты в текущей папке/фильтре">
+    <i class="ti ti-copy"></i><span class="hidden lg:inline">Дубликаты</span></button>
+
+  <div id="music-scan" class="flex items-center gap-2 text-[0.6875rem] min-w-0"
+       hx-get="/htmx/music-scan-status" hx-trigger="load, every 2s" hx-swap="innerHTML"></div>
+
+  {% if role == 'admin' %}
+  <button class="tbb ml-auto shrink-0" onclick="SW.post('/htmx/music-scan',{full:'no'})" title="Найти новые и изменённые файлы">
+    <i class="ti ti-refresh"></i><span class="hidden lg:inline">Обновить</span></button>
+  <button class="tbb shrink-0" onclick="SW.openModal('/htmx/music-library-picker')" title="Выбрать папку с музыкой: {{ library }}">
+    <i class="ti ti-folder"></i><span class="hidden lg:inline">Библиотека</span></button>
+  {% endif %}
 </div>
 
 <div class="flex-1 min-h-0 flex">
