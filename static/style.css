@@ -236,31 +236,14 @@ tr.mrow > td {
   tr.mrow > td, .dup-row { transition: none; }
 }
 
-/* Кнопка удаления живёт у правого края списка, а не в общем потоке столбцов:
-   столбец узкий и липкий, поэтому не зависит ни от набора столбцов, ни от
-   горизонтальной прокрутки — всегда у полосы прокрутки. */
-.mus-table th[data-col="actions"],
-.mus-table td[data-col="actions"] {
-  position: sticky;
-  right: 0;
-  width: 2.5rem;
-  min-width: 2.5rem;
-  padding-left: 0.25rem;
-  padding-right: 0.5rem;
-  background: var(--sw-surface, #ffffff);
-  box-shadow: -6px 0 8px -6px rgba(0,0,0,.28);   /* край, чтобы текст не «въезжал» под кнопку */
+/* Кнопка удаления не участвует в раскладке столбцов: она вынута из потока и
+   прижата к правому краю окна списка. По вертикали остаётся на своей строке —
+   у абсолютного элемента без top сохраняется исходная позиция. */
+#music-tracks { position: relative; }
+.mus-table td[data-col="actions"] { width: 2.75rem; min-width: 2.75rem; padding: 0; }
+.mus-table th[data-col="actions"] { width: 2.75rem; min-width: 2.75rem; padding: 0; }
+.mus-table td[data-col="actions"] > button {
+  position: absolute;
+  right: 0.75rem;
+  margin-top: 0.125rem;
 }
-.mus-table th[data-col="actions"] { z-index: 12; background: var(--sw-surface-2, #f8fafc); }
-.mus-table td[data-col="actions"] { z-index: 2; }
-.mus-table tbody tr:hover td[data-col="actions"] { background: var(--sw-surface-2, #f8fafc); }
-.mus-table tbody tr.mus-playing td[data-col="actions"] { background: rgb(224 242 254); }
-
-html.dark .mus-table th[data-col="actions"] { background: #273449; }
-html.dark .mus-table td[data-col="actions"] { background: #1e293b; }
-html.dark .mus-table tbody tr:hover td[data-col="actions"] { background: #273449; }
-html.dark .mus-table tbody tr.mus-playing td[data-col="actions"] { background: #0c2a47; }
-
-html[data-theme]:not([data-theme="classic"]) .mus-table td[data-col="actions"] { background: var(--sw-surface); }
-html[data-theme]:not([data-theme="classic"]) .mus-table th[data-col="actions"],
-html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr:hover td[data-col="actions"] { background: var(--sw-surface-2); }
-html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing td[data-col="actions"] { background: var(--sw-accent-soft); }
