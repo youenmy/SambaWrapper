@@ -5,6 +5,9 @@
   <header class="flex items-center justify-between px-3 sm:px-4 h-12 bg-white border-b border-slate-200 shrink-0 gap-2">
     <div class="flex items-center gap-2 font-medium min-w-0">
       <button class="md:hidden text-slate-500 hover:text-slate-800" onclick="SW.toggleSidebar()" aria-label="Меню"><i class="ti ti-menu-2 text-xl"></i></button>
+      <button id="sb-collapse" class="hidden md:inline-flex text-slate-500 hover:text-slate-800 mr-1"
+              onclick="SW.collapseSidebar()" title="Свернуть панель накопителей">
+        <i id="sb-collapse-icon" class="ti ti-layout-sidebar-left-collapse text-xl"></i></button>
       <i class="ti ti-folder-open text-sky-600 text-xl"></i> <span class="truncate">SambaWrapper</span>
     </div>
     <div class="flex items-center gap-1">
@@ -35,7 +38,7 @@
   </header>
 
   <div class="flex flex-1 min-h-0 relative">
-    <aside id="sidebar" class="w-64 shrink-0 bg-white border-r border-slate-200 overflow-y-auto
+    <aside id="sidebar" class="sw-sidebar w-64 shrink-0 bg-white border-r border-slate-200 overflow-y-auto
                                 fixed md:static top-12 bottom-0 left-0 z-40 -translate-x-full md:translate-x-0 transition-transform duration-200"
            hx-get="/htmx/sidebar" hx-trigger="load, every 8s" hx-swap="innerHTML">
       <div class="p-4 text-slate-400 text-sm">Загрузка…</div>
@@ -332,6 +335,25 @@ const SW = {
     const i = document.getElementById("theme-icon");
     if (i) i.className = document.documentElement.classList.contains("dark")
       ? "ti ti-sun text-lg" : "ti ti-moon text-lg";
+  },
+  /* Сворачивание боковой панели на широких экранах: ширина анимируется, а
+     содержимое прячется, чтобы текст не переносился по мере сжатия. */
+  collapseSidebar() {
+    const on = !document.body.classList.contains("sw-sb-collapsed");
+    document.body.classList.toggle("sw-sb-collapsed", on);
+    localStorage.setItem("sw.sbCollapsed", on ? "1" : "");
+    const icon = document.getElementById("sb-collapse-icon");
+    if (icon) icon.className = "ti text-xl " +
+      (on ? "ti-layout-sidebar-left-expand" : "ti-layout-sidebar-left-collapse");
+    const btn = document.getElementById("sb-collapse");
+    if (btn) btn.title = on ? "Показать панель накопителей" : "Свернуть панель накопителей";
+    if (window.Music) setTimeout(function () { Music._fitLists(); }, 220);
+  },
+  restoreSidebar() {
+    if (!localStorage.getItem("sw.sbCollapsed")) return;
+    document.body.classList.add("sw-sb-collapsed");
+    const icon = document.getElementById("sb-collapse-icon");
+    if (icon) icon.className = "ti ti-layout-sidebar-left-expand text-xl";
   },
   toggleSidebar() {
     document.getElementById("sidebar").classList.toggle("-translate-x-full");
@@ -1144,6 +1166,7 @@ const SW = {
 };
 window.SW = SW;
 document.body.dataset.view = SW.view;
+SW.restoreSidebar();
 SW._syncTheme();
 
 document.body.addEventListener("refreshBrowser", () => SW.refreshBrowser());

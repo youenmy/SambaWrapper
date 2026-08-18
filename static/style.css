@@ -293,3 +293,17 @@ html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr:hover > td:last
 html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing > td:last-child {
   box-shadow: 60rem 0 0 var(--sw-accent-soft);
 }
+
+/* Сворачивание боковой панели. Анимируем ширину, а не сдвиг: соседняя область
+   должна расширяться синхронно, иначе панель уедет, а место останется пустым.
+   Содержимое прячем сразу — иначе на середине анимации текст перескакивает. */
+@media (min-width: 768px) {
+  .sw-sidebar { transition: width .2s ease, opacity .15s ease; }
+  body.sw-sb-collapsed .sw-sidebar {
+    width: 0 !important;
+    opacity: 0;
+    overflow: hidden;
+    border-right-width: 0;
+    pointer-events: none;
+  }
+}
