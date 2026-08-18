@@ -187,16 +187,16 @@ html[data-theme="amethyst"] {
 
 /* ---------------------------------------------------------------- Claude */
 html[data-theme="claude"] {
-  --sw-bg:        #262624;      /* тёплый серый, не синий и не чёрный */
-  --sw-surface:   #2b2a28;
-  --sw-surface-2: #333230;
-  --sw-surface-3: #3d3b38;
-  --sw-text:      #f0eee6;
-  --sw-text-2:    #d3cfc4;
-  --sw-muted:     #9b968d;
-  --sw-faint:     #7d786f;
-  --sw-border:    #3a3835;
-  --sw-border-2:  #4a4741;
+  --sw-bg:        #262624;      /* фон приложения */
+  --sw-surface:   #30302e;      /* панели заметно светлее фона, как в клиенте */
+  --sw-surface-2: #3a3937;
+  --sw-surface-3: #454440;
+  --sw-text:      #faf9f5;
+  --sw-text-2:    #e5e2d9;
+  --sw-muted:     #b4b0a8;
+  --sw-faint:     #8d8880;
+  --sw-border:    #3d3c39;
+  --sw-border-2:  #4d4b46;
   --sw-accent:      #d97757;    /* терракота */
   --sw-accent-hover:#e08c6f;
   --sw-accent-text: #1f1e1d;
