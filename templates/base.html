@@ -9,9 +9,12 @@
       if (localStorage.getItem("sw.theme") !== "light") document.documentElement.classList.add("dark");
       document.documentElement.dataset.theme = localStorage.getItem("sw.skin") || "classic";
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+    {# Всё своё: приложение работает и когда внешние CDN недоступны. Стили
+       Tailwind собраны из шаблонов статическим файлом, шрифт иконок и htmx
+       лежат рядом. #}
+    <link rel="stylesheet" href="/static/tailwind.css?v=1">
+    <script src="/static/htmx.js?v=1"></script>
+    <link rel="stylesheet" href="/static/tabler-icons.css?v=1">
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="stylesheet" href="/static/style.css?v=58">
     <link rel="stylesheet" href="/static/themes.css?v=3">
