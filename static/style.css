@@ -188,7 +188,10 @@ html.dark th.col-drop-target { box-shadow: inset 3px 0 0 #38bdf8; }
    изменение одного столбца всегда компенсировалось соседним: тянешь «Название»,
    а меняется «Альбом». Теперь каждый столбец держит ровно свою ширину, а
    свободное место просто остаётся справа. */
-table.mus-table { table-layout: fixed; width: max-content; }
+table.mus-table { table-layout: fixed; width: max-content; min-width: 100%; }
+/* Единственный столбец без заданной ширины — распорка, поэтому весь остаток
+   достаётся ей, а не размазывается по соседям при изменении ширины столбца. */
+.mus-table th[data-col="spacer"], .mus-table td[data-col="spacer"] { width: auto; padding: 0; }
 table.mus-table th, table.mus-table td { overflow: hidden; }
 
 /* ---- рамка-паспарту вокруг обложки в доке ----

@@ -19,6 +19,7 @@
 
   var COLUMNS = [
     {id: "pick", name: "Выбор", fixed: true},
+    {id: "spacer", name: "", fixed: true},   // распорка: в меню столбцов не показывается
     {id: "cover", name: "Обложка", fixed: true},
     {id: "title", name: "Название", fixed: true},
     {id: "artist", name: "Исполнитель"},
@@ -1033,8 +1034,11 @@
         all.forEach(function (id) { if (order.indexOf(id) < 0) order.push(id); });
         // новые столбцы дописываются в конец, поэтому кнопку всегда возвращаем
         // на последнее место — иначе она уезжает в середину таблицы
-        order = order.filter(function (id) { return id !== "actions" && id !== "pick"; });
-        order = ["pick"].concat(order, "actions");
+        order = order.filter(function (id) {
+          return id !== "actions" && id !== "pick" && id !== "spacer";
+        });
+        // распорка всегда перед кнопкой, кнопка всегда последняя
+        order = ["pick"].concat(order, "spacer", "actions");
         return {order: order, hidden: cfg.hidden || HIDDEN_BY_DEFAULT.slice(), widths: cfg.widths || {}};
       },
       save: function (cfg) { store(LS.cols, cfg); },
@@ -1112,7 +1116,7 @@
          изменение его ширины не двигают соседние. */
       _freezeWidths: function () {
         document.querySelectorAll("#music-tracks th[data-col]").forEach(function (th) {
-          if (th.dataset.col === "actions") return;
+          if (th.dataset.col === "actions" || th.dataset.col === "spacer") return;
           if (!th.style.width) {
             var w = th.offsetWidth;
             th.style.width = w + "px"; th.style.minWidth = w + "px";

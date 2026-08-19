@@ -35,6 +35,7 @@
       <span class="block truncate text-slate-400" title="{{ t.path }}">{{ t.rel }}</span></td>
     <td data-col="size" class="px-2 py-1.5 text-right text-slate-400 tabular-nums whitespace-nowrap">{{ t.size_human }}</td>
     <td data-col="duration" class="px-2 py-1.5 text-right text-slate-500 tabular-nums">{{ '%d:%02d'|format(t.duration|int // 60, t.duration|int % 60) }}</td>
+    <td data-col="spacer" class="p-0"></td>
     <td data-col="actions" class="px-2 py-1.5 w-10 text-right whitespace-nowrap">
       <button title="Удалить с диска" class="text-slate-400 hover:text-red-600"
               onclick="event.stopPropagation(); Music.deleteTrack({{ t.id }}, {{ (t.title or t.path)|tojson|forceescape }})">
@@ -44,7 +45,7 @@
 {% endfor %}
 
 {% if not has_more %}
-  <tr><td colspan="12" class="py-3 text-center text-xs text-slate-400">Всего треков: {{ total }}</td></tr>
+  <tr><td colspan="13" class="py-3 text-center text-xs text-slate-400">Всего треков: {{ total }}</td></tr>
 {% endif %}
 
 <script>
