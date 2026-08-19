@@ -1299,7 +1299,21 @@
         });
         el.addEventListener("error", function () {
           if (!active() || !srcOf(el)) return;     // источник сняли намеренно
-          SW.toast("Не удалось воспроизвести трек");
+          /* Разные причины требуют разных действий, поэтому называем их:
+             сеть — проблема с сервером или сессией, декодирование — битый
+             файл, формат — браузер не умеет такой кодек. */
+          var reasons = {
+            1: "загрузка прервана",
+            2: "сеть недоступна или сессия истекла",
+            3: "не удалось декодировать файл",
+            4: "браузер не поддерживает этот формат",
+          };
+          var code = (el.error && el.error.code) || 0;
+          var name = (st.now && st.now.title) || "";
+          console.error("SambaWrapper: ошибка воспроизведения", code,
+                        el.error && el.error.message, srcOf(el));
+          SW.toast("Не удалось воспроизвести" + (name ? " «" + name + "»" : "") +
+                   ": " + (reasons[code] || "неизвестная ошибка"));
         });
         el.addEventListener("play", function () {
           if (!active()) return;
