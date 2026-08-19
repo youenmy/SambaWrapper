@@ -34,6 +34,15 @@
   ];
   var HIDDEN_BY_DEFAULT = ["genre", "bitrate", "path"];
 
+  /* Ширины столбцов в пикселях. Держим их таблицей значений, а не измеряем
+     готовую вёрстку: измерения зависят от того, что успел посчитать браузер,
+     и любое движение столбца пересчитывало соседей. Здесь ширина столбца
+     меняется только тогда, когда её меняет пользователь. */
+  var WIDTHS = {
+    pick: 34, cover: 44, title: 280, artist: 190, album: 210, year: 60,
+    genre: 130, bitrate: 90, path: 280, size: 100, duration: 76, actions: 44,
+  };
+
   // ---------------------------------------------------------------- состояние
   var st = {
     q: "", sort: "path", desc: false, seed: 0, sortBefore: "",
@@ -1039,13 +1048,17 @@
         });
         // распорка всегда перед кнопкой, кнопка всегда последняя
         order = ["pick"].concat(order, "spacer", "actions");
-        return {order: order, hidden: cfg.hidden || HIDDEN_BY_DEFAULT.slice(), widths: cfg.widths || {}};
+        var widths = {};
+        Object.keys(WIDTHS).forEach(function (id) { widths[id] = WIDTHS[id]; });
+        Object.keys(cfg.widths || {}).forEach(function (id) { widths[id] = cfg.widths[id]; });
+        return {order: order, hidden: cfg.hidden || HIDDEN_BY_DEFAULT.slice(), widths: widths};
       },
       save: function (cfg) { store(LS.cols, cfg); },
       apply: function () {
         var cfg = M.columns.config();
         var table = document.querySelector("#music-tracks table");
         if (!table) return;
+
         table.querySelectorAll("tr").forEach(function (row) {
           var cells = {};
           row.querySelectorAll("[data-col]").forEach(function (c) { cells[c.dataset.col] = c; });
@@ -1054,16 +1067,35 @@
             var cell = cells[id];
             if (!cell) return;
             cell.style.display = cfg.hidden.indexOf(id) >= 0 ? "none" : "";
-            var w = cfg.widths[id];
-            if (w && cell.tagName === "TH" && id !== "actions") {
-              cell.style.width = w + "px"; cell.style.minWidth = w + "px";
-            }
+            cell.style.width = ""; cell.style.minWidth = "";   // ширину задаёт colgroup
             row.appendChild(cell);
           });
         });
-        M.columns._freezeWidths();
+
+        M.columns._colgroup(cfg);
         M.columns._dragAndDrop();
         M.columns._resizers();
+      },
+      /* Ширины живут в <colgroup>: при табличной раскладке fixed именно он
+         определяет столбцы. Перестановка меняет порядок <col> вместе с
+         ячейками, поэтому каждый столбец уносит свою ширину с собой и соседи
+         не пересчитываются. Распорка идёт без ширины и забирает остаток. */
+      _colgroup: function (cfg) {
+        var table = document.querySelector("#music-tracks table");
+        if (!table) return;
+        var group = table.querySelector("colgroup");
+        if (!group) {
+          group = document.createElement("colgroup");
+          table.insertBefore(group, table.firstChild);
+        }
+        group.innerHTML = "";
+        cfg.order.forEach(function (id) {
+          if (cfg.hidden.indexOf(id) >= 0) return;
+          var col = document.createElement("col");
+          col.dataset.col = id;
+          if (id !== "spacer") col.style.width = (cfg.widths[id] || 120) + "px";
+          group.appendChild(col);
+        });
       },
       /**
        * Перетаскивание столбцов мышью. HTML5 drag&drop внутри таблицы со
@@ -1110,22 +1142,13 @@
         });
       },
 
-      /** Зафиксировать текущие ширины всех столбцов в пикселях. */
-      /* Ширины всех столбцов фиксируются, кроме столбца с кнопкой: он вынесен
-         из потока и места не занимает. Так перестановка одного столбца и
-         изменение его ширины не двигают соседние. */
-      _freezeWidths: function () {
-        document.querySelectorAll("#music-tracks th[data-col]").forEach(function (th) {
-          if (th.dataset.col === "actions" || th.dataset.col === "spacer") return;
-          if (!th.style.width) {
-            var w = th.offsetWidth;
-            th.style.width = w + "px"; th.style.minWidth = w + "px";
-          }
-        });
-      },
+      /* Изменение ширины меняет ровно один <col> и запоминает ровно одно
+         значение. Остальные столбцы не измеряются и не переписываются —
+         поэтому и не могут разъехаться. */
       _resizers: function () {
         document.querySelectorAll("#music-tracks th[data-col]").forEach(function (th) {
-          if (th.querySelector(".col-resizer") || th.dataset.col === "actions") return;
+          var id = th.dataset.col;
+          if (th.querySelector(".col-resizer") || id === "actions" || id === "spacer") return;
           th.style.position = "relative";
           var handle = document.createElement("div");
           handle.className = "col-resizer";
@@ -1133,22 +1156,24 @@
           handle.addEventListener("dragstart", function (e) { e.preventDefault(); });
           handle.addEventListener("mousedown", function (e) {
             e.preventDefault(); e.stopPropagation();
-            M.columns._freezeWidths();
-            var startX = e.clientX, startW = th.offsetWidth;
+            var col = document.querySelector('#music-tracks col[data-col="' + id + '"]');
+            if (!col) return;
+            var cfg = M.columns.config();
+            var startX = e.clientX, startW = cfg.widths[id] || th.offsetWidth;
+            var width = startW;
             document.body.style.userSelect = "none";
             function move(ev) {
-              var w = Math.max(48, startW + ev.clientX - startX);
-              th.style.width = w + "px"; th.style.minWidth = w + "px";
+              width = Math.max(48, Math.round(startW + ev.clientX - startX));
+              col.style.width = width + "px";
             }
             function up() {
               document.removeEventListener("mousemove", move);
               document.removeEventListener("mouseup", up);
               document.body.style.userSelect = "";
-              var cfg = M.columns.config();
-              document.querySelectorAll("#music-tracks th[data-col]").forEach(function (x) {
-                if (x.dataset.col !== "actions") cfg.widths[x.dataset.col] = x.offsetWidth;
-              });
-              M.columns.save(cfg);
+              var saved = load(LS.cols, {}) || {};
+              saved.widths = saved.widths || {};
+              saved.widths[id] = width;
+              M.columns.save(saved);
             }
             document.addEventListener("mousemove", move);
             document.addEventListener("mouseup", up);
