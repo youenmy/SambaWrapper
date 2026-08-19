@@ -137,6 +137,10 @@ const SW = {
   view: "files",  // files | torrents | dlna | music — что открыто в правой панели
   setView(v) {
     this.view = v; document.body.dataset.view = v;
+    // раздел переживает перезагрузку страницы: сохраняем вместе с путём,
+    // иначе в файловом браузере пришлось бы заново добираться до папки
+    try { localStorage.setItem("sw.lastView", JSON.stringify({view: v, path: this.path || ""})); }
+    catch (e) { /* приватный режим */ }
     // док с обложкой принадлежит разделу музыки: в других разделах он только мешает
     const bar = document.getElementById("mus-bar");
     if (bar) bar.classList.toggle("hidden", v !== "music");
@@ -348,6 +352,17 @@ const SW = {
     const btn = document.getElementById("sb-collapse");
     if (btn) btn.title = on ? "Показать панель накопителей" : "Свернуть панель накопителей";
     if (window.Music) setTimeout(function () { Music._fitLists(); }, 220);
+  },
+  /* Вернуть раздел, открытый в прошлый раз. Файловый браузер восстанавливаем
+     вместе с папкой; если её больше нет, сервер отдаст корень. */
+  restoreView() {
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem("sw.lastView") || "null"); } catch (e) { saved = null; }
+    if (!saved || !saved.view || saved.view === "files" && !saved.path) return;
+    if (saved.view === "music") return this.openMusic();
+    if (saved.view === "torrents") return this.openTorrents();
+    if (saved.view === "dlna") return this.openDlna();
+    if (saved.view === "files") this.navigate(saved.path);
   },
   restoreSidebar() {
     if (!localStorage.getItem("sw.sbCollapsed")) return;
@@ -1167,6 +1182,7 @@ const SW = {
 window.SW = SW;
 document.body.dataset.view = SW.view;
 SW.restoreSidebar();
+SW.restoreView();
 SW._syncTheme();
 
 document.body.addEventListener("refreshBrowser", () => SW.refreshBrowser());
