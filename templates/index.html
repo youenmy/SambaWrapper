@@ -359,7 +359,7 @@ const SW = {
     let saved;
     try { saved = JSON.parse(localStorage.getItem("sw.lastView") || "null"); } catch (e) { saved = null; }
     if (!saved || !saved.view || saved.view === "files" && !saved.path) return;
-    if (saved.view === "music") return this.openMusic();
+    if (saved.view === "music") return window.Music ? this.openMusic() : undefined;
     if (saved.view === "torrents") return this.openTorrents();
     if (saved.view === "dlna") return this.openDlna();
     if (saved.view === "files") this.navigate(saved.path);
@@ -1182,7 +1182,13 @@ const SW = {
 window.SW = SW;
 document.body.dataset.view = SW.view;
 SW.restoreSidebar();
-SW.restoreView();
+// music.js подключается после этого скрипта, поэтому раздел восстанавливаем,
+// когда страница дособрана — иначе Music ещё не существует и вызов падает
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => SW.restoreView());
+} else {
+  SW.restoreView();
+}
 SW._syncTheme();
 
 document.body.addEventListener("refreshBrowser", () => SW.refreshBrowser());
