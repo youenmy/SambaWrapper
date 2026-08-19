@@ -44,7 +44,17 @@
   {% endif %}
 </div>
 
-<div class="flex-1 min-h-0 flex">
+<div class="flex-1 min-h-0 flex relative">
+  {# панель появляется, только когда что-то отмечено галочками #}
+  <div id="mus-pickbar" class="hidden absolute bottom-3 left-1/2 -translate-x-1/2 z-30
+              flex items-center gap-3 px-4 py-2 rounded-xl shadow-lg
+              bg-white border border-slate-200 text-sm">
+    <span>Выбрано: <b id="mus-pick-count">0</b></span>
+    <button class="tbb" onclick="Music.pickNone()"><i class="ti ti-x"></i>Снять</button>
+    <button class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm"
+            onclick="Music.deletePicked()"><i class="ti ti-trash"></i> Удалить</button>
+  </div>
+
   <div id="music-lists" class="w-52 shrink-0 border-r border-slate-100 overflow-y-auto hidden lg:block"
        hx-get="/htmx/music-lists" hx-trigger="load, reloadMusicLists from:body" hx-swap="innerHTML"
        hx-vals="js:{artist: Music.state.artist, album: Music.state.album, folder: Music.state.folder, tree: Music.state.tree ? 'yes' : 'no'}"></div>

@@ -12,6 +12,9 @@
 <table class="mus-table text-sm border-collapse">
   <thead class="sticky {{ 'top-8' if (artist or album or folder) else 'top-0' }} bg-slate-50 text-[0.6875rem] uppercase tracking-wide text-slate-400 select-none z-10">
     <tr>
+      <th data-col="pick" class="w-8 px-1 py-1">
+        <input type="checkbox" id="mus-pick-all" title="Выбрать всё загруженное"
+               onchange="Music.pickAll(this.checked)" class="align-middle"></th>
       <th data-col="cover" class="w-10 px-2 py-1"></th>
       <th data-col="title" class="text-left font-medium px-2 py-1">
         {{ grip() }}<span class="col-label" onclick="Music.sortBy('title')" title="Название">Название{{ arrow('title') }}</span></th>
@@ -39,6 +42,6 @@
          hx-trigger="load"
          hx-vals="js:{q: Music.state.q, sort: Music.state.sort, desc: Music.state.desc ? 'yes' : 'no', artist: Music.state.artist, album: Music.state.album, folder: Music.state.folder, page: 1, seed: Music.state.seed, only: Music.state.only ? 'yes' : 'no'}"
          hx-swap="innerHTML">
-    <tr><td colspan="11" class="text-center text-slate-400 py-10">Загрузка…</td></tr>
+    <tr><td colspan="12" class="text-center text-slate-400 py-10">Загрузка…</td></tr>
   </tbody>
 </table>

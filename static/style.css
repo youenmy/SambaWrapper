@@ -307,3 +307,26 @@ html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing > t
     pointer-events: none;
   }
 }
+
+/* Столбец с галочками приклеен к левому краю списка: при горизонтальной
+   прокрутке он остаётся на месте, как и кнопка удаления справа. */
+.mus-table th[data-col="pick"],
+.mus-table td[data-col="pick"] {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: rgb(255 255 255);
+}
+.mus-table th[data-col="pick"] { z-index: 13; background: rgb(248 250 252); }
+.mus-table tbody tr:hover td[data-col="pick"] { background: rgb(248 250 252); }
+.mus-table tbody tr.mus-playing td[data-col="pick"] { background: rgb(224 242 254); }
+
+html.dark .mus-table td[data-col="pick"] { background: #1e293b; }
+html.dark .mus-table th[data-col="pick"] { background: #273449; }
+html.dark .mus-table tbody tr:hover td[data-col="pick"] { background: #273449; }
+html.dark .mus-table tbody tr.mus-playing td[data-col="pick"] { background: #0c2a47; }
+
+html[data-theme]:not([data-theme="classic"]) .mus-table td[data-col="pick"] { background: var(--sw-surface); }
+html[data-theme]:not([data-theme="classic"]) .mus-table th[data-col="pick"],
+html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr:hover td[data-col="pick"] { background: var(--sw-surface-2); }
+html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing td[data-col="pick"] { background: var(--sw-accent-soft); }

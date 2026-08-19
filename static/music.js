@@ -18,6 +18,7 @@
   };
 
   var COLUMNS = [
+    {id: "pick", name: "Выбор", fixed: true},
     {id: "cover", name: "Обложка", fixed: true},
     {id: "title", name: "Название", fixed: true},
     {id: "artist", name: "Исполнитель"},
@@ -46,6 +47,7 @@
     nowId: 0,
     tree: false,    // библиотека показана деревом папок, а не плоским списком
     only: false,    // показывать только треки самой папки, без вложенных
+    picked: [],     // отмеченные галочками треки — для массовых действий
   };
 
   function $(id) { return document.getElementById(id); }
@@ -330,6 +332,7 @@
         M.revealCurrent();                      // список перерисован целиком
       }
       // очередная порция при прокрутке ничего не двигает: пользователь смотрит список
+      M.pickRestore();
       if (st.nowId) M.preloadNext();   // очередь изменилась — следующий трек мог стать другим
     },
     /** Подгрузка следующей порции при прокрутке к низу списка. */
@@ -835,6 +838,70 @@
         },
         {ok: "Удалить", danger: true});
     },
+    /* ------------------------------------------------ выделение галочками
+     * Отмеченное живёт в st.picked, а не читается из DOM: строки уезжают при
+     * подгрузке и перерисовке, и выделение не должно от этого зависеть. */
+    pick: function (id, box) {
+      var i = st.picked.indexOf(id);
+      if (box.checked && i < 0) st.picked.push(id);
+      if (!box.checked && i >= 0) st.picked.splice(i, 1);
+      M.pickBar();
+    },
+    pickAll: function (on) {
+      document.querySelectorAll("#music-tracks .mus-pick").forEach(function (box) {
+        box.checked = on;
+        var id = Number(box.dataset.id);
+        var i = st.picked.indexOf(id);
+        if (on && i < 0) st.picked.push(id);
+        if (!on && i >= 0) st.picked.splice(i, 1);
+      });
+      M.pickBar();
+    },
+    pickNone: function () {
+      st.picked = [];
+      document.querySelectorAll("#music-tracks .mus-pick").forEach(function (b) { b.checked = false; });
+      var all = $("mus-pick-all"); if (all) all.checked = false;
+      M.pickBar();
+    },
+    /** Вернуть галочки строкам после перерисовки списка. */
+    pickRestore: function () {
+      document.querySelectorAll("#music-tracks .mus-pick").forEach(function (box) {
+        box.checked = st.picked.indexOf(Number(box.dataset.id)) >= 0;
+      });
+      M.pickBar();
+    },
+    /** Панель массовых действий видна, только когда что-то отмечено. */
+    pickBar: function () {
+      var bar = $("mus-pickbar");
+      if (!bar) return;
+      bar.classList.toggle("hidden", st.picked.length === 0);
+      var label = $("mus-pick-count");
+      if (label) label.textContent = st.picked.length;
+    },
+    deletePicked: function () {
+      if (!st.picked.length) return;
+      var ids = st.picked.slice();
+      var nl = String.fromCharCode(10);
+      SW.confirm("Удалить отмеченные треки с диска?" + nl + "Выбрано: " + ids.length +
+                 nl + nl + "Файлы будут стёрты безвозвратно.",
+        function () {
+          fetch("/htmx/music-delete-many", {
+            method: "POST", body: new URLSearchParams({ids: ids.join(",")}),
+          }).then(function (r) { return r.text(); })
+            .then(function (html) {
+              SW._toastHtml(html);
+              // играющий трек мог оказаться среди удалённых
+              if (ids.indexOf(st.nowId) >= 0) {
+                var next = M._nextInQueue(st.nowId);
+                if (next && ids.indexOf(next.id) < 0) M.playTrack(next); else M.close();
+              }
+              ids.forEach(function (id) { M.dropRow(id); });
+              M.pickNone();
+            })
+            .catch(function () { SW.toast("Не удалось удалить"); });
+        }, {ok: "Удалить", danger: true});
+    },
+
     /* Убрать строку удалённого трека, не перерисовывая список.
      *
      * Перезапрос списка сбрасывал бы и прокрутку, и позицию играющего трека —
@@ -847,6 +914,8 @@
         if (st.queue[k].id === id) { st.queue.splice(k, 1); break; }
       }
       if (st.total > 0) st.total--;
+      var p = st.picked.indexOf(id);
+      if (p >= 0) st.picked.splice(p, 1);
       if (!row) return;
 
       var h = row.getBoundingClientRect().height;
@@ -964,7 +1033,8 @@
         all.forEach(function (id) { if (order.indexOf(id) < 0) order.push(id); });
         // новые столбцы дописываются в конец, поэтому кнопку всегда возвращаем
         // на последнее место — иначе она уезжает в середину таблицы
-        order = order.filter(function (id) { return id !== "actions"; }).concat("actions");
+        order = order.filter(function (id) { return id !== "actions" && id !== "pick"; });
+        order = ["pick"].concat(order, "actions");
         return {order: order, hidden: cfg.hidden || HIDDEN_BY_DEFAULT.slice(), widths: cfg.widths || {}};
       },
       save: function (cfg) { store(LS.cols, cfg); },

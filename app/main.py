@@ -1121,6 +1121,27 @@ async def htmx_music_delete(request: Request, _: str = Depends(current_user), id
     return _resp(request, ok, msg, ["refreshMusicTracks"] if ok else [])
 
 
+@app.post("/htmx/music-delete-many", response_class=HTMLResponse)
+async def htmx_music_delete_many(request: Request, _: str = Depends(current_user),
+                                 ids: str = Form("")):
+    """Удалить отмеченные треки. Идут по одному: один сбойный файл не должен
+    отменять остальные, а в ответе видно, сколько реально удалено."""
+    wanted = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+    if not wanted:
+        return _resp(request, False, "Ничего не выбрано", [])
+
+    done, failed = 0, []
+    for tid in wanted:
+        ok, msg = await asyncio.to_thread(music.delete_track, tid)
+        if ok:
+            done += 1
+        else:
+            failed.append(msg)
+    if failed:
+        return _resp(request, done > 0, f"Удалено {done} из {len(wanted)}: {failed[0]}", [])
+    return _resp(request, True, f"Удалено треков: {done}", [])
+
+
 @app.get("/healthz", response_class=PlainTextResponse)
 async def health():
     return "ok"
