@@ -1045,10 +1045,27 @@ async def music_cover(track_id: int, request: Request, _: str = Depends(current_
                         headers={"Cache-Control": "public, max-age=86400"})
 
 @app.get("/music-audio/{track_id}")
-async def music_audio(track_id: int, request: Request, _: str = Depends(current_user)):
+async def music_audio(track_id: int, request: Request, _: str = Depends(current_user),
+                      fix: str = "no"):
+    """Отдать файл трека.
+
+    fix=yes — запасной путь для файлов, которые браузер разбирать отказался.
+    Встречаются, например, FLAC с пустым MIME в блоке обложки: строгий разбор
+    в Chrome спотыкается на этом и не играет файл целиком. Пересобираем
+    контейнер на лету, копируя звук без перекодирования, а метаданные отбросив.
+    Перемотка при этом недоступна: поток идёт с начала.
+    """
     track = music.get_track(track_id)
     if not track or not Path(track["path"]).is_file():
         raise HTTPException(status_code=404, detail="трек не найден")
+    if fix == "yes":
+        suffix = Path(track["path"]).suffix.lower().lstrip(".")
+        fmt = {"flac": ("flac", "audio/flac"), "ogg": ("ogg", "audio/ogg"),
+               "opus": ("ogg", "audio/ogg")}.get(suffix, ("mp3", "audio/mpeg"))
+        args = ["ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-i", track["path"], "-map", "0:a:0", "-c:a", "copy",
+                "-map_metadata", "-1", "-f", fmt[0], "pipe:1"]
+        return _ffmpeg_stream(args, fmt[1])
     mime, _enc = mimetypes.guess_type(track["path"])
     return FileResponse(track["path"], media_type=mime or "audio/mpeg")
 

@@ -1312,6 +1312,18 @@
           var name = (st.now && st.now.title) || "";
           console.error("SambaWrapper: ошибка воспроизведения", code,
                         el.error && el.error.message, srcOf(el));
+
+          /* Формат «не поддерживается» — чаще всего не кодек, а испорченные
+             метаданные в контейнере. Пробуем тот же трек через пересборку на
+             сервере, один раз: если и она не сыграет, значит дело в файле. */
+          if (code === 4 && srcOf(el).indexOf("fix=yes") < 0 && st.nowId) {
+            var retry = "/music-audio/" + st.nowId + "?fix=yes";
+            el.src = retry;
+            el.load();
+            el.play().catch(function () {});
+            SW.toast("Файл с испорченными метаданными — играю через пересборку");
+            return;
+          }
           SW.toast("Не удалось воспроизвести" + (name ? " «" + name + "»" : "") +
                    ": " + (reasons[code] || "неизвестная ошибка"));
         });
