@@ -359,7 +359,10 @@ const SW = {
     let saved;
     try { saved = JSON.parse(localStorage.getItem("sw.lastView") || "null"); } catch (e) { saved = null; }
     if (!saved || !saved.view || saved.view === "files" && !saved.path) return;
-    if (saved.view === "music") return window.Music ? this.openMusic() : undefined;
+    if (saved.view === "music") {
+      if (!window.Music) { console.error("SambaWrapper: модуль музыки не загрузился"); return; }
+      return this.openMusic();
+    }
     if (saved.view === "torrents") return this.openTorrents();
     if (saved.view === "dlna") return this.openDlna();
     if (saved.view === "files") this.navigate(saved.path);
@@ -1182,13 +1185,13 @@ const SW = {
 window.SW = SW;
 document.body.dataset.view = SW.view;
 SW.restoreSidebar();
-// music.js подключается после этого скрипта, поэтому раздел восстанавливаем,
-// когда страница дособрана — иначе Music ещё не существует и вызов падает
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => SW.restoreView());
-} else {
-  SW.restoreView();
-}
+/* Раздел восстанавливаем после полной загрузки: music.js подключается ниже
+   этого скрипта, и на момент его выполнения Music ещё не существует. Ошибку
+   не проглатываем — иначе раздел молча остаётся пустым, как это уже было. */
+window.addEventListener("load", () => {
+  try { SW.restoreView(); }
+  catch (e) { console.error("SambaWrapper: не удалось восстановить раздел", e); }
+});
 SW._syncTheme();
 
 document.body.addEventListener("refreshBrowser", () => SW.refreshBrowser());
