@@ -13,16 +13,6 @@
     </button>
   </div>
 
-  {% if loose %}
-    {# треки лежат прямо в корне, рядом с папками — иначе их не видно в панели #}
-    <button class="mus-item w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-[0.8125rem] flex items-center gap-1.5"
-            data-loose="1" onclick="Music.filterLoose({{ library|tojson|forceescape }})"
-            title="Треки, лежащие прямо в корне библиотеки">
-      <i class="ti ti-music text-sky-600 shrink-0"></i>
-      <span class="flex-1 min-w-0 truncate">Треки в корне</span>
-      <span class="text-[0.625rem] text-slate-400 shrink-0">{{ loose }}</span>
-    </button>
-  {% endif %}
 
   {# сюда уезжают закреплённые папки; секция скрыта, пока их нет #}
   <div id="mus-pinned-wrap" class="hidden">
