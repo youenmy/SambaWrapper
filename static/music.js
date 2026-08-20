@@ -119,9 +119,20 @@
       var el = $("music-tracks");
       if (el) htmx.trigger(el, "refreshMusicTracks");
     },
+    /* Панель перезапрашиваем напрямую, а не событием: событие обрабатывается
+       общим слушателем, и порядок его прихода относительно других запросов не
+       гарантирован — из-за этого закреплённые папки иногда оставались
+       непереставленными. Здесь же перенос идёт строго после ответа. */
     reloadLists: function () {
       var el = $("music-lists");
-      if (el) htmx.trigger(el, "reloadMusicLists");
+      if (!el) return;
+      htmx.ajax("GET", "/htmx/music-lists", {
+        target: "#music-lists", swap: "innerHTML",
+        values: {artist: st.artist, album: st.album, folder: st.folder,
+                 tree: st.tree ? "yes" : "no"},
+      }).then(function () {
+        M.markLists(); M._fitLists(); M._treeButton(); M.pins.apply();
+      });
     },
     /** Данные для hx-vals: сервер получает ровно текущее состояние фильтров. */
     query: function () {
@@ -175,10 +186,10 @@
           }
         });
 
-        var moved = 0;
+        var moved = 0, missing = [];
         pinned.forEach(function (path) {
           var item = document.querySelector("#music-lists " + M.pins._sel(path));
-          if (!item) return;                     // папки нет в текущем срезе дерева
+          if (!item) { missing.push(path); return; }   // папки нет в текущем срезе дерева
           var node = item.closest(".mus-node") || item;
           if (node.parentElement !== box) {
             var anchor = document.createElement("div");
@@ -190,6 +201,10 @@
           moved++;
         });
         wrap.classList.toggle("hidden", moved === 0);
+        if (missing.length) {
+          // закреплённая папка не нашлась в панели — видно, какая именно
+          console.warn("SambaWrapper: закреплённые папки не найдены в панели", missing);
+        }
 
         document.querySelectorAll("#music-lists .mus-item[data-folder]").forEach(function (item) {
           var on = pinned.indexOf(item.dataset.folder) >= 0;
