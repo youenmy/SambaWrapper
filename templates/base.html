@@ -12,7 +12,7 @@
     {# Всё своё: приложение работает и когда внешние CDN недоступны. Стили
        Tailwind собраны из шаблонов статическим файлом, шрифт иконок и htmx
        лежат рядом. #}
-    <link rel="stylesheet" href="/static/tailwind.css?v=4">
+    <link rel="stylesheet" href="/static/tailwind.css?v=5">
     <script src="/static/htmx.js?v=1"></script>
     <link rel="stylesheet" href="/static/tabler-icons.css?v=1">
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
@@ -71,6 +71,6 @@ document.body.addEventListener("htmx:afterSwap", function(evt) {
 });
 </script>
 {% block scripts %}{% endblock %}
-<script src="/static/music.js?v=65"></script>
+<script src="/static/music.js?v=66"></script>
 </body>
 </html>

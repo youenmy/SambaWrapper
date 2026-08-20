@@ -15,6 +15,7 @@
     volume: "sw.musVolume",
     cols: "sw.musCols",
     tree: "sw.musTree",       // режим дерева папок
+    viz: "sw.musViz",         // визуализатор включён
   };
 
   var COLUMNS = [
@@ -58,6 +59,7 @@
     tree: false,    // библиотека показана деревом папок, а не плоским списком
     only: false,    // показывать только треки самой папки, без вложенных
     picked: [],     // отмеченные галочками треки — для массовых действий
+    viz: true,      // визуализатор: снимает звук в аудиограф, это слышно не всем
   };
 
   function $(id) { return document.getElementById(id); }
@@ -666,11 +668,25 @@
       /** Завести в граф деку, которая звучит прямо сейчас. */
       attach: function () {
         var V = M.viz;
-        if (!$("mus-viz") || !V._ensure()) return;
+        if (!st.viz || !$("mus-viz") || !V._ensure()) return;
         V._connect(audio());
+      },
+      /** Отпустить деки: звук снова идёт напрямую из плеера. */
+      detach: function () {
+        var V = M.viz;
+        Object.keys(V.sources).forEach(function (id) {
+          var src = V.sources[id];
+          if (src.kind === "stream") {
+            try { src.node.disconnect(); } catch (e) { /* уже отключён */ }
+            delete V.sources[id];
+          }
+          // отвод через createMediaElementSource снять нельзя — он навсегда
+          // забирает выход элемента; такие деки освободит только перезагрузка
+        });
       },
       start: function () {
         var V = M.viz;
+        if (!st.viz) return;
         V.attach();
         if (!V.ctx) return;
         // контекст создаётся приглушённым — будим его, иначе звука не будет вовсе
@@ -848,6 +864,36 @@
         },
         {ok: "Удалить", danger: true});
     },
+    /* Визуализатор снимает звук деки в аудиограф. Узел работает в реальном
+       времени и пересчитывает частоту дискретизации (файл 44.1 кГц, контекст
+       обычно 48 кГц), что у части систем даёт щелчки. Поэтому его можно
+       выключить: тогда звук идёт напрямую из плеера, мимо графа. */
+    toggleViz: function () {
+      st.viz = !st.viz;
+      store(LS.viz, st.viz ? "1" : "");
+      M.vizButton();
+      if (st.viz) {
+        M.viz.start();
+      } else {
+        M.viz.stop();
+        M.viz.detach();
+        SW.toast("Визуализатор выключен — звук идёт мимо аудиографа");
+      }
+    },
+    vizButton: function () {
+      var b = $("mus-viz-btn");
+      if (b) {
+        b.classList.toggle("tbb-on", st.viz);
+        b.title = st.viz ? "Выключить визуализатор (если слышны щелчки)"
+                         : "Включить визуализатор";
+      }
+      var canvas = $("mus-viz");
+      if (canvas) canvas.classList.toggle("hidden", !st.viz);
+      var fill = $("mus-fill");
+      // без спектра полоса прогресса должна быть видимой сама по себе
+      if (fill) fill.classList.toggle("bg-sky-500/40", !st.viz);
+    },
+
     /* ------------------------------------------------ выделение галочками
      * Отмеченное живёт в st.picked, а не читается из DOM: строки уезжают при
      * подгрузке и перерисовке, и выделение не должно от этого зависеть. */
@@ -1224,6 +1270,8 @@
     },
     restoreFilters: function () {
       st.tree = !!localStorage.getItem(LS.tree);
+      st.viz = localStorage.getItem(LS.viz) !== "";   // по умолчанию включён
+      setTimeout(M.vizButton, 120);
       setTimeout(M._treeButton, 120);        // кнопка приезжает вместе с панелью
       var s = load(LS.view, null);
       if (!s) return;
