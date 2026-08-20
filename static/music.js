@@ -148,20 +148,44 @@
         M.pins.apply();
         SW.toast(i >= 0 ? "Папка откреплена" : "Папка закреплена наверху");
       },
-      /** Перенести закреплённые строки наверх и пометить булавки. */
+      _sel: function (path) {
+        return '[data-folder="' + (window.CSS && CSS.escape ? CSS.escape(path) : path) + '"]';
+      },
+      /** Перенести закреплённые строки наверх и вернуть откреплённые обратно.
+       *
+       * На месте унесённой строки остаётся метка, поэтому открепление кладёт
+       * узел ровно туда, откуда он ушёл, и раскрытые ветки дерева не теряются. */
       apply: function () {
         var wrap = $("mus-pinned-wrap"), box = $("mus-pinned");
         if (!wrap || !box) return;
         var pinned = M.pins.list();
 
-        // вернуть на место то, что откреплено: проще перерисовать панель
+        // откреплённое возвращаем по метке
+        Array.prototype.slice.call(box.children).forEach(function (node) {
+          var item = node.matches("[data-folder]") ? node : node.querySelector("[data-folder]");
+          var path = item && item.dataset.folder;
+          if (!path || pinned.indexOf(path) >= 0) return;
+          var anchor = document.querySelector("#music-lists .mus-pin-anchor" + M.pins._sel(path));
+          if (anchor) {
+            anchor.parentElement.insertBefore(node, anchor);
+            anchor.remove();
+          } else {
+            node.remove();                       // исходного места нет — уберём совсем
+          }
+        });
+
         var moved = 0;
         pinned.forEach(function (path) {
-          var sel = '[data-folder="' + (window.CSS && CSS.escape ? CSS.escape(path) : path) + '"]';
-          var item = document.querySelector("#music-lists " + sel);
+          var item = document.querySelector("#music-lists " + M.pins._sel(path));
           if (!item) return;                     // папки нет в текущем срезе дерева
           var node = item.closest(".mus-node") || item;
-          if (node.parentElement !== box) box.appendChild(node);
+          if (node.parentElement !== box) {
+            var anchor = document.createElement("div");
+            anchor.className = "mus-pin-anchor hidden";
+            anchor.dataset.folder = path;
+            node.parentElement.insertBefore(anchor, node);
+            box.appendChild(node);
+          }
           moved++;
         });
         wrap.classList.toggle("hidden", moved === 0);
