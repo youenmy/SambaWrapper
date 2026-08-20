@@ -316,23 +316,27 @@ html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing > t
 
 /* Столбец с галочками приклеен к левому краю списка: при горизонтальной
    прокрутке он остаётся на месте, как и кнопка удаления справа. */
+/* Столбец с галочками прижат к левому краю списка и не уезжает при
+   горизонтальной прокрутке. Фон обязателен: без него содержимое видно
+   насквозь и кажется, что столбец не закреплён. */
 .mus-table th[data-col="pick"],
 .mus-table td[data-col="pick"] {
   position: sticky;
   left: 0;
   z-index: 3;
-  /* галочка стоит ровно посередине столбца и на одной линии со строкой:
-     без этого она прижималась к краю ячейки по умолчанию браузера */
-  text-align: center;
+  width: 2.125rem;
+  min-width: 2.125rem;
+  padding: 0 0 0 0.5rem;
+  text-align: left;
   vertical-align: middle;
-  padding: 0;
+  background: rgb(255 255 255);
 }
+/* шапка и строки держат галочку на одной вертикали */
 .mus-table th[data-col="pick"] input,
 .mus-table td[data-col="pick"] input {
   display: block;
-  margin: 0 auto;
+  margin: 0;
   vertical-align: middle;
-  background: rgb(255 255 255);
 }
 .mus-table th[data-col="pick"] { z-index: 13; background: rgb(248 250 252); }
 .mus-table tbody tr:hover td[data-col="pick"] { background: rgb(248 250 252); }
