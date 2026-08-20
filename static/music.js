@@ -16,6 +16,7 @@
     cols: "sw.musCols",
     tree: "sw.musTree",       // режим дерева папок
     viz: "sw.musViz",         // визуализатор включён
+    sorts: "sw.musSorts",     // сортировка, запомненная для каждой области
   };
 
   var COLUMNS = [
@@ -128,6 +129,38 @@
               page: st.page, seed: st.seed, only: st.only ? "yes" : "no"};
     },
 
+    /* --------------------------------------------- сортировка по областям
+     * Сортировка принадлежит тому, что сейчас показано: «вся музыка», папка,
+     * исполнитель или альбом. Иначе выбранный в одном месте порядок молча
+     * переносится на другое — например, «перемешать» во всей библиотеке
+     * подменяется алфавитом, выбранным для одного исполнителя. */
+    sortScope: {
+      key: function () {
+        if (st.artist) return "artist:" + st.artist;
+        if (st.album) return "album:" + st.album;
+        if (st.folder) return (st.only ? "here:" : "folder:") + st.folder;
+        return "all";
+      },
+      all: function () { return load(LS.sorts, {}) || {}; },
+      save: function () {
+        var map = M.sortScope.all();
+        map[M.sortScope.key()] = {sort: st.sort, desc: st.desc, seed: st.seed};
+        // список областей не должен расти бесконечно
+        var keys = Object.keys(map);
+        if (keys.length > 60) delete map[keys[0]];
+        store(LS.sorts, map);
+      },
+      /** Взять сортировку области; для незнакомой — порядок как в папках. */
+      restore: function () {
+        var saved = M.sortScope.all()[M.sortScope.key()];
+        st.sort = saved && saved.sort || "path";
+        st.desc = !!(saved && saved.desc);
+        st.seed = (saved && saved.seed) || 0;
+        var sel = $("mus-sort");
+        if (sel) sel.value = st.sort + ":" + (st.desc ? "desc" : "asc");
+      },
+    },
+
     search: function (value) {
       st.q = value; st.page = 1;
       clearTimeout(M._searchTimer);
@@ -139,6 +172,7 @@
       st.page = 1; st.seed = 0;
       var sel = $("mus-sort");
       if (sel) sel.value = column + ":" + (st.desc ? "desc" : "asc");
+      M.sortScope.save();
       M.reloadTracks();
     },
     sortSelect: function (value) {
@@ -146,25 +180,35 @@
       st.sort = parts[0]; st.desc = parts[1] === "desc"; st.page = 1;
       // «перемешать»: новый seed при каждом выборе — иначе порядок повторится
       st.seed = (st.sort === "random") ? Math.floor(Math.random() * 900000) + 1000 : 0;
+      M.sortScope.save();
       M.reloadTracks();
     },
     filterArtist: function (name) {
+      M.sortScope.save();                      // порядок остаётся у прежней области
       st.artist = name; st.album = ""; st.folder = ""; st.page = 1;
+      M.sortScope.restore();
       M.reloadTracks(); M.reloadLists();
     },
     filterAlbum: function (name) {
+      M.sortScope.save();
       st.album = name; st.page = 1;
+      M.sortScope.restore();
       M.reloadTracks(); M.markLists();
     },
     /** Треки, лежащие прямо в корне библиотеки, без содержимого подпапок. */
     filterLoose: function (root) {
+      M.sortScope.save();
       st.folder = root; st.artist = ""; st.album = ""; st.page = 1; st.only = true;
+      M.sortScope.restore();
       M.reloadTracks(); M.markLists();
     },
     filterFolder: function (path) {
       var same = st.folder === path && !st.only;   // второй клик двойного нажатия ничего не меняет
+      if (same) { M.markLists(); return; }
+      M.sortScope.save();
       st.folder = path; st.artist = ""; st.album = ""; st.page = 1; st.only = false;
-      if (!same) M.reloadTracks();
+      M.sortScope.restore();
+      M.reloadTracks();
       M.markLists();
     },
     /* --------------------------------------------------- дерево: файлы
@@ -316,7 +360,9 @@
     },
 
     clearFilters: function () {
+      M.sortScope.save();
       st.q = ""; st.artist = ""; st.album = ""; st.folder = ""; st.page = 1; st.only = false;
+      M.sortScope.restore();
       var box = $("mus-search"); if (box) box.value = "";
       M.reloadTracks(); M.reloadLists();
     },
