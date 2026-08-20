@@ -13,6 +13,7 @@
     view: "sw.musView",       // фильтры и сортировка
     track: "sw.musTrack",     // что играло и на какой секунде
     volume: "sw.musVolume",
+    muted: "sw.musMuted",     // приглушение тоже переживает перезагрузку
     cols: "sw.musCols",
     tree: "sw.musTree",       // режим дерева папок
     viz: "sw.musViz",         // визуализатор включён
@@ -520,7 +521,7 @@
         cur.load();                               // сбрасываем состояние, в т.ч. после ошибки чтения
       }
       var a = audio();
-      M._applyVolume(a);
+      M._applyVolume();
       if (a.readyState > 0 && a.currentTime > 0) { try { a.currentTime = 0; } catch (e) {} }
       var started = a.play();
       if (started && started.catch) started.catch(function () { /* автозапуск заблокирован */ });
@@ -656,33 +657,42 @@
       a.currentTime = Math.max(0, Math.min(a.duration - 0.5,
         a.currentTime + (event.deltaY < 0 ? 5 : -5)));
     },
-    setVolume: function (value) {
-      var a = audio();
-      a.volume = parseFloat(value);
-      a.muted = a.volume <= 0;
-      M._applyVolume(spare());                 // вторая дека должна зазвучать так же
-      M._volumeIcon();
-      store(LS.volume, String(a.volume));
+    /* Громкость хранится одним значением и раздаётся обеим декам.
+       Раньше новая дека копировала громкость у прежней; стоило прежней
+       оказаться со значением по умолчанию — и в хранилище уезжала единица,
+       то есть максимум. Теперь копировать не у кого: есть сохранённое число. */
+    volume: function () {
+      var v = parseFloat(localStorage.getItem(LS.volume));
+      return isNaN(v) ? 1 : Math.max(0, Math.min(1, v));
     },
-    /** Перенести громкость активной деки на указанный элемент. */
-    _applyVolume: function (el) {
-      if (!el) return;
-      var from = (el === audio()) ? spare() : audio();
-      if (!from) return;
-      el.volume = from.volume;
-      el.muted = from.muted;
+    setVolume: function (value) {
+      var v = Math.max(0, Math.min(1, parseFloat(value)));
+      if (isNaN(v)) return;
+      store(LS.volume, String(v));
+      M._applyVolume();
+      M._volumeIcon();
+    },
+    /** Раздать сохранённую громкость обеим декам и ползунку. */
+    _applyVolume: function () {
+      var v = M.volume();
+      var muted = localStorage.getItem(LS.muted) === "1" || v <= 0;
+      [$("mus-audio"), $("mus-audio-b")].forEach(function (el) {
+        if (!el) return;
+        el.volume = v;
+        el.muted = muted;
+      });
+      var slider = $("mus-vol");
+      if (slider) slider.value = muted ? 0 : v;
     },
     volumeWheel: function (event) {
       event.preventDefault();
       var a = audio();
-      M.setVolume(Math.max(0, Math.min(1, a.volume + (event.deltaY < 0 ? 0.05 : -0.05))));
-      var slider = $("mus-vol"); if (slider) slider.value = a.volume;
+      M.setVolume(M.volume() + (event.deltaY < 0 ? 0.05 : -0.05));
     },
     mute: function () {
-      var a = audio();
-      a.muted = !a.muted;
-      M._applyVolume(spare());
-      var slider = $("mus-vol"); if (slider) slider.value = a.muted ? 0 : a.volume;
+      var on = !audio().muted;
+      store(LS.muted, on ? "1" : "");
+      M._applyVolume();
       M._volumeIcon();
     },
     _volumeIcon: function () {
@@ -1418,12 +1428,8 @@
       var a = audio();
       if (!a) return;
 
-      var vol = parseFloat(localStorage.getItem(LS.volume));
-      if (!isNaN(vol)) {
-        a.volume = vol; a.muted = vol <= 0;
-        var slider = $("mus-vol"); if (slider) slider.value = vol;
-        M._volumeIcon();
-      }
+      M._applyVolume();          // обе деки получают сохранённую громкость
+      M._volumeIcon();
 
       /* События вешаем на обе деки, но реагируем только на активную —
        * вторая в это время молча качает следующий трек. */
@@ -1534,8 +1540,7 @@
         } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
           if (!a) return;
           e.preventDefault();
-          M.setVolume(Math.max(0, Math.min(1, a.volume + (e.key === "ArrowUp" ? 0.05 : -0.05))));
-          var slider = $("mus-vol"); if (slider) slider.value = a.muted ? 0 : a.volume;
+          M.setVolume(M.volume() + (e.key === "ArrowUp" ? 0.05 : -0.05));
         }
       });
 
