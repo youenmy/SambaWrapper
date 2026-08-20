@@ -321,6 +321,17 @@ html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing > t
   position: sticky;
   left: 0;
   z-index: 3;
+  /* галочка стоит ровно посередине столбца и на одной линии со строкой:
+     без этого она прижималась к краю ячейки по умолчанию браузера */
+  text-align: center;
+  vertical-align: middle;
+  padding: 0;
+}
+.mus-table th[data-col="pick"] input,
+.mus-table td[data-col="pick"] input {
+  display: block;
+  margin: 0 auto;
+  vertical-align: middle;
   background: rgb(255 255 255);
 }
 .mus-table th[data-col="pick"] { z-index: 13; background: rgb(248 250 252); }
