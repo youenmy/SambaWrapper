@@ -336,3 +336,10 @@ html[data-theme]:not([data-theme="classic"]) .mus-table td[data-col="pick"] { ba
 html[data-theme]:not([data-theme="classic"]) .mus-table th[data-col="pick"],
 html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr:hover td[data-col="pick"] { background: var(--sw-surface-2); }
 html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing td[data-col="pick"] { background: var(--sw-accent-soft); }
+
+/* Булавка появляется при наведении на папку, у закреплённой видна всегда. */
+.mus-pin { opacity: 0; transition: opacity .12s ease; }
+.mus-item:hover .mus-pin { opacity: 1; }
+.mus-item.mus-pinned .mus-pin { opacity: 1; color: #0284c7; }
+html.dark .mus-item.mus-pinned .mus-pin { color: #38bdf8; }
+html[data-theme]:not([data-theme="classic"]) .mus-item.mus-pinned .mus-pin { color: var(--sw-accent-ink); }

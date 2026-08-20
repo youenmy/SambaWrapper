@@ -24,7 +24,14 @@
     </button>
   {% endif %}
 
-  <div class="px-2 pt-3 pb-1 text-[0.6875rem] uppercase tracking-wide text-slate-400">
+  {# сюда уезжают закреплённые папки; секция скрыта, пока их нет #}
+  <div id="mus-pinned-wrap" class="hidden">
+    <div class="px-2 pt-3 pb-1 text-[0.6875rem] uppercase tracking-wide text-slate-400">Закреплённые</div>
+    <div id="mus-pinned" class="space-y-0.5"></div>
+    <div class="mx-2 mt-2 border-t border-slate-200"></div>
+  </div>
+
+  <div id="mus-folders-title" class="px-2 pt-3 pb-1 text-[0.6875rem] uppercase tracking-wide text-slate-400">
     {{ 'Дерево папок' if tree else 'Папки библиотеки' }}</div>
 
   {% if tree %}
@@ -37,6 +44,9 @@
             onclick="Music.filterFolder({{ f.abs|tojson|forceescape }})" title="{{ f.abs }}">
       <i class="ti ti-folder text-amber-500 shrink-0"></i>
       <span class="flex-1 min-w-0 truncate">{{ f.name }}</span>
+      <span class="mus-pin shrink-0 text-slate-400 hover:text-sky-600" title="Закрепить наверху"
+            onclick="event.stopPropagation(); Music.pins.toggle({{ f.abs|tojson|forceescape }})">
+        <i class="ti ti-pin text-sm"></i></span>
       <span class="text-[0.625rem] text-slate-400 shrink-0">{{ f.n }}</span>
     </button>
   {% endfor %}

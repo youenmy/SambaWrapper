@@ -17,6 +17,7 @@
     tree: "sw.musTree",       // режим дерева папок
     viz: "sw.musViz",         // визуализатор включён
     sorts: "sw.musSorts",     // сортировка, запомненная для каждой области
+    pins: "sw.musPins",       // папки, закреплённые наверху панели
   };
 
   var COLUMNS = [
@@ -127,6 +128,52 @@
       return {q: st.q, sort: st.sort, desc: st.desc ? "yes" : "no",
               artist: st.artist, album: st.album, folder: st.folder,
               page: st.page, seed: st.seed, only: st.only ? "yes" : "no"};
+    },
+
+    /* ------------------------------------------------ закреплённые папки
+     * Панель приходит с сервера в своём порядке, поэтому закрепление делается
+     * на клиенте: строки нужных папок переносятся в отдельную секцию наверху.
+     * Так порядок не зависит от режима панели — работает и в плоском списке,
+     * и в дереве, где строка живёт внутри узла со своими детьми. */
+    pins: {
+      list: function () {
+        var saved = load(LS.pins, []);
+        return Array.isArray(saved) ? saved : [];
+      },
+      has: function (path) { return M.pins.list().indexOf(path) >= 0; },
+      toggle: function (path) {
+        var pinned = M.pins.list();
+        var i = pinned.indexOf(path);
+        if (i >= 0) pinned.splice(i, 1); else pinned.push(path);
+        store(LS.pins, pinned);
+        M.pins.apply();
+        SW.toast(i >= 0 ? "Папка откреплена" : "Папка закреплена наверху");
+      },
+      /** Перенести закреплённые строки наверх и пометить булавки. */
+      apply: function () {
+        var wrap = $("mus-pinned-wrap"), box = $("mus-pinned");
+        if (!wrap || !box) return;
+        var pinned = M.pins.list();
+
+        // вернуть на место то, что откреплено: проще перерисовать панель
+        var moved = 0;
+        pinned.forEach(function (path) {
+          var sel = '[data-folder="' + (window.CSS && CSS.escape ? CSS.escape(path) : path) + '"]';
+          var item = document.querySelector("#music-lists " + sel);
+          if (!item) return;                     // папки нет в текущем срезе дерева
+          var node = item.closest(".mus-node") || item;
+          if (node.parentElement !== box) box.appendChild(node);
+          moved++;
+        });
+        wrap.classList.toggle("hidden", moved === 0);
+
+        document.querySelectorAll("#music-lists .mus-item[data-folder]").forEach(function (item) {
+          var on = pinned.indexOf(item.dataset.folder) >= 0;
+          item.classList.toggle("mus-pinned", on);
+          var pin = item.querySelector(".mus-pin");
+          if (pin) pin.title = on ? "Открепить" : "Закрепить наверху";
+        });
+      },
     },
 
     /* --------------------------------------------- сортировка по областям
@@ -355,7 +402,7 @@
         htmx.ajax("GET", "/htmx/music-subfolders", {
           target: kids, swap: "innerHTML",
           values: {parent: path, folder: st.folder},
-        }).then(function () { M.markLists(); });
+        }).then(function () { M.markLists(); M.pins.apply(); });
       }
     },
 
@@ -1482,7 +1529,9 @@
       document.body.addEventListener("htmx:afterSwap", function (e) {
         if (!e.target) return;
         if (e.target.id === "music-tracks") { M.markRow(); M.columns.apply(); }
-        if (e.target.id === "music-lists") { M.markLists(); M._fitLists(); M._treeButton(); }
+        if (e.target.id === "music-lists") {
+          M.markLists(); M._fitLists(); M._treeButton(); M.pins.apply();
+        }
       });
       document.body.addEventListener("reloadMusic", function () {
         if (SW.view === "music") M.open();

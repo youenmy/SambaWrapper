@@ -21,6 +21,9 @@
               title="{{ f.abs }}">
         <i class="ti ti-folder text-amber-500 shrink-0"></i>
         <span class="flex-1 min-w-0 truncate">{{ f.name }}</span>
+        <span class="mus-pin shrink-0 text-slate-400 hover:text-sky-600" title="Закрепить наверху"
+              onclick="event.stopPropagation(); Music.pins.toggle({{ f.abs|tojson|forceescape }})">
+          <i class="ti ti-pin text-sm"></i></span>
         <span class="text-[0.625rem] text-slate-400 shrink-0">{{ f.n }}</span>
       </button>
     </div>
