@@ -358,3 +358,12 @@ html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing td[
 .mus-item.mus-pinned .mus-pin { opacity: 1; color: #0284c7; }
 html.dark .mus-item.mus-pinned .mus-pin { color: #38bdf8; }
 html[data-theme]:not([data-theme="classic"]) .mus-item.mus-pinned .mus-pin { color: var(--sw-accent-ink); }
+
+/* Окно поверх тёмного списка сливалось с фоном — обозначаем край рамкой
+   и глубокой тенью, в тёмных темах рамка светлее фона окна. */
+#modal-host > div { border-color: rgb(203 213 225); }
+html.dark #modal-host > div { border-color: #475569; box-shadow: 0 24px 60px rgba(0,0,0,.65); }
+html[data-theme]:not([data-theme="classic"]) #modal-host > div {
+  border-color: var(--sw-border-2);
+  box-shadow: 0 24px 60px rgba(0,0,0,.6);
+}

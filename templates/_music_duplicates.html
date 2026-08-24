@@ -1,4 +1,5 @@
-<div class="bg-white rounded-xl p-5 w-full max-w-5xl max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
+<div class="bg-white rounded-xl p-5 w-full max-w-5xl max-h-[85vh] flex flex-col
+            border border-slate-300 shadow-2xl" onclick="event.stopPropagation()">
   <div class="flex items-center justify-between mb-2 shrink-0">
     <h3 class="font-medium flex items-center gap-2"><i class="ti ti-copy text-amber-500"></i>Дубликаты треков</h3>
     <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
@@ -15,7 +16,12 @@
     {% for d in dups %}
       <div class="dup-group border border-slate-200 rounded-lg p-2.5">
         <div class="flex items-center gap-2 mb-1.5">
-          <span class="text-sm font-medium truncate">{{ d.artist or '—' }} — {{ d.title }}</span>
+          <span class="text-sm font-medium truncate">
+            {%- if d.artist %}{{ d.artist }} — {{ d.title }}
+            {%- elif d.artist_hint %}<span class="text-slate-400 italic font-normal"
+                  title="Тега исполнителя нет, это предположение по имени файла">{{ d.artist_hint }}</span> — {{ d.title }}
+            {%- else %}{{ d.title }}{% endif -%}
+          </span>
           <span class="text-[0.625rem] bg-amber-100 text-amber-700 px-1.5 rounded shrink-0">{{ d.n }} копии</span>
         </div>
         {% for c in d.copies %}

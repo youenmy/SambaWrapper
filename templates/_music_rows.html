@@ -21,8 +21,16 @@
     </td>
     <td data-col="title" class="px-2 py-1.5 max-w-0"><span class="block truncate" title="{{ t.title }}">{{ t.title }}</span></td>
     <td data-col="artist" class="px-2 py-1.5 max-w-0">
-      <button class="block truncate text-slate-600 hover:text-sky-600 text-left w-full" title="{{ t.artist }}"
-              onclick="event.stopPropagation(); Music.filterArtist({{ t.artist|tojson|forceescape }})">{{ t.artist or '—' }}</button>
+      {% if t.artist %}
+        <button class="block truncate text-slate-600 hover:text-sky-600 text-left w-full" title="{{ t.artist }}"
+                onclick="event.stopPropagation(); Music.filterArtist({{ t.artist|tojson|forceescape }})">{{ t.artist }}</button>
+      {% elif t.artist_hint %}
+        {# тега нет: показываем догадку по имени файла, но не выдаём её за факт #}
+        <span class="block truncate text-slate-400 italic"
+              title="Тега исполнителя нет. Предположение по имени файла: {{ t.artist_hint }}">{{ t.artist_hint }}</span>
+      {% else %}
+        <span class="block truncate text-slate-400">—</span>
+      {% endif %}
     </td>
     <td data-col="album" class="px-2 py-1.5 max-w-0">
       <button class="block truncate text-slate-500 hover:text-sky-600 text-left w-full" title="{{ t.album }}"

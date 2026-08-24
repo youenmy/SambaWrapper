@@ -389,6 +389,9 @@ def list_tracks(q: str = "", sort: str = "artist", desc: bool = False,
         # путь показываем от корня библиотеки — полный и так известен
         item["rel"] = item["path"][len(root):] if item["path"].startswith(root) else item["path"]
         item["size_human"] = _human_size(item.get("size") or 0)
+        # тега исполнителя нет — отдаём предположение по имени файла отдельным
+        # полем, чтобы интерфейс мог показать его как догадку, а не как факт
+        item["artist_hint"] = "" if item.get("artist") else _from_filename(Path(item["path"]).stem)[0]
         out.append(item)
     return out, total
 
@@ -572,8 +575,11 @@ def find_duplicates(folder: str = "", artist: str = "", album: str = "",
                 item = dict(c)
                 # в окне показываем путь от корня библиотеки — остальное и так известно
                 item["rel"] = item["path"][len(root):] if item["path"].startswith(root) else item["path"]
+                item["artist_hint"] = _from_filename(Path(item["path"]).stem)[0]
                 items.append(item)
-            out.append({"artist": g["artist"], "title": g["title"], "n": g["n"], "copies": items})
+            out.append({"artist": g["artist"], "title": g["title"], "n": g["n"],
+                        "artist_hint": (items[0]["artist_hint"] if items else ""),
+                        "copies": items})
     return out
 
 def get_track(track_id: int) -> dict | None:
