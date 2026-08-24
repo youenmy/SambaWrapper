@@ -1168,6 +1168,10 @@
     },
     /** Окно дубликатов отрисовано — запоминаем порядок копий. */
     dupsRendered: function () {
+      // номер группы нужен, чтобы после схлопывания группы уйти к следующей,
+      // а не к оставшейся копии — её как раз и оставили намеренно
+      var groups = Array.prototype.slice.call(
+        document.querySelectorAll("#modal-host .dup-group"));
       st.dups = Array.prototype.map.call(
         document.querySelectorAll("#modal-host .dup-row"),
         function (row) {
@@ -1176,9 +1180,36 @@
                   title: row.dataset.title || row.dataset.label || "",
                   artist: row.dataset.artist || "",
                   duration: Number(row.dataset.dur || 0),
-                  cover: row.dataset.cover === "1"};
+                  cover: row.dataset.cover === "1",
+                  group: groups.indexOf(row.closest(".dup-group"))};
         });
       M.markRow();
+    },
+    /* Куда переходить после удаления копии.
+     *
+     * Пока в группе остаётся хотя бы две копии, она никуда не денется —
+     * играем следующую в ней. Если после удаления копия останется одна,
+     * группа исчезнет из окна, и продолжать ею бессмысленно: уходим к первой
+     * копии следующей группы, а если её нет — предыдущей. */
+    _afterCopy: function (idx) {
+      var gone = st.dups[idx];
+      if (!gone) return null;
+      var sameGroup = st.dups.filter(function (d, i) {
+        return d.group === gone.group && i !== idx;
+      });
+      if (sameGroup.length >= 2) {
+        for (var i = idx + 1; i < st.dups.length; i++) {
+          if (st.dups[i].group === gone.group) return st.dups[i];
+        }
+        return sameGroup[0];
+      }
+      var next = null, prev = null;
+      st.dups.forEach(function (d, i) {
+        if (i === idx || d.group === gone.group) return;
+        if (d.group > gone.group && !next) next = d;
+        if (d.group < gone.group) prev = d;
+      });
+      return next || prev;
     },
     /** Проиграть конкретную копию из окна дубликатов. */
     playCopy: function (id) {
@@ -1198,7 +1229,7 @@
         var wasPlaying = st.nowId === id;
         var idx = -1;
         for (var i = 0; i < st.dups.length; i++) if (st.dups[i].id === id) { idx = i; break; }
-        var following = idx >= 0 ? (st.dups[idx + 1] || st.dups[idx - 1] || null) : null;
+        var following = idx >= 0 ? M._afterCopy(idx) : null;
 
         if (wasPlaying) {          // отпускаем файл до удаления
           var a = audio();
