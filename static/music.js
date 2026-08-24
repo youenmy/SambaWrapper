@@ -160,6 +160,24 @@
         M.pins.apply();
         SW.toast(i >= 0 ? "Папка откреплена" : "Папка закреплена наверху");
       },
+      /* Убрать закрепления папок, которых больше нет.
+       *
+       * Уверенно судить можно только о папках верхнего уровня: они есть в
+       * панели всегда, в обоих режимах. Вложенная папка может отсутствовать
+       * просто потому, что её ветка свёрнута, — такие закрепления не трогаем. */
+      _forget: function (missing) {
+        if (!missing.length) return;
+        var host = document.querySelector("#music-lists [data-root]");
+        var root = host && host.dataset.root;
+        if (!root) return;
+        var stale = missing.filter(function (path) {
+          return path.lastIndexOf("/") === root.replace(/\/$/, "").length;
+        });
+        if (!stale.length) return;
+        var kept = M.pins.list().filter(function (p) { return stale.indexOf(p) < 0; });
+        store(LS.pins, kept);
+        console.log("SambaWrapper: закрепления удалённых папок сняты", stale);
+      },
       _sel: function (path) {
         return '[data-folder="' + (window.CSS && CSS.escape ? CSS.escape(path) : path) + '"]';
       },
@@ -201,10 +219,7 @@
           moved++;
         });
         wrap.classList.toggle("hidden", moved === 0);
-        if (missing.length) {
-          // закреплённая папка не нашлась в панели — видно, какая именно
-          console.warn("SambaWrapper: закреплённые папки не найдены в панели", missing);
-        }
+        M.pins._forget(missing);
 
         document.querySelectorAll("#music-lists .mus-item[data-folder]").forEach(function (item) {
           var on = pinned.indexOf(item.dataset.folder) >= 0;
