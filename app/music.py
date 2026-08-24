@@ -118,6 +118,28 @@ def _int(value) -> int:
     except ValueError:
         return 0
 
+def _from_filename(stem: str) -> tuple[str, str]:
+    """Разобрать имя файла вида «Исполнитель - Название».
+
+    У файлов без тегов имя обычно и есть вся информация о треке, и оно куда
+    ближе к истине, чем название папки: «Linkin Park - Heavy» против «Музыка».
+    Ведущий номер дорожки отбрасывается, дефис без пробелов не разделяет —
+    иначе «Post-Human» распалось бы надвое.
+    """
+    name = stem.strip()
+    # «01. », «02 - », «03 » в начале — это номер дорожки, а не исполнитель
+    head = name.split(" ", 1)
+    if len(head) == 2 and head[0].rstrip(".-").isdigit():
+        name = head[1].lstrip("-. ").strip()
+
+    for sep in (" - ", " – ", " — "):
+        if sep in name:
+            left, right = name.split(sep, 1)
+            left, right = left.strip(), right.strip()
+            if left and right:
+                return left, right
+    return "", name
+
 def read_tags(path: Path) -> dict | None:
     """Return tag dict for an audio file, or None if it isn't readable."""
     try:
@@ -132,11 +154,14 @@ def read_tags(path: Path) -> dict | None:
     # .../Исполнитель/Альбом/трек.mp3
     parent = path.parent.name
     grandparent = path.parent.parent.name
+    # чего нет в тегах — достаём из имени файла, и лишь потом из папок
+    guess_artist, guess_title = _from_filename(path.stem)
+    artist = _first(tags.get("artist")) or guess_artist or grandparent
     return {
-        "title": _first(tags.get("title")) or path.stem,
-        "artist": _first(tags.get("artist")) or grandparent,
+        "title": _first(tags.get("title")) or guess_title or path.stem,
+        "artist": artist,
         "album": _first(tags.get("album")) or parent,
-        "albumartist": _first(tags.get("albumartist")) or _first(tags.get("artist")) or grandparent,
+        "albumartist": _first(tags.get("albumartist")) or artist,
         "genre": _first(tags.get("genre")),
         "year": _int(tags.get("date") or tags.get("originaldate") or tags.get("year")),
         "track_no": _int(tags.get("tracknumber")),
