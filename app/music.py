@@ -150,13 +150,12 @@ def read_tags(path: Path) -> dict | None:
         return None
     tags = audio.tags or {}
     info = getattr(audio, "info", None)
-    # у части файлов тегов нет вовсе — тогда берём подсказки из путей:
-    # .../Исполнитель/Альбом/трек.mp3
-    parent = path.parent.name
-    grandparent = path.parent.parent.name
-    # чего нет в тегах — достаём из имени файла, и лишь потом из папок
+    parent = path.parent.name          # для альбома, если его нет в тегах
+    # Исполнитель берётся строго из тега. Имя папки или файла — это догадка,
+    # а догадка в поле, где ждут факт, хуже пустоты: лучше показать прочерк.
+    # Из имени файла достаём только название, если и его в тегах нет.
     guess_artist, guess_title = _from_filename(path.stem)
-    artist = _first(tags.get("artist")) or guess_artist or grandparent
+    artist = _first(tags.get("artist"))
     return {
         "title": _first(tags.get("title")) or guess_title or path.stem,
         "artist": artist,

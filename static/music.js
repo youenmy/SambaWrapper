@@ -270,6 +270,7 @@
       M.reloadTracks();
     },
     filterArtist: function (name) {
+      if (!name) return;                       // у трека нет тега исполнителя — фильтровать нечего
       M.sortScope.save();                      // порядок остаётся у прежней области
       st.artist = name; st.album = ""; st.folder = ""; st.page = 1;
       M.sortScope.restore();
