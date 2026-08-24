@@ -367,3 +367,7 @@ html[data-theme]:not([data-theme="classic"]) #modal-host > div {
   border-color: var(--sw-border-2);
   box-shadow: 0 24px 60px rgba(0,0,0,.6);
 }
+
+/* Кнопка случайного воспроизведения в строке «Все треки» — как булавка у папок */
+.mus-shuffle-all { opacity: 0; transition: opacity .12s ease; }
+.mus-item:hover .mus-shuffle-all { opacity: 1; }

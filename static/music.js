@@ -446,6 +446,15 @@
       var box = $("mus-search"); if (box) box.value = "";
       M.reloadTracks(); M.reloadLists();
     },
+    /* Играть всю библиотеку вперемешку: снимаем фильтры, включаем случайный
+       режим и сразу берём первый трек с сервера — ждать отрисовки списка не
+       нужно, выбор всё равно идёт по всей выборке, а не по показанным строкам. */
+    shuffleAll: function () {
+      M.clearFilters();
+      if (!M.shuffleOn) M.toggleShuffle();
+      M.playRandom();
+    },
+
     goPage: function (page) {
       st.page = Math.max(1, page);
       M.reloadTracks();

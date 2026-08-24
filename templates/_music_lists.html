@@ -9,7 +9,12 @@
             ondrop="Music.fs.drop(event, {{ library|tojson|forceescape }})"
             title="Все треки — сюда можно перетащить папку, чтобы вынести её в корень библиотеки"
             {% endif %}>
-      <i class="ti ti-list text-sky-600"></i>Все треки
+      <i class="ti ti-list text-sky-600"></i>
+      <span class="flex-1">Все треки</span>
+      <span class="mus-shuffle-all shrink-0 text-slate-400 hover:text-sky-600"
+            title="Играть всю библиотеку в случайном порядке"
+            onclick="event.stopPropagation(); Music.shuffleAll()">
+        <i class="ti ti-arrows-shuffle text-base"></i></span>
     </button>
   </div>
 
