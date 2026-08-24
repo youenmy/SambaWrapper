@@ -170,8 +170,12 @@
         if (!host || host._musPinWatch || typeof MutationObserver !== "function") return;
         host._musPinWatch = true;
         var observer = new MutationObserver(function () {
-          if (M.pins._busy) return;
-          M.pins.apply();
+          /* Событие нельзя отбрасывать, даже если прямо сейчас идёт наша
+             перестановка: перерисовка панели приходит вплотную к ней, и
+             отброшенное событие означало бы, что закреплённые не вернутся
+             уже никогда. Всегда откладываем попытку — она идемпотентна. */
+          clearTimeout(M.pins._settle);
+          M.pins._settle = setTimeout(function () { M.pins.apply(); }, 60);
         });
         observer.observe(host, {childList: true, subtree: true});
       },
@@ -204,7 +208,7 @@
         var wrap = $("mus-pinned-wrap"), box = $("mus-pinned");
         M.pins._watch();
         if (!wrap || !box) return;
-        if (M.pins._busy) return;
+        if (M.pins._busy) return;      // защита от рекурсии внутри одной перестановки
         M.pins._busy = true;
         var pinned = M.pins.list();
 
@@ -236,11 +240,12 @@
           }
           moved++;
         });
-        wrap.classList.toggle("hidden", moved === 0);
-        M.pins._forget(missing);
-        // отпускаем защёлку в следующем кадре: наши же перестановки к этому
-        // моменту уже дойдут до наблюдателя и будут пропущены
-        setTimeout(function () { M.pins._busy = false; }, 0);
+        var rows = document.querySelectorAll("#music-lists .mus-item[data-folder]").length;
+        // панель ещё не отрисована — не прячем секцию и не снимаем закрепления,
+        // иначе одна неудачная попытка похоронит их до перезагрузки страницы
+        if (rows || !pinned.length) wrap.classList.toggle("hidden", moved === 0);
+        if (rows) M.pins._forget(missing);
+        M.pins._busy = false;
 
         document.querySelectorAll("#music-lists .mus-item[data-folder]").forEach(function (item) {
           var on = pinned.indexOf(item.dataset.folder) >= 0;
