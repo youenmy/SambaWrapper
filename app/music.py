@@ -193,6 +193,41 @@ def extract_cover(path: Path) -> bytes | None:
         return None
     return None
 
+# Картинки рядом с треком: имена по убыванию доверия. Единственную картинку
+# в папке берём и без подходящего имени — там ошибиться почти невозможно.
+COVER_FILE_EXT = (".jpg", ".jpeg", ".png", ".webp", ".bmp")
+COVER_FILE_NAMES = ("cover", "folder", "front", "albumart", "album", "artwork", "thumb")
+COVER_FILE_MAX = 12 * 1024 * 1024      # мусорные сканы буклетов по 50 МБ не нужны
+
+def folder_cover(path: Path) -> bytes | None:
+    """Обложка из папки трека, когда в самом файле картинки нет."""
+    try:
+        images = [p for p in path.parent.iterdir()
+                  if p.suffix.lower() in COVER_FILE_EXT and p.is_file()]
+    except OSError:
+        return None
+    if not images:
+        return None
+
+    def rank(p: Path) -> tuple[int, int]:
+        name = p.stem.lower()
+        for i, wanted in enumerate(COVER_FILE_NAMES):
+            if name == wanted or name.startswith(wanted):
+                return i, p.stat().st_size if p.exists() else 0
+        return len(COVER_FILE_NAMES), 0
+
+    named = [p for p in images if rank(p)[0] < len(COVER_FILE_NAMES)]
+    # без говорящего имени берём картинку, только если она в папке одна
+    chosen = min(named, key=rank) if named else (images[0] if len(images) == 1 else None)
+    if not chosen:
+        return None
+    try:
+        if chosen.stat().st_size > COVER_FILE_MAX:
+            return None
+        return chosen.read_bytes()
+    except OSError:
+        return None
+
 COVER_MAX_PX = 400
 
 def _shrink(data: bytes) -> bytes:
@@ -259,6 +294,7 @@ def _scan_worker(full: bool) -> None:
 
         seen: set[str] = set()
         added = 0
+        folder_art: dict[str, bytes | None] = {}   # обложки из папок, по одной на папку
         for i, f in enumerate(files, 1):
             spath = str(f)
             seen.add(spath)
@@ -291,6 +327,13 @@ def _scan_worker(full: bool) -> None:
                 tid = cx.execute("SELECT id FROM tracks WHERE path=?", (spath,)).fetchone()["id"]
 
             cover = extract_cover(f)
+            if not cover:
+                # картинка из папки одна на весь альбом — читаем её один раз,
+                # иначе на двадцати треках она перечитывалась бы двадцать раз
+                folder = str(f.parent)
+                if folder not in folder_art:
+                    folder_art[folder] = folder_cover(f)
+                cover = folder_art[folder]
             has_cover = bool(cover) and _save_cover(tid, cover)
             with db.connect() as cx:
                 cx.execute("UPDATE tracks SET has_cover=? WHERE id=?", (1 if has_cover else 0, tid))
