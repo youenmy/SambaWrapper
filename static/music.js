@@ -1127,6 +1127,17 @@
     deleteCurrent: function () {
       var track = st.now;
       if (!track) { SW.toast("Сначала включи трек"); return; }
+
+      /* Если открыто окно дубликатов и звучит одна из копий, удаление должно
+         вести себя ровно как кнопка в этом окне: убрать строку копии и
+         перейти к следующей копии, а не искать следующий трек в общем списке. */
+      var copy = null;
+      for (var i = 0; i < st.dups.length; i++) {
+        if (st.dups[i].id === track.id) { copy = st.dups[i]; break; }
+      }
+      if (copy && document.querySelector('#modal-host .dup-row[data-copy="' + track.id + '"]')) {
+        return M.deleteCopy(track.id, copy.path || copy.label || "");
+      }
       var name = [track.artist, track.title].filter(Boolean).join(" — ") || track.title;
       SW.confirm("Удалить трек с диска?\n" + name + "\n\nEnter или пробел — удалить, Esc — отмена",
         function () {
@@ -1161,6 +1172,7 @@
         document.querySelectorAll("#modal-host .dup-row"),
         function (row) {
           return {id: Number(row.dataset.copy), label: row.dataset.label || "",
+                  path: row.dataset.path || "",
                   title: row.dataset.title || row.dataset.label || "",
                   artist: row.dataset.artist || "",
                   duration: Number(row.dataset.dur || 0),
