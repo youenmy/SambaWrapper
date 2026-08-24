@@ -160,6 +160,21 @@
         M.pins.apply();
         SW.toast(i >= 0 ? "Папка откреплена" : "Папка закреплена наверху");
       },
+      /* Панель перерисовывают несколько источников: загрузка раздела, смена
+         фильтров, обновление библиотеки. Любая перерисовка выбрасывает
+         перенесённые наверх строки, поэтому вместо угадывания порядка запросов
+         следим за содержимым панели и возвращаем закреплённые сразу после
+         каждой замены. Свои же перестановки при этом игнорируем. */
+      _watch: function () {
+        var host = $("music-lists");
+        if (!host || host._musPinWatch || typeof MutationObserver !== "function") return;
+        host._musPinWatch = true;
+        var observer = new MutationObserver(function () {
+          if (M.pins._busy) return;
+          M.pins.apply();
+        });
+        observer.observe(host, {childList: true, subtree: true});
+      },
       /* Убрать закрепления папок, которых больше нет.
        *
        * Уверенно судить можно только о папках верхнего уровня: они есть в
@@ -187,7 +202,10 @@
        * узел ровно туда, откуда он ушёл, и раскрытые ветки дерева не теряются. */
       apply: function () {
         var wrap = $("mus-pinned-wrap"), box = $("mus-pinned");
+        M.pins._watch();
         if (!wrap || !box) return;
+        if (M.pins._busy) return;
+        M.pins._busy = true;
         var pinned = M.pins.list();
 
         // откреплённое возвращаем по метке
@@ -220,6 +238,9 @@
         });
         wrap.classList.toggle("hidden", moved === 0);
         M.pins._forget(missing);
+        // отпускаем защёлку в следующем кадре: наши же перестановки к этому
+        // моменту уже дойдут до наблюдателя и будут пропущены
+        setTimeout(function () { M.pins._busy = false; }, 0);
 
         document.querySelectorAll("#music-lists .mus-item[data-folder]").forEach(function (item) {
           var on = pinned.indexOf(item.dataset.folder) >= 0;
