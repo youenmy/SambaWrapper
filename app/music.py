@@ -18,6 +18,7 @@ from . import db
 from .config import DATA_DIR, MOUNT_ROOT
 
 SETTING_LIBRARY = "music_library_path"
+SETTING_HIDDEN = "music_hidden_folders"
 COVER_DIR = DATA_DIR / "music-covers"
 DEFAULT_LIBRARY = str(MOUNT_ROOT)
 
@@ -56,6 +57,55 @@ def set_library_path(path: str) -> tuple[bool, str]:
         return False, "Нет доступа на чтение"
     db.set_setting(SETTING_LIBRARY, str(p))
     return True, "Библиотека сохранена"
+
+
+# ---------- скрытые папки ----------
+#
+# Папку можно исключить из общей выдачи, не удаляя её с диска: треки остаются
+# в библиотеке и играются, если открыть саму папку, но не попадают в «Все
+# треки», поиск, случайное воспроизведение и списки исполнителей. Список
+# хранится в настройках, а не в браузере: выборка делается в SQL, и с любого
+# устройства библиотека должна выглядеть одинаково.
+
+def hidden_folders() -> list[str]:
+    raw = db.get_setting(SETTING_HIDDEN) or ""
+    return [line for line in (x.strip() for x in raw.splitlines()) if line]
+
+def folder_hidden(path: str) -> bool:
+    """Папка скрыта сама или лежит внутри скрытой."""
+    cur = (path or "").rstrip("/")
+    return any(cur == h.rstrip("/") or cur.startswith(h.rstrip("/") + "/")
+               for h in hidden_folders())
+
+def set_folder_hidden(path: str, hidden: bool) -> tuple[bool, str]:
+    if not inside_library(path):
+        return False, "Папка вне библиотеки"
+    cur = path.rstrip("/")
+    rest = [h for h in hidden_folders() if h.rstrip("/") != cur]
+    name = Path(cur).name
+    if hidden:
+        rest.append(cur)
+        msg = f"Папка «{name}» скрыта из общего списка"
+    else:
+        msg = f"Папка «{name}» снова в общем списке"
+    db.set_setting(SETTING_HIDDEN, "\n".join(sorted(set(rest))))
+    return True, msg
+
+def _hidden_where(folder: str = "") -> tuple[list[str], list]:
+    """Условия, отсекающие скрытые папки из выдачи.
+
+    Открытую папку не отсекаем: если пользователь зашёл в скрытую папку (или
+    в её подпапку) намеренно, он должен увидеть её содержимое.
+    """
+    where, args = [], []
+    cur = (folder or "").rstrip("/")
+    for h in hidden_folders():
+        h = h.rstrip("/")
+        if cur and (cur == h or cur.startswith(h + "/")):
+            continue
+        where.append("path NOT LIKE ? ESCAPE '\\'")
+        args.append(_like_prefix(h + "/") + "%")
+    return where, args
 
 
 # ---------- tag reading ----------
@@ -415,6 +465,9 @@ def list_tracks(q: str = "", sort: str = "artist", desc: bool = False,
     if album:
         where.append("album = ?")
         args.append(album)
+    hid, hid_args = _hidden_where(folder)
+    where += hid
+    args += hid_args
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     if sort == "random":
         order = f"(id * {int(seed) % 999983 or 7919} % 1000003)"
@@ -464,6 +517,9 @@ def random_tracks(q: str = "", artist: str = "", album: str = "", folder: str = 
         exclude = list(exclude)[:200]
         where.append("id NOT IN (%s)" % ",".join("?" * len(exclude)))
         args += exclude
+    hid, hid_args = _hidden_where(folder)
+    where += hid
+    args += hid_args
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     with db.connect() as cx:
         rows = cx.execute(
@@ -489,6 +545,9 @@ def track_page(track_id: int, q: str = "", sort: str = "artist", desc: bool = Fa
         clause, extra = _folder_where(folder)
         where.append(clause)
         args += extra
+    hid, hid_args = _hidden_where(folder)
+    where += hid
+    args += hid_args
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     if sort == "random":
         order = f"(id * {int(seed) % 999983 or 7919} % 1000003)"
@@ -512,7 +571,7 @@ def list_folders() -> list[dict]:
             continue  # файл в корне библиотеки
         top = rel.split("/", 1)[0]
         counts[top] = counts.get(top, 0) + 1
-    return [{"name": k, "abs": root + k, "n": v}
+    return [{"name": k, "abs": root + k, "n": v, "hidden": folder_hidden(root + k)}
             for k, v in sorted(counts.items(), key=lambda kv: kv[0].lower())]
 
 def _like_prefix(prefix: str) -> str:
@@ -541,7 +600,8 @@ def list_subfolders(parent: str = "") -> list[dict]:
         top, rest = rel.split("/", 1)
         counts[top] = counts.get(top, 0) + 1
         kids[top] = kids.get(top, False) or ("/" in rest)
-    return [{"name": k, "abs": base + k, "n": v, "kids": kids[k]}
+    return [{"name": k, "abs": base + k, "n": v, "kids": kids[k],
+             "hidden": folder_hidden(base + k)}
             for k, v in sorted(counts.items(), key=lambda kv: kv[0].lower())]
 
 def inside_library(abs_path: str) -> bool:
@@ -572,7 +632,9 @@ def paths_moved(old_abs: str, new_abs: str) -> int:
             "UPDATE tracks SET path = ? || substr(path, ?) "
             "WHERE path = ? OR path LIKE ? ESCAPE '\\'",
             (new, len(old) + 1, old, _like_prefix(old + "/") + "%"))
-        return cur.rowcount
+        moved = cur.rowcount
+    _hidden_repath(old, new)
+    return moved
 
 def paths_removed(abs_path: str) -> int:
     """Папку или файл удалили с диска — убрать треки под ними вместе с обложками."""
@@ -584,7 +646,27 @@ def paths_removed(abs_path: str) -> int:
         for tid in ids:
             (COVER_DIR / f"{tid}.img").unlink(missing_ok=True)
         cx.execute(f"DELETE FROM tracks WHERE {where}", args)
+    _hidden_repath(p, "")
     return len(ids)
+
+
+def _hidden_repath(old: str, new: str) -> None:
+    """Папку переименовали или удалили — поправить список скрытых.
+
+    Иначе после переименования папка тихо вернулась бы в общий список, а от
+    удалённой осталась бы вечная запись.
+    """
+    saved = hidden_folders()
+    out = []
+    for h in saved:
+        h = h.rstrip("/")
+        if h == old or h.startswith(old + "/"):
+            if new:
+                out.append(new + h[len(old):])
+        else:
+            out.append(h)
+    if out != saved:
+        db.set_setting(SETTING_HIDDEN, "\n".join(out))
 
 def find_duplicates(folder: str = "", artist: str = "", album: str = "",
                     limit: int = 200) -> list[dict]:
@@ -600,6 +682,9 @@ def find_duplicates(folder: str = "", artist: str = "", album: str = "",
     if album:
         where.append("album = ?")
         args.append(album)
+    hid, hid_args = _hidden_where(folder)
+    where += hid
+    args += hid_args
     clause = " AND ".join(where)
     with db.connect() as cx:
         groups = cx.execute(
@@ -651,17 +736,23 @@ def delete_track(track_id: int) -> tuple[bool, str]:
     return True, f"Удалён: {track['title'] or Path(track['path']).name}"
 
 def stats() -> dict:
+    # скрытые папки не считаем: иначе счётчик в шапке не сходится со списком
+    hid, hid_args = _hidden_where()
+    clause = ("WHERE " + " AND ".join(hid)) if hid else ""
     with db.connect() as cx:
-        r = cx.execute("SELECT COUNT(*) c, COALESCE(SUM(duration),0) d, "
-                       "COUNT(DISTINCT artist) a, COUNT(DISTINCT album) al FROM tracks").fetchone()
+        r = cx.execute(f"SELECT COUNT(*) c, COALESCE(SUM(duration),0) d, "
+                       f"COUNT(DISTINCT artist) a, COUNT(DISTINCT album) al "
+                       f"FROM tracks {clause}", hid_args).fetchone()
     return {"tracks": r["c"], "duration": r["d"], "artists": r["a"], "albums": r["al"]}
 
 def list_artists(limit: int = 500) -> list[dict]:
+    hid, hid_args = _hidden_where()
+    hid_sql = ("AND " + " AND ".join(hid)) if hid else ""
     with db.connect() as cx:
         rows = cx.execute(
-            "SELECT artist, COUNT(*) n FROM tracks WHERE artist <> '' "
-            "GROUP BY artist COLLATE NOCASE ORDER BY artist COLLATE NOCASE LIMIT ?",
-            (limit,)).fetchall()
+            f"SELECT artist, COUNT(*) n FROM tracks WHERE artist <> '' {hid_sql} "
+            f"GROUP BY artist COLLATE NOCASE ORDER BY artist COLLATE NOCASE LIMIT ?",
+            hid_args + [limit]).fetchall()
     return [dict(r) for r in rows]
 
 def list_albums(artist: str = "", limit: int = 500) -> list[dict]:
@@ -669,6 +760,10 @@ def list_albums(artist: str = "", limit: int = 500) -> list[dict]:
     if artist:
         clause += " AND artist = ?"
         args.append(artist)
+    hid, hid_args = _hidden_where()
+    if hid:
+        clause += " AND " + " AND ".join(hid)
+        args += hid_args
     with db.connect() as cx:
         rows = cx.execute(
             f"SELECT album, MAX(albumartist) albumartist, COUNT(*) n, MAX(year) year, "

@@ -34,11 +34,15 @@
   {% else %}
   {% if not folders %}<div class="px-2 text-xs text-slate-400">Нет подпапок.</div>{% endif %}
   {% for f in folders %}
-    <button class="mus-item w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-[0.8125rem] flex items-center gap-1.5 {{ 'mus-on' if f.abs == cur_folder else '' }}"
+    <button class="mus-item w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-[0.8125rem] flex items-center gap-1.5 {{ 'mus-on' if f.abs == cur_folder else '' }} {{ 'mus-hidden' if f.hidden else '' }}"
             data-folder="{{ f.abs }}"
-            onclick="Music.filterFolder({{ f.abs|tojson|forceescape }})" title="{{ f.abs }}">
+            oncontextmenu="Music.fs.menu(event, {{ f.abs|tojson|forceescape }}, {{ f.name|tojson|forceescape }})"
+            onclick="Music.filterFolder({{ f.abs|tojson|forceescape }})"
+            title="{{ f.abs }}{{ ' — скрыта из общего списка' if f.hidden else '' }}">
       <i class="ti ti-folder text-amber-500 shrink-0"></i>
       <span class="flex-1 min-w-0 truncate">{{ f.name }}</span>
+      {% if f.hidden %}<i class="ti ti-eye-off text-sm shrink-0 mus-hidden-eye"
+                          title="Скрыта из общего списка"></i>{% endif %}
       <span class="mus-pin shrink-0 text-slate-400 hover:text-sky-600" title="Закрепить наверху"
             onclick="event.stopPropagation(); Music.pins.toggle({{ f.abs|tojson|forceescape }})">
         <i class="ti ti-pin text-sm"></i></span>

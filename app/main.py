@@ -10,7 +10,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "2.8"
+APP_VERSION = "2.9"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -1121,6 +1121,15 @@ async def htmx_music_fs_move(request: Request, _: str = Depends(require_admin),
         return _resp(request, False, _fs_error(e), [])
     return _resp(request, True, f"Перемещено, треков обновлено: {moved}",
                  ["reloadMusicLists", "refreshMusicTracks"])
+
+@app.post("/htmx/music-hide", response_class=HTMLResponse)
+async def htmx_music_hide(request: Request, _: str = Depends(require_admin),
+                          path: str = Form(...), hidden: str = Form("yes")):
+    """Скрыть папку из общей выдачи или вернуть её обратно. Файлы не трогаем."""
+    ok, msg = await asyncio.to_thread(music.set_folder_hidden, path, hidden == "yes")
+    return _resp(request, ok, msg,
+                 ["reloadMusicLists", "refreshMusicTracks"] if ok else [])
+
 
 @app.post("/htmx/music-delete", response_class=HTMLResponse)
 async def htmx_music_delete(request: Request, _: str = Depends(current_user), id: int = Form(...)):

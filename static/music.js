@@ -416,16 +416,28 @@
         menu.classList.remove("hidden");
       },
 
-      /** Контекстное меню папки: переименовать или удалить с диска. */
+      /** Контекстное меню папки: скрыть из общего списка, переименовать, удалить.
+       *
+       * Меню доступно в обоих режимах панели, а не только в дереве: скрытие
+       * никак не связано с перетаскиванием, ради которого дерево включают. */
       menu: function (event, path, name) {
-        if (!M.fs.canEdit()) return;
+        if (SW.role !== "admin") return;
         event.preventDefault();
         var menu = document.getElementById("ctxmenu");
         if (!menu) return;
-        M.fs._render(menu, [
-          ["ti-edit", "Переименовать", function () { M.fs.rename(path, name); }, ""],
-          ["ti-trash", "Удалить с диска", function () { M.fs.remove(path, name); }, "text-red-600"],
-        ], event);
+        var hidden = !!(event.currentTarget && event.currentTarget.classList.contains("mus-hidden"));
+        var items = [hidden
+          ? ["ti-eye", "Вернуть в общий список", function () { M.fs.hide(path, false); }, ""]
+          : ["ti-eye-off", "Скрыть из общего списка", function () { M.fs.hide(path, true); }, ""]];
+        items.push(["ti-edit", "Переименовать", function () { M.fs.rename(path, name); }, ""]);
+        items.push(["ti-trash", "Удалить с диска",
+                    function () { M.fs.remove(path, name); }, "text-red-600"]);
+        M.fs._render(menu, items, event);
+      },
+      /* Скрытая папка остаётся в панели и играется, если её открыть, но её
+         треки не попадают в «Все треки», поиск и случайное воспроизведение. */
+      hide: function (path, on) {
+        SW.post("/htmx/music-hide", {path: path, hidden: on ? "yes" : "no"});
       },
       rename: function (path, name) {
         SW.prompt("Новое имя папки", name, function (value) {
