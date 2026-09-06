@@ -1165,18 +1165,45 @@ const SW = {
 
   /** Контекстное меню торрента: то же, что кнопками в строке, плюс переанонс
    *  и проверка файлов — ими пользуются редко, но искать их негде. */
-  trCtx(evt, id, name, running) {
+  trCtx(evt, id, name, running, dir) {
     evt.preventDefault();
     this.trSel = id; this._trMark();
     const items = [];
     items.push(running
       ? ["ti-player-pause", "Приостановить", () => SW.post("/htmx/torrent-action", {id, action: "stop"})]
       : ["ti-player-play", "Запустить", () => SW.post("/htmx/torrent-action", {id, action: "start"})]);
+    items.push(["ti-folder-open", "Открыть папку", () => SW.trOpenDir(dir)]);
+    items.push(["ti-folder-symlink", "Переместить", () => SW.trMove(id)]);
+    items.push(["ti-link", "Скопировать magnet", () => SW.trCopyMagnet(id)]);
     items.push(["ti-radar", "Переанонсировать",
                 () => SW.post("/htmx/torrent-action", {id, action: "reannounce"})]);
     items.push(["ti-checkup-list", "Проверить файлы", () => SW.trVerify(id, name)]);
+    if (this.role === "admin") {
+      items.push(["ti-gauge", "Лимиты скорости",
+                  () => SW.openModal("/htmx/torrent-one-limits?id=" + id)]);
+    }
     items.push(["ti-trash", "Удалить", () => SW.torrentRemove(id, name), "text-red-600"]);
     this._ctxRender(items, evt);
+  },
+
+  /** Перейти в файловом браузере к папке, куда качается торрент. */
+  trOpenDir(dir) {
+    const root = (this.mountRoot || "").replace(/\/$/, "");
+    if (!dir || dir.indexOf(root + "/") !== 0) {
+      this.toast("Папка вне дисков: " + (dir || "неизвестна"));
+      return;
+    }
+    this.navigate(dir.slice(root.length + 1));
+  },
+
+  trCopyMagnet(id) {
+    fetch("/api/torrent-magnet?id=" + id, {credentials: "same-origin"})
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.ok) { this.toast("Magnet-ссылку получить не удалось"); return; }
+        this._copyText(d.magnet, () => this.toast("Magnet-ссылка скопирована"));
+      })
+      .catch(() => this.toast("Демон торрентов не отвечает"));
   },
 
   trVerify(id, name) {
@@ -1190,10 +1217,14 @@ const SW = {
 
   copyShare(name) {
     const path = "\\\\" + location.hostname + "\\" + name;
-    const done = () => this.toast("Скопировано: " + path);
+    this._copyText(path, () => this.toast("Скопировано: " + path));
+  },
+  /* Буфер обмена доступен только в защищённом контексте; по локальному http
+     приложение открывают постоянно, поэтому нужен запасной путь. */
+  _copyText(text, done) {
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(path).then(done).catch(() => this._copyFallback(path, done));
-    } else { this._copyFallback(path, done); }
+      navigator.clipboard.writeText(text).then(done).catch(() => this._copyFallback(text, done));
+    } else { this._copyFallback(text, done); }
   },
   _copyFallback(text, done) {
     const ta = document.createElement("textarea");

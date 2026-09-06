@@ -10,7 +10,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.1"
+APP_VERSION = "3.2"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -811,6 +811,28 @@ async def htmx_torrent_file_prio(request: Request, _: str = Depends(current_user
                                  id: int = Form(...), idx: int = Form(...), prio: str = Form("normal")):
     ok, msg = await asyncio.to_thread(torrent.set_file_priority, id, idx, prio)
     return _resp(request, ok, msg, [])
+
+@app.get("/htmx/torrent-one-limits", response_class=HTMLResponse)
+async def htmx_torrent_one_limits(request: Request, _: str = Depends(require_admin), id: int = 0):
+    lim = await asyncio.to_thread(torrent.get_torrent_limits, id)
+    return templates.TemplateResponse("_torrent_one_limits.html",
+                                      {"request": request, "lim": lim})
+
+@app.post("/htmx/torrent-one-limits", response_class=HTMLResponse)
+async def htmx_torrent_one_limits_save(request: Request, _: str = Depends(require_admin),
+                                       id: int = Form(...),
+                                       down: int = Form(0), down_on: str = Form("no"),
+                                       up: int = Form(0), up_on: str = Form("no"),
+                                       session: str = Form("no")):
+    ok, msg = await asyncio.to_thread(
+        torrent.set_torrent_limits, id, down, down_on == "yes", up, up_on == "yes",
+        session == "yes")
+    return _resp(request, ok, msg, ["closeModal"] if ok else [])  # список и так опрашивается раз в 2 с
+
+@app.get("/api/torrent-magnet")
+async def api_torrent_magnet(request: Request, _: str = Depends(current_user), id: int = 0):
+    link = await asyncio.to_thread(torrent.magnet, id)
+    return {"ok": bool(link), "magnet": link}
 
 @app.get("/htmx/torrent-limits", response_class=HTMLResponse)
 async def htmx_torrent_limits(request: Request, _: str = Depends(require_admin)):

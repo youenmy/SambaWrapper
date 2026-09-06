@@ -375,6 +375,51 @@ def set_file_priority(tid: int, idx: int, prio: str) -> tuple[bool, str]:
         return False, str(e)
     return True, "Приоритет обновлён"
 
+# ---------- per-torrent limits ----------
+#
+# Общие лимиты сессии режут всё сразу; здесь — свой потолок для одной
+# раздачи, чтобы прижать её, не трогая остальные. Флаг «учитывать общие
+# лимиты» transmission хранит отдельно: без него торрент игнорирует и
+# тихий режим тоже.
+
+def get_torrent_limits(tid: int) -> dict | None:
+    try:
+        got = _rpc("torrent-get", {"ids": [tid], "fields": [
+            "id", "name", "downloadLimit", "downloadLimited",
+            "uploadLimit", "uploadLimited", "honorsSessionLimits"]})
+    except TorrentError:
+        return None
+    rows = got.get("torrents", [])
+    if not rows:
+        return None
+    t = rows[0]
+    return {
+        "id": t.get("id"), "name": t.get("name", "?"),
+        "down": t.get("downloadLimit", 0), "down_on": bool(t.get("downloadLimited")),
+        "up": t.get("uploadLimit", 0), "up_on": bool(t.get("uploadLimited")),
+        "session": bool(t.get("honorsSessionLimits", True)),
+    }
+
+def set_torrent_limits(tid: int, down: int, down_on: bool, up: int, up_on: bool,
+                       session: bool) -> tuple[bool, str]:
+    try:
+        _rpc("torrent-set", {"ids": [tid],
+                             "downloadLimit": max(0, int(down)), "downloadLimited": down_on,
+                             "uploadLimit": max(0, int(up)), "uploadLimited": up_on,
+                             "honorsSessionLimits": session})
+    except TorrentError as e:
+        return False, str(e)
+    return True, "Лимиты торрента сохранены"
+
+def magnet(tid: int) -> str:
+    """Magnet-ссылка раздачи — чтобы отдать её другому клиенту или сохранить."""
+    try:
+        rows = _rpc("torrent-get", {"ids": [tid], "fields": ["magnetLink"]}).get("torrents", [])
+    except TorrentError:
+        return ""
+    return rows[0].get("magnetLink", "") if rows else ""
+
+
 # ---------- session limits ----------
 
 def get_limits() -> dict | None:
