@@ -12,8 +12,10 @@
       </td>
       <td class="px-2 py-2">
         <div class="flex items-center gap-2">
-          <div class="flex-1 h-1.5 bg-slate-200 rounded overflow-hidden"><div class="h-full bg-{{ t.tone }}-500" style="width:{{ t.pct }}%"></div></div>
-          <span class="text-[0.6875rem] text-slate-500 w-9 text-right">{{ t.pct }}%</span>
+          <div class="flex-1 h-1.5 bg-slate-200 rounded overflow-hidden"
+               title="{{ 'Проверка файлов' if t.checking else 'Скачано' }}">
+            <div class="h-full bg-{{ t.tone }}-500" style="width:{{ t.check_pct if t.checking else t.pct }}%"></div></div>
+          <span class="text-[0.6875rem] text-slate-500 w-9 text-right">{{ t.check_pct if t.checking else t.pct }}%</span>
         </div>
       </td>
       <td class="px-2 py-2 text-{{ t.tone }}-600 text-[0.8125rem] whitespace-nowrap">{{ t.status }}</td>

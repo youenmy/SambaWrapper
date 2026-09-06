@@ -38,7 +38,7 @@ _STATUS = {
 _FIELDS = ["id", "name", "percentDone", "rateDownload", "rateUpload",
            "status", "eta", "totalSize", "errorString", "downloadDir",
            "peersSendingToUs", "peersGettingFromUs", "uploadRatio",
-           "sequential_download"]
+           "sequential_download", "recheckProgress"]
 
 
 class TorrentError(Exception):
@@ -161,8 +161,15 @@ def list_torrents() -> list[dict]:
         return []
     out = []
     for t in torrents:
-        label, tone = _STATUS.get(t.get("status", 0), ("—", "slate"))
+        code = t.get("status", 0)
+        label, tone = _STATUS.get(code, ("—", "slate"))
         ratio = t.get("uploadRatio", 0) or 0
+        # во время сверки хешей полоса показывает ход проверки, а не загрузки:
+        # процент скачанного всё равно застыл до её конца
+        checking = code == 2
+        check_pct = round((t.get("recheckProgress", 0) or 0) * 100)
+        if checking:
+            label = f"проверка {check_pct} %"
         out.append({
             "id": t.get("id"),
             "name": t.get("name", "?"),
@@ -172,6 +179,7 @@ def list_torrents() -> list[dict]:
             "size": _human_size(t.get("totalSize", 0)),
             "eta": _human_eta(t.get("eta", -1)),
             "status": label, "tone": tone,
+            "checking": checking, "check_pct": check_pct,
             "running": t.get("status", 0) not in (0,),
             "error": (t.get("errorString") or "").strip(),
             "dir": t.get("downloadDir", ""),
