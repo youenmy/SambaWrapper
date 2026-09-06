@@ -1143,9 +1143,13 @@ const SW = {
     items.push(["ti-arrows-move","Переместить",() => SW.move()]);
     if (isDir && this.role === "admin") items.push(["ti-share","Расшарить",() => SW.share(rel, name)]);
     items.push(["ti-trash","Удалить",() => SW.del(),"text-red-600"]);
+    this._ctxRender(items, evt);
+  },
+
+  /* Контекстное меню строим через DOM, а не innerHTML: подписи свои, но имя
+     файла или торрента — чужой текст, и в разметку он попадать не должен. */
+  _ctxRender(items, evt) {
     const menu = document.getElementById("ctxmenu");
-    // строим кнопки через DOM, а не innerHTML: имя файла (в т.ч. из чужого
-    // торрента) не должно попадать в HTML-атрибут как текст
     menu.innerHTML = "";
     items.forEach(([ic, label, act, cls]) => {
       const b = document.createElement("button");
@@ -1155,8 +1159,33 @@ const SW = {
       menu.appendChild(b);
     });
     menu.style.left = Math.min(evt.clientX, window.innerWidth-200) + "px";
-    menu.style.top = Math.min(evt.clientY, window.innerHeight-260) + "px";
+    menu.style.top = Math.min(evt.clientY, window.innerHeight - 40 - items.length*34) + "px";
     menu.classList.remove("hidden");
+  },
+
+  /** Контекстное меню торрента: то же, что кнопками в строке, плюс переанонс
+   *  и проверка файлов — ими пользуются редко, но искать их негде. */
+  trCtx(evt, id, name, running) {
+    evt.preventDefault();
+    this.trSel = id; this._trMark();
+    const items = [];
+    items.push(running
+      ? ["ti-player-pause", "Приостановить", () => SW.post("/htmx/torrent-action", {id, action: "stop"})]
+      : ["ti-player-play", "Запустить", () => SW.post("/htmx/torrent-action", {id, action: "start"})]);
+    items.push(["ti-radar", "Переанонсировать",
+                () => SW.post("/htmx/torrent-action", {id, action: "reannounce"})]);
+    items.push(["ti-checkup-list", "Проверить файлы", () => SW.trVerify(id, name)]);
+    items.push(["ti-trash", "Удалить", () => SW.torrentRemove(id, name), "text-red-600"]);
+    this._ctxRender(items, evt);
+  },
+
+  trVerify(id, name) {
+    // Данные не пропадут, но раздача встаёт на пересчёт хешей: на большом
+    // торренте это минуты, поэтому спрашиваем.
+    this.confirm(`Проверить файлы торрента «${name}»?
+` +
+                 "Загрузка приостановится на время пересчёта, битые куски будут скачаны заново.",
+      () => SW.post("/htmx/torrent-action", {id, action: "verify"}), {ok: "Проверить"});
   },
 
   copyShare(name) {

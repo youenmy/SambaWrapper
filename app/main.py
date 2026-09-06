@@ -10,7 +10,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "2.9"
+APP_VERSION = "3.0"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -867,6 +867,10 @@ async def htmx_torrent_action(request: Request, _: str = Depends(current_user),
         ok, msg = torrent.start(id)
     elif action == "stop":
         ok, msg = torrent.stop(id)
+    elif action == "reannounce":
+        ok, msg = torrent.reannounce(id)
+    elif action == "verify":
+        ok, msg = torrent.verify(id)
     elif action == "remove":
         ok, msg = torrent.remove(id, delete_data=False)
     elif action == "remove-data":

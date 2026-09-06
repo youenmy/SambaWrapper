@@ -257,6 +257,28 @@ def stop(tid: int) -> tuple[bool, str]:
     return True, "Приостановлен"
 
 
+def reannounce(tid: int) -> tuple[bool, str]:
+    """Заново попросить трекеры прислать пиров — когда раздача «висит» без них."""
+    try:
+        _rpc("torrent-reannounce", {"ids": [tid]})
+    except TorrentError as e:
+        return False, str(e)
+    return True, "Запрос к трекерам отправлен"
+
+
+def verify(tid: int) -> tuple[bool, str]:
+    """Пересчитать хеши скачанных кусков и сверить их с торрентом.
+
+    Проверка идёт в фоне и на большой раздаче занимает минуты; загрузка на это
+    время встаёт, а битые куски будут скачаны заново.
+    """
+    try:
+        _rpc("torrent-verify", {"ids": [tid]})
+    except TorrentError as e:
+        return False, str(e)
+    return True, "Проверка файлов запущена"
+
+
 def remove(tid: int, delete_data: bool) -> tuple[bool, str]:
     try:
         _rpc("torrent-remove", {"ids": [tid], "delete-local-data": delete_data})
