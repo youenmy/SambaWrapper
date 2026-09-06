@@ -1,7 +1,7 @@
 <div class="bg-white rounded-xl p-5 w-full max-w-md max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
   <div class="flex items-center justify-between mb-3 shrink-0">
     <h3 class="font-medium flex items-center gap-2"><i class="ti ti-settings text-slate-500"></i>Настройки</h3>
-    <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+    <button type="button" class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()" aria-label="Закрыть окно"><i class="ti ti-x"></i></button>
   </div>
 
   <div class="flex gap-1 border-b border-slate-200 mb-4 shrink-0 text-sm">
@@ -26,7 +26,7 @@
 
     <div class="text-[0.6875rem] uppercase tracking-wide text-slate-400 mb-2">Порт веб-интерфейса</div>
     <form hx-post="/htmx/set-port" hx-target="#toast-host" hx-swap="beforeend" class="flex gap-2 mb-1">
-      <input type="number" name="port" min="1024" max="65535" required value="{{ port }}"
+      <input type="number" name="port" min="1024" max="65535" required value="{{ port }}" aria-label="Порт веб-интерфейса"
              class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm">
       <button class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm">Сменить</button>
     </form>
@@ -70,9 +70,9 @@
       {% endfor %}
     </div>
     <form hx-post="/htmx/webuser-add" hx-target="#toast-host" hx-swap="beforeend" class="flex gap-2 mb-2">
-      <input name="username" required pattern="[A-Za-z0-9_.\-]{2,32}" placeholder="логин"
+      <input name="username" required pattern="[A-Za-z0-9_.\-]{2,32}" placeholder="логин" aria-label="Логин нового пользователя веб-интерфейса"
              class="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
-      <input type="password" name="password" required minlength="8" placeholder="пароль (≥8)" autocomplete="new-password"
+      <input type="password" name="password" required minlength="8" placeholder="пароль (≥8)" autocomplete="new-password" aria-label="Пароль нового пользователя веб-интерфейса"
              class="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
       <select name="role" class="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
         <option value="user">пользователь</option>

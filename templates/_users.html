@@ -3,9 +3,9 @@
 
 <form hx-post="/htmx/user-add" hx-target="#toast-host" hx-swap="beforeend"
       class="flex gap-2 mb-4" hx-on::after-request="this.reset()">
-  <input name="username" required pattern="[a-z_][a-z0-9_\-]{0,31}" placeholder="имя (lowercase)"
+  <input name="username" required pattern="[a-z_][a-z0-9_\-]{0,31}" placeholder="имя (lowercase)" aria-label="Имя нового пользователя Samba"
          class="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm">
-  <input type="password" name="password" required minlength="4" placeholder="пароль"
+  <input type="password" name="password" required minlength="4" placeholder="пароль" aria-label="Пароль нового пользователя Samba"
          class="w-28 border border-slate-300 rounded-lg px-3 py-2 text-sm">
   <button class="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3 text-sm">Добавить</button>
 </form>
@@ -18,7 +18,7 @@
     <form hx-post="/htmx/user-passwd" hx-target="#toast-host" hx-swap="beforeend"
           class="flex items-center gap-1.5" hx-on::after-request="this.reset()">
       <input type="hidden" name="username" value="{{ u }}">
-      <input type="password" name="password" required minlength="4" placeholder="новый пароль"
+      <input type="password" name="password" required minlength="4" placeholder="новый пароль" aria-label="Новый пароль пользователя"
              class="w-28 border border-slate-300 rounded-lg px-2 py-1 text-sm">
       <button class="text-sm text-slate-600 hover:bg-slate-100 rounded-md px-2 py-1">Сменить</button>
     </form>

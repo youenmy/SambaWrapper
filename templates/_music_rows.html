@@ -5,9 +5,12 @@
       data-path="{{ t.path }}" draggable="true"
       ondragstart="Music.fs.start(event, 'track', {{ t.path|tojson|forceescape }}, {{ (t.title or t.rel)|tojson|forceescape }})"
       oncontextmenu="Music.fs.trackMenu(event, {{ t.id }}, {{ t.path|tojson|forceescape }}, {{ (t.title or t.rel)|tojson|forceescape }})"
+      tabindex="0" aria-label="{{ t.title or t.rel }}{% if t.artist %} — {{ t.artist }}{% endif %}"
+      onkeydown="SW.rowKey(event, () => Music.play({{ t.id }}))"
       onclick="Music.play({{ t.id }})">
     <td data-col="pick">
       <input type="checkbox" class="mus-pick" data-id="{{ t.id }}"
+             aria-label="Отметить: {{ t.title or t.rel }}"
              onclick="event.stopPropagation()" onchange="Music.pick({{ t.id }}, this)"></td>
     <td data-col="cover" class="px-2 py-1.5">
       <button class="w-8 h-8 rounded bg-slate-100 overflow-hidden grid place-items-center text-slate-400 hover:text-sky-600 shrink-0"

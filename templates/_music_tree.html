@@ -1,7 +1,7 @@
 {# Ветка дерева библиотеки. Дети подгружаются, когда узел раскрывают. #}
 {% for f in nodes %}
   <div class="mus-node">
-    <div class="flex items-center gap-0.5">
+    <div class="flex items-center gap-1">
       {% if f.kids %}
         <button class="mus-caret text-slate-400 hover:text-sky-600 shrink-0 w-4 grid place-items-center"
                 onclick="Music.toggleNode(this, {{ f.abs|tojson|forceescape }})" title="Раскрыть">
@@ -23,11 +23,12 @@
         <span class="flex-1 min-w-0 truncate">{{ f.name }}</span>
         {% if f.hidden %}<i class="ti ti-eye-off text-sm shrink-0 mus-hidden-eye"
                             title="Скрыта из общего списка"></i>{% endif %}
-        <span class="mus-pin shrink-0 text-slate-400 hover:text-sky-600" title="Закрепить наверху"
-              onclick="event.stopPropagation(); Music.pins.toggle({{ f.abs|tojson|forceescape }})">
-          <i class="ti ti-pin text-sm"></i></span>
         <span class="text-[0.625rem] text-slate-400 shrink-0">{{ f.n }}</span>
       </button>
+      <button type="button" class="mus-pin shrink-0 px-1 text-slate-400 hover:text-sky-600"
+              title="Закрепить наверху" aria-label="Закрепить папку {{ f.name }} наверху"
+              onclick="Music.pins.toggle({{ f.abs|tojson|forceescape }})">
+        <i class="ti ti-pin text-sm"></i></button>
     </div>
     <div class="mus-kids hidden pl-3 border-l border-slate-200 ml-2"></div>
   </div>

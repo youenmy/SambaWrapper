@@ -1,7 +1,7 @@
 <div class="bg-white rounded-xl p-5 w-full max-w-md max-h-[80vh] flex flex-col" onclick="event.stopPropagation()">
   <div class="flex items-center justify-between mb-3 shrink-0">
     <h3 class="font-medium flex items-center gap-2"><i class="ti ti-folder text-sky-600"></i>Куда сохранять</h3>
-    <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+    <button type="button" class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()" aria-label="Закрыть окно"><i class="ti ti-x"></i></button>
   </div>
 
   {% if not items %}

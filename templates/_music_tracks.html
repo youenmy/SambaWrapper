@@ -14,26 +14,27 @@
     <tr>
       <th data-col="pick" class="w-8">
         <input type="checkbox" id="mus-pick-all" title="Выбрать всё загруженное"
+               aria-label="Выбрать все загруженные треки"
                onchange="Music.pickAll(this.checked)"></th>
       <th data-col="cover" class="w-10 px-2 py-1"></th>
-      <th data-col="title" class="text-left font-medium px-2 py-1">
-        {{ grip() }}<span class="col-label" onclick="Music.sortBy('title')" title="Название">Название{{ arrow('title') }}</span></th>
-      <th data-col="artist" class="text-left font-medium px-2 py-1 w-44">
-        {{ grip() }}<span class="col-label" onclick="Music.sortBy('artist')" title="Исполнитель">Исполнитель{{ arrow('artist') }}</span></th>
-      <th data-col="album" class="text-left font-medium px-2 py-1 w-44">
-        {{ grip() }}<span class="col-label" onclick="Music.sortBy('album')" title="Альбом">Альбом{{ arrow('album') }}</span></th>
-      <th data-col="year" class="text-right font-medium px-2 py-1 w-16">
-        {{ grip() }}<span class="col-label" onclick="Music.sortBy('year')" title="Год">Год{{ arrow('year') }}</span></th>
+      <th data-col="title" aria-sort="{{ 'ascending' if (sort == 'title' and not desc) else ('descending' if sort == 'title' else 'none') }}" class="text-left font-medium px-2 py-1">
+        {{ grip() }}<button type="button" class="col-label" onclick="Music.sortBy('title')" title="Название">Название{{ arrow('title') }}</button></th>
+      <th data-col="artist" aria-sort="{{ 'ascending' if (sort == 'artist' and not desc) else ('descending' if sort == 'artist' else 'none') }}" class="text-left font-medium px-2 py-1 w-44">
+        {{ grip() }}<button type="button" class="col-label" onclick="Music.sortBy('artist')" title="Исполнитель">Исполнитель{{ arrow('artist') }}</button></th>
+      <th data-col="album" aria-sort="{{ 'ascending' if (sort == 'album' and not desc) else ('descending' if sort == 'album' else 'none') }}" class="text-left font-medium px-2 py-1 w-44">
+        {{ grip() }}<button type="button" class="col-label" onclick="Music.sortBy('album')" title="Альбом">Альбом{{ arrow('album') }}</button></th>
+      <th data-col="year" aria-sort="{{ 'ascending' if (sort == 'year' and not desc) else ('descending' if sort == 'year' else 'none') }}" class="text-right font-medium px-2 py-1 w-16">
+        {{ grip() }}<button type="button" class="col-label" onclick="Music.sortBy('year')" title="Год">Год{{ arrow('year') }}</button></th>
       <th data-col="genre" class="text-left font-medium px-2 py-1 w-32">
         {{ grip() }}<span class="col-label" title="Жанр">Жанр</span></th>
       <th data-col="bitrate" class="text-right font-medium px-2 py-1 w-20">
         {{ grip() }}<span class="col-label" title="Битрейт">Битрейт</span></th>
-      <th data-col="path" class="text-left font-medium px-2 py-1 w-64">
-        {{ grip() }}<span class="col-label" onclick="Music.sortBy('path')" title="Путь">Путь{{ arrow('path') }}</span></th>
-      <th data-col="size" class="text-right font-medium px-2 py-1 w-24">
-        {{ grip() }}<span class="col-label" title="Размер" onclick="Music.sortBy('size')">Размер{{ arrow('size') }}</span></th>
-      <th data-col="duration" class="text-right font-medium px-2 py-1 w-20">
-        {{ grip() }}<span class="col-label" onclick="Music.sortBy('duration')" title="Время">Время{{ arrow('duration') }}</span></th>
+      <th data-col="path" aria-sort="{{ 'ascending' if (sort == 'path' and not desc) else ('descending' if sort == 'path' else 'none') }}" class="text-left font-medium px-2 py-1 w-64">
+        {{ grip() }}<button type="button" class="col-label" onclick="Music.sortBy('path')" title="Путь">Путь{{ arrow('path') }}</button></th>
+      <th data-col="size" aria-sort="{{ 'ascending' if (sort == 'size' and not desc) else ('descending' if sort == 'size' else 'none') }}" class="text-right font-medium px-2 py-1 w-24">
+        {{ grip() }}<button type="button" class="col-label" title="Размер" onclick="Music.sortBy('size')">Размер{{ arrow('size') }}</button></th>
+      <th data-col="duration" aria-sort="{{ 'ascending' if (sort == 'duration' and not desc) else ('descending' if sort == 'duration' else 'none') }}" class="text-right font-medium px-2 py-1 w-20">
+        {{ grip() }}<button type="button" class="col-label" onclick="Music.sortBy('duration')" title="Время">Время{{ arrow('duration') }}</button></th>
       {# распорка: съедает остаток ширины, поэтому правый край таблицы всегда
          совпадает с правым краем окна списка, и липкая кнопка стоит у края #}
       <th data-col="spacer" class="p-0"></th>

@@ -169,6 +169,12 @@ html.dark .dup-row.mus-playing { background: #0c2a47; box-shadow: inset 0 0 0 1.
 }
 .col-grip:hover { opacity: 1; color: #0284c7; }
 .col-grip:active { cursor: grabbing; }
+button.col-label {
+  font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit;
+  background: none; border: 0; padding: 0; text-align: inherit;
+}
+.tr-sort { font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit;
+           background: none; border: 0; padding: 0; }
 .col-label { cursor: pointer; }
 .col-label:hover { color: #475569; }
 html.dark .col-label:hover { color: #cbd5e1; }
@@ -353,11 +359,15 @@ html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr:hover td[data-c
 html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing td[data-col="pick"] { background: var(--sw-accent-soft); }
 
 /* Булавка появляется при наведении на папку, у закреплённой видна всегда. */
+/* Булавка живёт рядом с кнопкой папки, поэтому наведение и закрепление
+   отслеживаем на общей строке, а не внутри кнопки. Фокус с клавиатуры тоже
+   проявляет её: иначе до кнопки можно дойти табом, но не увидеть, где ты. */
 .mus-pin { opacity: 0; transition: opacity .12s ease; }
-.mus-item:hover .mus-pin { opacity: 1; }
-.mus-item.mus-pinned .mus-pin { opacity: 1; color: #0284c7; }
-html.dark .mus-item.mus-pinned .mus-pin { color: #38bdf8; }
-html[data-theme]:not([data-theme="classic"]) .mus-item.mus-pinned .mus-pin { color: var(--sw-accent-ink); }
+.mus-node:hover .mus-pin,
+.mus-pin:focus-visible { opacity: 1; }
+.mus-node.mus-pinned .mus-pin { opacity: 1; color: #0284c7; }
+html.dark .mus-node.mus-pinned .mus-pin { color: #38bdf8; }
+html[data-theme]:not([data-theme="classic"]) .mus-node.mus-pinned .mus-pin { color: var(--sw-accent-ink); }
 
 /* Окно поверх тёмного списка сливалось с фоном — обозначаем край рамкой
    и глубокой тенью, в тёмных темах рамка светлее фона окна. */
@@ -370,10 +380,29 @@ html[data-theme]:not([data-theme="classic"]) #modal-host > div {
 
 /* Кнопка случайного воспроизведения в строке «Все треки» — как булавка у папок */
 .mus-shuffle-all { opacity: 0; transition: opacity .12s ease; }
-.mus-item:hover .mus-shuffle-all { opacity: 1; }
+.mus-shuffle-all:hover, .mus-shuffle-all:focus-visible { opacity: 1; }
+#music-lists .sticky:hover .mus-shuffle-all { opacity: 1; }
 
 /* Скрытая папка: остаётся в панели, но видно, что её треков нет в общем списке. */
 .mus-item.mus-hidden .ti-folder,
 .mus-item.mus-hidden > span:not(.mus-pin) { opacity: .55; }
 .mus-hidden-eye { color: #94a3b8; }
 html[data-theme]:not([data-theme="classic"]) .mus-hidden-eye { color: var(--sw-faint); }
+
+/* ---------------------------------------------------------------- фокус
+ *
+ * Своих стилей фокуса не было вовсе: оставалась системная обводка браузера,
+ * которую на тёмных темах почти не видно. Рисуем её сами акцентным цветом
+ * темы — он по определению контрастен к поверхности. :focus-visible, а не
+ * :focus, чтобы кольцо не вспыхивало на каждый клик мышью.
+ */
+:focus-visible {
+  outline: 2px solid var(--sw-accent-ink, #0369a1);
+  outline-offset: 2px;
+  border-radius: var(--sw-radius-sm, .375rem);
+}
+/* строки таблиц: обводка внутрь, иначе её срежет overflow соседней ячейки */
+tr:focus-visible,
+tr:focus-visible > td { outline-offset: -2px; }
+/* элементы, которые сами рисуют рамку, кольцо получают без смещения */
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; }

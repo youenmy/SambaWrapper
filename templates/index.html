@@ -38,7 +38,7 @@
   </header>
 
   <div class="flex flex-1 min-h-0 relative">
-    <aside id="sidebar" class="sw-sidebar w-64 shrink-0 bg-white border-r border-slate-200 overflow-y-auto
+    <aside id="sidebar" aria-label="Диски и разделы" class="sw-sidebar w-64 shrink-0 bg-white border-r border-slate-200 overflow-y-auto
                                 fixed md:static top-12 bottom-0 left-0 z-40 -translate-x-full md:translate-x-0 transition-transform duration-200"
            hx-get="/htmx/sidebar" hx-trigger="load, every 8s" hx-swap="innerHTML">
       <div class="p-4 text-slate-400 text-sm">Загрузка…</div>
@@ -75,7 +75,13 @@
       </div>
       <div class="flex flex-1 min-w-0 items-end h-full gap-2 text-xs text-slate-400">
         <span id="mus-cur" class="tabular-nums w-10 text-right self-center">0:00</span>
-        <div id="mus-seek" class="relative flex-1 h-10 overflow-hidden cursor-pointer" onclick="Music.seekClick(event)">
+        {# полоса перемотки — полноценный ползунок: с клавиатуры стрелками
+           (обработчик в music.js), значение сообщается через aria-valuenow #}
+        <div id="mus-seek" class="relative flex-1 h-10 overflow-hidden cursor-pointer"
+             role="slider" tabindex="0" aria-label="Перемотка"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="0:00"
+             onkeydown="Music.seekKey(event)"
+             onclick="Music.seekClick(event)">
           <canvas id="mus-viz" class="absolute inset-0 w-full h-full"></canvas>
           <div id="mus-fill" class="absolute inset-y-0 left-0 pointer-events-none" style="width:0%"></div>
           <div id="mus-head" class="absolute inset-y-0 w-0.5 bg-sky-600 pointer-events-none" style="left:0%"></div>
@@ -84,8 +90,10 @@
       </div>
     </div>
     <div id="mus-vol-zone" class="hidden sm:flex items-center gap-2 w-32 h-full shrink-0">
-      <button onclick="Music.mute()" class="text-slate-400 hover:text-slate-700"><i id="mus-vol-icon" class="ti ti-volume"></i></button>
-      <input id="mus-vol" type="range" min="0" max="1" step="0.05" value="1" oninput="Music.setVolume(this.value)" class="w-full accent-sky-500 cursor-pointer">
+      <button onclick="Music.mute()" title="Звук" aria-label="Выключить звук"
+              class="text-slate-400 hover:text-slate-700"><i id="mus-vol-icon" class="ti ti-volume"></i></button>
+      <input id="mus-vol" type="range" min="0" max="1" step="0.05" value="1" aria-label="Громкость"
+             oninput="Music.setVolume(this.value)" class="w-full accent-sky-500 cursor-pointer">
     </div>
     <button title="Закрыть плеер" class="text-slate-400 hover:text-red-600 shrink-0" onclick="Music.close()"><i class="ti ti-x"></i></button>
     <!-- две деки: пока играет одна, вторая заранее качает следующий трек -->
@@ -196,12 +204,47 @@ const SW = {
 
   openModal(url) {
     htmx.ajax("GET", url, {target:"#modal-host", swap:"innerHTML"}).then(() => {
-      document.getElementById("modal-host").classList.remove("hidden");
+      const m = document.getElementById("modal-host");
+      m.classList.remove("hidden");
+      this._modalOpened(m);
     });
+  },
+  /* Окно должно быть окном и для клавиатуры: роль, возврат фокуса туда,
+     откуда его открыли, Escape на закрытие и удержание табуляции внутри —
+     иначе Tab уводит в список за оверлеем, где ничего не видно. */
+  _modalOpened(host) {
+    const panel = host.firstElementChild;
+    if (!panel) return;
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    const head = panel.querySelector("h3, h2");
+    if (head) {
+      if (!head.id) head.id = "sw-modal-title";
+      panel.setAttribute("aria-labelledby", head.id);
+    }
+    this._modalReturn = document.activeElement;
+    const first = panel.querySelector(
+      "input:not([type=hidden]), select, textarea, button, [href], [tabindex]:not([tabindex='-1'])");
+    (first || panel).focus({preventScroll: true});
+    if (!first) panel.tabIndex = -1;
+    this._modalKeys = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); this.closeModal(); return; }
+      if (e.key !== "Tab") return;
+      const items = [...panel.querySelectorAll(
+        "input:not([type=hidden]), select, textarea, button, [href], [tabindex]:not([tabindex='-1'])")]
+        .filter((el) => !el.disabled && el.offsetParent !== null);
+      if (!items.length) return;
+      const edge = e.shiftKey ? items[0] : items[items.length - 1];
+      if (document.activeElement === edge) { e.preventDefault(); (e.shiftKey ? items[items.length-1] : items[0]).focus(); }
+    };
+    document.addEventListener("keydown", this._modalKeys, true);
   },
   closeModal() {
     const m = document.getElementById("modal-host");
     m.classList.add("hidden"); m.innerHTML = "";
+    if (this._modalKeys) { document.removeEventListener("keydown", this._modalKeys, true); this._modalKeys = null; }
+    if (this._modalReturn && this._modalReturn.focus) this._modalReturn.focus({preventScroll: true});
+    this._modalReturn = null;
     this._destCb = null;
     if (this._pl) {
       clearInterval(this._pl.subPoll); clearTimeout(this._plIdleT); this._pl = null;
@@ -213,8 +256,9 @@ const SW = {
     opts = opts || {};
     const host = document.getElementById("confirm-host");
     const safe = String(message).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-    host.innerHTML = `<div class="bg-white rounded-xl p-5 w-full max-w-sm shadow-xl" onclick="event.stopPropagation()">
-      <p class="text-sm mb-4 whitespace-pre-line">${safe}</p>
+    host.innerHTML = `<div class="bg-white rounded-xl p-5 w-full max-w-sm shadow-xl" onclick="event.stopPropagation()"
+      role="dialog" aria-modal="true" aria-labelledby="cf-msg">
+      <p id="cf-msg" class="text-sm mb-4 whitespace-pre-line">${safe}</p>
       <div class="flex justify-end gap-2">
         <button id="cf-no" class="px-3 py-1.5 text-slate-500 rounded-lg hover:bg-slate-100">${opts.cancel || "Отмена"}</button>
         <button id="cf-yes" class="px-4 py-1.5 ${opts.danger ? "bg-red-600 hover:bg-red-500" : "bg-sky-600 hover:bg-sky-500"} text-white rounded-lg">${opts.ok || "ОК"}</button>
@@ -257,9 +301,10 @@ const SW = {
     const host = document.getElementById("confirm-host");
     const safe = String(message).replace(/&/g, "&amp;").replace(/</g, "&lt;");
     const dv = String(def == null ? "" : def).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-    host.innerHTML = `<div class="bg-white rounded-xl p-5 w-full max-w-sm shadow-xl" onclick="event.stopPropagation()">
-      <p class="text-sm mb-3 whitespace-pre-line">${safe}</p>
-      <input id="cf-input" autocomplete="off" class="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4" value="${dv}">
+    host.innerHTML = `<div class="bg-white rounded-xl p-5 w-full max-w-sm shadow-xl" onclick="event.stopPropagation()"
+      role="dialog" aria-modal="true" aria-labelledby="cf-msg">
+      <p id="cf-msg" class="text-sm mb-3 whitespace-pre-line">${safe}</p>
+      <input id="cf-input" autocomplete="off" aria-labelledby="cf-msg" class="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4" value="${dv}">
       <div class="flex justify-end gap-2">
         <button id="cf-no" class="px-3 py-1.5 text-slate-500 rounded-lg hover:bg-slate-100">${opts.cancel || "Отмена"}</button>
         <button id="cf-yes" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg">${opts.ok || "ОК"}</button>
@@ -524,7 +569,7 @@ const SW = {
         <i class="ti ti-player-play text-sky-400"></i>
         <span class="font-medium text-sm truncate flex-1">${this._escHtml(name)}</span>
         <a href="${dl}" class="text-slate-400 hover:text-sky-400" title="Скачать"><i class="ti ti-download text-lg"></i></a>
-        <button class="text-slate-400 hover:text-white" onclick="SW.closeModal()"><i class="ti ti-x text-lg"></i></button>
+        <button type="button" class="text-slate-400 hover:text-white" onclick="SW.closeModal()" aria-label="Закрыть окно"><i class="ti ti-x text-lg"></i></button>
       </div>
       <video id="sw-vid" autoplay playsinline crossorigin="use-credentials" class="sw-video max-h-[64vh] max-w-full w-full rounded-lg bg-black"
              onclick="SW.plClick()" ondblclick="SW.plDblClick()" onerror="document.getElementById('sw-pl-err').classList.remove('hidden')">
@@ -541,7 +586,7 @@ const SW = {
       <div class="sw-bar sw-btnbar flex items-center gap-3 text-slate-300 px-0.5 pb-0.5">
         <button onclick="SW.plToggle()" class="hover:text-white" title="Воспроизведение/пауза"><i id="sw-pl-icon" class="ti ti-player-pause-filled text-xl"></i></button>
         <button onclick="SW.plMute()" class="hover:text-white" title="Звук"><i id="sw-vol-icon" class="ti ti-volume text-lg"></i></button>
-        <input id="sw-vol" type="range" min="0" max="1" step="0.05" value="1" oninput="SW.plVolume(this.value)" class="w-24 accent-sky-500 cursor-pointer">
+        <input id="sw-vol" type="range" min="0" max="1" step="0.05" value="1" aria-label="Громкость" oninput="SW.plVolume(this.value)" class="w-24 accent-sky-500 cursor-pointer">
         <button id="sw-tracks-btn" onclick="SW.plTracksMenu()" class="hover:text-white hidden" title="Аудио и субтитры"><i class="ti ti-adjustments-horizontal text-lg"></i></button>
         <button onclick="SW.plFullscreen()" class="hover:text-white ml-auto" title="Полный экран"><i class="ti ti-maximize text-lg"></i></button>
       </div>
@@ -694,7 +739,7 @@ const SW = {
         <i class="ti ti-player-play text-sky-600"></i>
         <span class="font-medium text-sm truncate flex-1">${this._escHtml(name)}</span>
         <a href="${dl}" class="text-slate-400 hover:text-sky-600" title="Скачать"><i class="ti ti-download text-lg"></i></a>
-        <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x text-lg"></i></button>
+        <button type="button" class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()" aria-label="Закрыть окно"><i class="ti ti-x text-lg"></i></button>
       </div>${inner}
     </div>`;
     m.classList.remove("hidden");
@@ -880,6 +925,18 @@ const SW = {
     document.querySelectorAll(".tr-arr").forEach((s) => {
       s.textContent = (s.dataset.s === this.trSort) ? (this.trAsc ? " ↑" : " ↓") : "";
     });
+    // стрелка — только для глаз; скринридеру порядок сортировки сообщает aria-sort
+    document.querySelectorAll("th[data-sort]").forEach((th) => {
+      th.setAttribute("aria-sort", th.dataset.sort !== this.trSort
+        ? "none" : (this.trAsc ? "ascending" : "descending"));
+    });
+  },
+  /** Строка списка с клавиатуры: Enter и пробел — то же, что клик. */
+  rowKey(ev, fn) {
+    if (ev.key !== "Enter" && ev.key !== " ") return;
+    if (ev.target !== ev.currentTarget) return;   // нажали на кнопку внутри строки
+    ev.preventDefault();
+    fn();
   },
   trSelect(id, ev) {
     if (ev && ev.target.closest("button, input, select, a")) return;
@@ -927,8 +984,9 @@ const SW = {
     // легко перепутать, а разница между ними — стёртые с диска файлы.
     const host = document.getElementById("confirm-host");
     const safe = String(name).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-    host.innerHTML = `<div class="bg-white rounded-xl p-5 w-full max-w-md shadow-xl" onclick="event.stopPropagation()">
-      <p class="text-sm mb-1">Удалить торрент</p>
+    host.innerHTML = `<div class="bg-white rounded-xl p-5 w-full max-w-md shadow-xl" onclick="event.stopPropagation()"
+      role="dialog" aria-modal="true" aria-labelledby="tr-rm-title">
+      <p id="tr-rm-title" class="text-sm mb-1">Удалить торрент</p>
       <p class="text-sm font-medium mb-4 break-words">${safe}</p>
       <div class="flex flex-col gap-2">
         <button id="tr-keep" class="w-full text-left px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50">
@@ -1082,7 +1140,7 @@ const SW = {
       <h3 class="font-medium mb-1">Порт веб-интерфейса</h3>
       <p class="text-sm text-slate-500 mb-3">Текущий порт: ${this.curPort}. После смены страница станет недоступна — переподключись на новый порт.</p>
       <form hx-post="/htmx/set-port" hx-target="#toast-host" hx-swap="beforeend" class="space-y-3">
-        <input type="number" name="port" min="1024" max="65535" required value="${this.curPort}"
+        <input type="number" name="port" min="1024" max="65535" required value="${this.curPort}" aria-label="Новый порт веб-интерфейса"
                class="w-full border border-slate-300 rounded-lg px-3 py-2">
         <div class="flex justify-end gap-2">
           <button type="button" class="px-3 py-1.5 text-slate-500" onclick="SW.closeModal()">Отмена</button>
@@ -1121,7 +1179,7 @@ const SW = {
     const html = `<div class="bg-white rounded-xl p-5 w-full max-w-sm" onclick="event.stopPropagation()">
       <h3 class="font-medium mb-3">Сменить пароль админки</h3>
       <form hx-post="/htmx/admin-passwd" hx-target="#toast-host" hx-swap="beforeend" class="space-y-3">
-        <input type="password" name="password" required minlength="8" placeholder="Новый пароль (≥8)"
+        <input type="password" name="password" required minlength="8" placeholder="Новый пароль (≥8)" aria-label="Новый пароль администратора"
                class="w-full border border-slate-300 rounded-lg px-3 py-2">
         <div class="flex justify-end gap-2">
           <button type="button" class="px-3 py-1.5 text-slate-500" onclick="SW.closeModal()">Отмена</button>

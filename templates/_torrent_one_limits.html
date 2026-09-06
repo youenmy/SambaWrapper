@@ -1,7 +1,7 @@
 <div class="bg-white rounded-xl p-5 w-full max-w-sm" onclick="event.stopPropagation()">
   <div class="flex items-center justify-between mb-1">
     <h3 class="font-medium flex items-center gap-2"><i class="ti ti-gauge text-sky-600"></i>Лимиты торрента</h3>
-    <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+    <button type="button" class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()" aria-label="Закрыть окно"><i class="ti ti-x"></i></button>
   </div>
 
   {% if not lim %}
@@ -16,14 +16,14 @@
         <input type="checkbox" name="down_on" value="yes" {% if lim.down_on %}checked{% endif %}>
         <i class="ti ti-arrow-down text-sky-600"></i>Загрузка
       </label>
-      <input type="number" name="down" min="0" value="{{ lim.down }}" class="flex-1 border border-slate-300 rounded-lg px-3 py-1.5">
+      <input type="number" name="down" min="0" value="{{ lim.down }}" aria-label="Предел скорости загрузки этой раздачи, КБ/с" class="flex-1 border border-slate-300 rounded-lg px-3 py-1.5">
     </div>
     <div class="flex items-center gap-2">
       <label class="flex items-center gap-1.5 w-24 shrink-0 cursor-pointer">
         <input type="checkbox" name="up_on" value="yes" {% if lim.up_on %}checked{% endif %}>
         <i class="ti ti-arrow-up text-emerald-600"></i>Раздача
       </label>
-      <input type="number" name="up" min="0" value="{{ lim.up }}" class="flex-1 border border-slate-300 rounded-lg px-3 py-1.5">
+      <input type="number" name="up" min="0" value="{{ lim.up }}" aria-label="Предел скорости отдачи этой раздачи, КБ/с" class="flex-1 border border-slate-300 rounded-lg px-3 py-1.5">
     </div>
 
     <label class="flex items-start gap-2 cursor-pointer pt-1">

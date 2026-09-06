@@ -1,7 +1,7 @@
 <div class="bg-white rounded-xl p-5 w-full max-w-md" onclick="event.stopPropagation()">
     <div class="flex items-center justify-between mb-3">
         <h3 class="font-medium">{{ "Права доступа к шаре" if editing else "Расшарить папку" }}</h3>
-        <button class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()"><i class="ti ti-x"></i></button>
+        <button type="button" class="text-slate-400 hover:text-slate-700" onclick="SW.closeModal()" aria-label="Закрыть окно"><i class="ti ti-x"></i></button>
     </div>
     <form hx-post="/htmx/share-create" hx-target="#toast-host" hx-swap="beforeend" class="space-y-4">
         <input type="hidden" name="abs_path" value="{{ abs_path }}">

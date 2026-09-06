@@ -1,7 +1,7 @@
 <div class="p-2 space-y-0.5" data-root="{{ library }}">
   <!-- «Все треки» не уезжает вместе со списком: закреплена у верхнего края панели -->
-  <div class="sticky top-0 z-10 -mx-2 -mt-2 px-2 pt-2 pb-1 bg-white border-b border-slate-100">
-    <button class="mus-item w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-sm flex items-center gap-2"
+  <div class="sticky top-0 z-10 -mx-2 -mt-2 px-2 pt-2 pb-1 bg-white border-b border-slate-100 flex items-center gap-1">
+    <button class="mus-item flex-1 min-w-0 text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-sm flex items-center gap-2"
             data-all="1" onclick="Music.clearFilters()"
             {% if tree %}
             ondragover="Music.fs.over(event, {{ library|tojson|forceescape }})"
@@ -11,11 +11,12 @@
             {% endif %}>
       <i class="ti ti-list text-sky-600"></i>
       <span class="flex-1">Все треки</span>
-      <span class="mus-shuffle-all shrink-0 text-slate-400 hover:text-sky-600"
-            title="Играть всю библиотеку в случайном порядке"
-            onclick="event.stopPropagation(); Music.shuffleAll()">
-        <i class="ti ti-arrows-shuffle text-base"></i></span>
     </button>
+    <button type="button" class="mus-shuffle-all shrink-0 px-1 text-slate-400 hover:text-sky-600"
+            title="Играть всю библиотеку в случайном порядке"
+            aria-label="Играть всю библиотеку в случайном порядке"
+            onclick="Music.shuffleAll()">
+      <i class="ti ti-arrows-shuffle text-base"></i></button>
   </div>
 
 
@@ -34,20 +35,25 @@
   {% else %}
   {% if not folders %}<div class="px-2 text-xs text-slate-400">Нет подпапок.</div>{% endif %}
   {% for f in folders %}
-    <button class="mus-item w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-[0.8125rem] flex items-center gap-1.5 {{ 'mus-on' if f.abs == cur_folder else '' }} {{ 'mus-hidden' if f.hidden else '' }}"
-            data-folder="{{ f.abs }}"
-            oncontextmenu="Music.fs.menu(event, {{ f.abs|tojson|forceescape }}, {{ f.name|tojson|forceescape }})"
-            onclick="Music.filterFolder({{ f.abs|tojson|forceescape }})"
-            title="{{ f.abs }}{{ ' — скрыта из общего списка' if f.hidden else '' }}">
-      <i class="ti ti-folder text-amber-500 shrink-0"></i>
-      <span class="flex-1 min-w-0 truncate">{{ f.name }}</span>
-      {% if f.hidden %}<i class="ti ti-eye-off text-sm shrink-0 mus-hidden-eye"
-                          title="Скрыта из общего списка"></i>{% endif %}
-      <span class="mus-pin shrink-0 text-slate-400 hover:text-sky-600" title="Закрепить наверху"
-            onclick="event.stopPropagation(); Music.pins.toggle({{ f.abs|tojson|forceescape }})">
-        <i class="ti ti-pin text-sm"></i></span>
-      <span class="text-[0.625rem] text-slate-400 shrink-0">{{ f.n }}</span>
-    </button>
+    {# булавка — отдельная кнопка рядом, а не внутри кнопки папки: кнопку
+       в кнопку вкладывать нельзя, и с клавиатуры до вложенной не добраться #}
+    <div class="mus-node flex items-center gap-1">
+      <button class="mus-item flex-1 min-w-0 text-left px-2 py-1 rounded-lg hover:bg-slate-100 text-[0.8125rem] flex items-center gap-1.5 {{ 'mus-on' if f.abs == cur_folder else '' }} {{ 'mus-hidden' if f.hidden else '' }}"
+              data-folder="{{ f.abs }}"
+              oncontextmenu="Music.fs.menu(event, {{ f.abs|tojson|forceescape }}, {{ f.name|tojson|forceescape }})"
+              onclick="Music.filterFolder({{ f.abs|tojson|forceescape }})"
+              title="{{ f.abs }}{{ ' — скрыта из общего списка' if f.hidden else '' }}">
+        <i class="ti ti-folder text-amber-500 shrink-0"></i>
+        <span class="flex-1 min-w-0 truncate">{{ f.name }}</span>
+        {% if f.hidden %}<i class="ti ti-eye-off text-sm shrink-0 mus-hidden-eye"
+                            title="Скрыта из общего списка"></i>{% endif %}
+        <span class="text-[0.625rem] text-slate-400 shrink-0">{{ f.n }}</span>
+      </button>
+      <button type="button" class="mus-pin shrink-0 px-1 text-slate-400 hover:text-sky-600"
+              title="Закрепить наверху" aria-label="Закрепить папку {{ f.name }} наверху"
+              onclick="Music.pins.toggle({{ f.abs|tojson|forceescape }})">
+        <i class="ti ti-pin text-sm"></i></button>
+    </div>
   {% endfor %}
   {% endif %}
 </div>

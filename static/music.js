@@ -247,11 +247,18 @@
         if (rows) M.pins._forget(missing);
         M.pins._busy = false;
 
+        /* Метка закрепления теперь на строке целиком: булавка — соседняя
+           кнопка, а не потомок кнопки папки. */
         document.querySelectorAll("#music-lists .mus-item[data-folder]").forEach(function (item) {
           var on = pinned.indexOf(item.dataset.folder) >= 0;
+          var row = item.closest(".mus-node") || item;
           item.classList.toggle("mus-pinned", on);
-          var pin = item.querySelector(".mus-pin");
-          if (pin) pin.title = on ? "Открепить" : "Закрепить наверху";
+          row.classList.toggle("mus-pinned", on);
+          var pin = row.querySelector(".mus-pin");
+          if (pin) {
+            pin.title = on ? "Открепить" : "Закрепить наверху";
+            pin.setAttribute("aria-pressed", on ? "true" : "false");
+          }
         });
       },
     },
@@ -727,6 +734,23 @@
       if (!a.duration) return;
       var box = $("mus-seek").getBoundingClientRect();
       a.currentTime = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) * a.duration;
+    },
+    /* Полоса перемотки объявлена ползунком, значит должна слушаться клавиш:
+       стрелки — 5 секунд, Home/End — края трека. Глобальные стрелки двигают
+       на 10 секунд и работают, когда фокуса на полосе нет. */
+    seekKey: function (event) {
+      var a = audio();
+      if (!a || !a.duration) return;
+      var step = 5, to = null;
+      if (event.key === "ArrowRight" || event.key === "ArrowUp") to = a.currentTime + step;
+      else if (event.key === "ArrowLeft" || event.key === "ArrowDown") to = a.currentTime - step;
+      else if (event.key === "Home") to = 0;
+      else if (event.key === "End") to = a.duration - 1;
+      else if (event.key === " " || event.key === "Enter") { event.preventDefault(); M.toggle(); return; }
+      if (to === null) return;
+      event.preventDefault();
+      event.stopPropagation();          // иначе глобальный обработчик добавит свои 10 секунд
+      a.currentTime = Math.max(0, Math.min(a.duration - 0.5, to));
     },
     seekWheel: function (event) {
       event.preventDefault();
@@ -1565,6 +1589,12 @@
           if (fill) fill.style.width = pct + "%";
           if (head) head.style.left = pct + "%";
           if (cur) cur.textContent = fmt(el.currentTime);
+          // ползунок сообщает позицию вслух: процент — для роли, время — для человека
+          var seek = $("mus-seek");
+          if (seek) {
+            seek.setAttribute("aria-valuenow", Math.round(pct));
+            seek.setAttribute("aria-valuetext", fmt(el.currentTime) + " из " + fmt(el.duration));
+          }
           // позицию сохраняем не чаще раза в 5 секунд
           if (!M._savedAt || Date.now() - M._savedAt > 5000) {
             M._savedAt = Date.now();

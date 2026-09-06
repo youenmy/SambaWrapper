@@ -16,8 +16,8 @@
     <script src="/static/htmx.js?v=1"></script>
     <link rel="stylesheet" href="/static/tabler-icons.css?v=1">
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-    <link rel="stylesheet" href="/static/style.css?v=81">
-    <link rel="stylesheet" href="/static/themes.css?v=5">
+    <link rel="stylesheet" href="/static/style.css?v=82">
+    <link rel="stylesheet" href="/static/themes.css?v=6">
     <style>
       html { font-size: 120%; }  /* всё на rem → интерфейс крупнее на 20% */
       body { background:#f1f5f9; color:#0f172a; }
@@ -59,7 +59,10 @@
 <body class="min-h-screen">
 {% block body %}{% endblock %}
 
-<div id="toast-host" class="fixed bottom-4 right-4 z-[100] space-y-2"></div>
+{# role=status + aria-live: результат операции произносится скринридером,
+   иначе об успехе или ошибке узнают только глазами #}
+<div id="toast-host" role="status" aria-live="polite" aria-atomic="false"
+     class="fixed bottom-4 right-4 z-[100] space-y-2"></div>
 
 <script>
 // Relocate any toast fragment that arrives via an hx-swap into the toast host.
@@ -71,6 +74,6 @@ document.body.addEventListener("htmx:afterSwap", function(evt) {
 });
 </script>
 {% block scripts %}{% endblock %}
-<script src="/static/music.js?v=90"></script>
+<script src="/static/music.js?v=91"></script>
 </body>
 </html>
