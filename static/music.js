@@ -117,7 +117,7 @@
         if (sel) sel.value = st.sort + ":" + (st.desc ? "desc" : "asc");
       }, 120);
       $("mus-bar").classList.remove("hidden");   // док виден всегда в разделе
-      htmx.ajax("GET", "/htmx/music-page", {target: "#browser", swap: "innerHTML"})
+      htmx.ajax("GET", "/htmx/music-page", {target: "#browser", swap: "innerHTML settle:140ms"})
         .then(function () { M.restoreNow(); });
     },
 

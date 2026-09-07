@@ -87,7 +87,7 @@
       </tr>
     </thead>
     <tbody id="tr-tbody" hx-get="/htmx/torrents-list" hx-trigger="load, every 2s, refresh"
-           hx-vals="js:{sort: SW.trSort, dir: SW.trAsc ? 'asc' : 'desc', filter: SW.trFilter, q: SW.trQ}" hx-swap="innerHTML">
+           hx-vals="js:{sort: SW.trSort, dir: SW.trAsc ? 'asc' : 'desc', filter: SW.trFilter, q: SW.trQ, sig: SW.sig('#tr-tbody')}" hx-swap="innerHTML">
       <tr><td colspan="11" class="text-center text-slate-400 py-6">Загрузка…</td></tr>
     </tbody>
   </table>
@@ -95,9 +95,10 @@
 
 <div id="tr-details" class="shrink-0 max-h-64 overflow-auto border-t border-slate-200 empty:hidden"
      hx-get="/htmx/torrent-files" hx-trigger="every 3s, refresh" hx-swap="innerHTML"
-     hx-vals="js:{id: SW.trSel || 0}"></div>
+     hx-vals="js:{id: SW.trSel || 0, sig: SW.sig('#tr-details')}"></div>
 
-<div id="tr-stats" class="shrink-0 flex items-center gap-3 px-4 h-8 border-t border-slate-100 text-xs text-slate-400"
+<div id="tr-stats" hx-vals="js:{sig: SW.sig('#tr-stats')}"
+     class="shrink-0 flex items-center gap-3 px-4 h-8 border-t border-slate-100 text-xs text-slate-400"
      hx-get="/htmx/torrents-stats" hx-trigger="load, every 2s" hx-swap="innerHTML"></div>
 
 {% endif %}

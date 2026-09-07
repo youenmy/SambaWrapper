@@ -10,9 +10,9 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.6"
+APP_VERSION = "3.7"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.datastructures import MutableHeaders
@@ -162,6 +162,22 @@ def require_admin(request: Request) -> str:
     return user
 
 
+# ---------- опрашиваемые куски интерфейса ----------
+#
+# Панель дисков, список торрентов и прочее перерисовываются по таймеру. Если
+# отдавать одинаковую разметку снова и снова, htmx каждый раз подменяет узлы:
+# картинка моргает, выделение и позиция прокрутки теряются. Поэтому к ответу
+# подписывается его отпечаток, клиент возвращает его следующим запросом, и на
+# неизменившийся кусок сервер отвечает 204 — htmx такой ответ не вставляет.
+
+def _polled(request: Request, response, sig: str):
+    html = response.body.decode("utf-8")
+    cur = hashlib.sha1(html.encode("utf-8")).hexdigest()[:16]
+    if sig and sig == cur:
+        return Response(status_code=204)
+    return HTMLResponse(html + f'<span hidden data-sig="{cur}"></span>')
+
+
 # ---------- настройки интерфейса ----------
 #
 # На сервере живёт только то, что описывает вкус: тема, закрепления,
@@ -214,7 +230,7 @@ async def index(request: Request, _: str = Depends(current_user)):
 # ---------- sidebar (disks + shares) ----------
 
 @app.get("/htmx/sidebar", response_class=HTMLResponse)
-async def htmx_sidebar(request: Request, _: str = Depends(current_user)):
+async def htmx_sidebar(request: Request, _: str = Depends(current_user), sig: str = ""):
     partitions = disks.list_partitions()
     shares = samba.list_shares()
     root = str(MOUNT_ROOT)
@@ -234,13 +250,13 @@ async def htmx_sidebar(request: Request, _: str = Depends(current_user)):
             assigned.update(s["name"] for s in p["shares"])
     orphan_shares = sorted([s for s in shares if s["name"] not in assigned],
                            key=lambda s: s["name"].lower())
-    return templates.TemplateResponse("_sidebar.html", {
+    return _polled(request, templates.TemplateResponse("_sidebar.html", {
         "request": request, "partitions": partitions, "shares": shares,
         "orphan_shares": orphan_shares, "stale": disks.list_stale_mounts(),
         "dlna": dlna.status(), "torrent": torrent.status(), "mount_root": root,
         "music": music.stats(),
         "role": current_role(request),
-    })
+    }), sig)
 
 @app.post("/htmx/stale-clean", response_class=HTMLResponse)
 async def htmx_stale_clean(request: Request, _: str = Depends(require_admin), mountpoint: str = Form(...)):
@@ -795,7 +811,7 @@ async def htmx_torrent_dest(request: Request, _: str = Depends(current_user)):
 @app.get("/htmx/torrents-list", response_class=HTMLResponse)
 async def htmx_torrents_list(request: Request, _: str = Depends(current_user),
                              sort: str = "name", dir: str = "asc",
-                             filter: str = "all", q: str = ""):
+                             filter: str = "all", q: str = "", sig: str = ""):
     torrents = await asyncio.to_thread(torrent.list_torrents)
     codes = torrent.FILTERS.get(filter)
     if codes:
@@ -805,18 +821,19 @@ async def htmx_torrents_list(request: Request, _: str = Depends(current_user),
         torrents = [t for t in torrents if q in t["name"].lower()]
     key = torrent.SORT_KEYS.get(sort, torrent.SORT_KEYS["name"])
     torrents.sort(key=key, reverse=(dir == "desc"))
-    return templates.TemplateResponse("_torrents_list.html", {"request": request, "torrents": torrents})
+    return _polled(request, templates.TemplateResponse(
+        "_torrents_list.html", {"request": request, "torrents": torrents}), sig)
 
 @app.get("/htmx/torrents-stats", response_class=HTMLResponse)
-async def htmx_torrents_stats(request: Request, _: str = Depends(current_user)):
+async def htmx_torrents_stats(request: Request, _: str = Depends(current_user), sig: str = ""):
     s = await asyncio.to_thread(torrent.stats)
     if not s:
         return HTMLResponse("")
     alt = '<span class="text-amber-500" title="Тихий режим включён"><i class="ti ti-tortoise"></i></span>' if s["alt"] else ""
-    return HTMLResponse(
+    return _polled(request, HTMLResponse(
         f'<span>{s["count"]} торрентов · активных {s["active"]}</span>'
         f'<span class="text-sky-600 ml-auto"><i class="ti ti-arrow-down"></i>{s["down"]}</span>'
-        f'<span class="text-emerald-600"><i class="ti ti-arrow-up"></i>{s["up"]}</span>{alt}')
+        f'<span class="text-emerald-600"><i class="ti ti-arrow-up"></i>{s["up"]}</span>{alt}'), sig)
 
 @app.post("/htmx/torrent-move", response_class=HTMLResponse)
 async def htmx_torrent_move(request: Request, _: str = Depends(current_user),
@@ -825,13 +842,15 @@ async def htmx_torrent_move(request: Request, _: str = Depends(current_user),
     return _resp(request, ok, msg, [])
 
 @app.get("/htmx/torrent-files", response_class=HTMLResponse)
-async def htmx_torrent_files(request: Request, _: str = Depends(current_user), id: int = 0):
+async def htmx_torrent_files(request: Request, _: str = Depends(current_user), id: int = 0,
+                             sig: str = ""):
     if not id:
         return HTMLResponse("")
     det = await asyncio.to_thread(torrent.get_details, id)
     if not det:
         return HTMLResponse("")
-    return templates.TemplateResponse("_torrent_files.html", {"request": request, "t": det})
+    return _polled(request, templates.TemplateResponse(
+        "_torrent_files.html", {"request": request, "t": det}), sig)
 
 @app.post("/htmx/torrent-seq", response_class=HTMLResponse)
 async def htmx_torrent_seq(request: Request, _: str = Depends(current_user),

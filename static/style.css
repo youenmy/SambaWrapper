@@ -406,3 +406,23 @@ tr:focus-visible,
 tr:focus-visible > td { outline-offset: -2px; }
 /* элементы, которые сами рисуют рамку, кольцо получают без смещения */
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; }
+
+/* --------------------------------------------------------------- переходы
+ *
+ * htmx подменяет содержимое целиком, и без перехода это читается как рывок:
+ * старое исчезает, новое появляется в другом месте. Проявление в 140 мс
+ * скрывает шов, но не заставляет ждать — содержимое уже на месте, меняется
+ * только прозрачность.
+ */
+#browser.htmx-settling > * { animation: sw-fade-in 140ms ease-out; }
+#music-lists.htmx-settling > *,
+#mus-rows.htmx-settling > tr { animation: sw-fade-in 120ms ease-out; }
+@keyframes sw-fade-in { from { opacity: 0 } to { opacity: 1 } }
+
+/* Тем, кто просил систему не анимировать, не анимируем ничего. */
+@media (prefers-reduced-motion: reduce) {
+  #browser.htmx-settling > *,
+  #music-lists.htmx-settling > *,
+  #mus-rows.htmx-settling > tr { animation: none; }
+  .sw-sidebar { transition: none !important; }
+}

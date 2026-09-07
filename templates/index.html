@@ -40,13 +40,26 @@
   <div class="flex flex-1 min-h-0 relative">
     <aside id="sidebar" aria-label="Диски и разделы" class="sw-sidebar w-64 shrink-0 bg-white border-r border-slate-200 overflow-y-auto
                                 fixed md:static top-12 bottom-0 left-0 z-40 -translate-x-full md:translate-x-0 transition-transform duration-200"
-           hx-get="/htmx/sidebar" hx-trigger="load, every 8s" hx-swap="innerHTML">
+           hx-get="/htmx/sidebar" hx-trigger="load, every 8s" hx-swap="innerHTML"
+           hx-vals="js:{sig: SW.sig('#sidebar')}">
       <div class="p-4 text-slate-400 text-sm">Загрузка…</div>
     </aside>
 
     <div class="flex-1 min-w-0 flex flex-col overflow-hidden">
     <main id="browser" class="flex-1 min-w-0 flex flex-col bg-white overflow-hidden">
-      <div class="m-auto text-slate-400 text-sm flex flex-col items-center gap-2 px-4 text-center">
+      {# подсказку прячем ещё до отрисовки, если раздел будет восстановлен:
+         иначе она успевает мелькнуть и смениться содержимым #}
+      <script>
+        (function () {
+          try {
+            var last = JSON.parse(localStorage.getItem("sw.lastView") || "null");
+            if (last && last.view && !(last.view === "files" && !last.path)) {
+              document.write('<style>#browser-hint{display:none}</style>');
+            }
+          } catch (e) {}
+        })();
+      </script>
+      <div id="browser-hint" class="m-auto text-slate-400 text-sm flex flex-col items-center gap-2 px-4 text-center">
         <i class="ti ti-folder text-3xl"></i>
         <span class="md:hidden">Нажми <i class="ti ti-menu-2"></i> вверху, чтобы выбрать диск</span>
         <span class="hidden md:inline">Выбери диск слева</span>
@@ -156,7 +169,8 @@ const SW = {
   },
   navigate(path) {
     this.setView("files");
-    htmx.ajax("GET", "/htmx/browse?path=" + encodeURIComponent(path), {target:"#browser", swap:"innerHTML"});
+    htmx.ajax("GET", "/htmx/browse?path=" + encodeURIComponent(path),
+              {target: "#browser", swap: "innerHTML settle:140ms"});
   },
   refreshBrowser() { this.navigate(this.path); },
   refreshSidebar() { htmx.ajax("GET", "/htmx/sidebar", {target:"#sidebar", swap:"innerHTML"}); },
@@ -196,8 +210,15 @@ const SW = {
   },
   openDlna() {
     this.setView("dlna");
-    htmx.ajax("GET", "/htmx/dlna-page", {target: "#browser", swap: "innerHTML"}).then(() => this._markActiveDisk());
+    htmx.ajax("GET", "/htmx/dlna-page", {target: "#browser", swap: "innerHTML settle:140ms"}).then(() => this._markActiveDisk());
     this.closeSidebar();
+  },
+
+  /** Отпечаток последнего полученного куска: сервер по нему отвечает 204,
+   *  и htmx не подменяет узлы ради той же самой разметки. */
+  sig(sel) {
+    const el = document.querySelector(sel + " [data-sig]");
+    return el ? el.dataset.sig : "";
   },
 
   post(url, vals) { htmx.ajax("POST", url, {target:"#toast-host", swap:"beforeend", values:vals}); },
@@ -937,7 +958,7 @@ const SW = {
   openDlna() {
     this.path = "";
     this.setView("dlna");
-    htmx.ajax("GET", "/htmx/dlna-page", {target: "#browser", swap: "innerHTML"}).then(() => this._markActiveDisk());
+    htmx.ajax("GET", "/htmx/dlna-page", {target: "#browser", swap: "innerHTML settle:140ms"}).then(() => this._markActiveDisk());
     this.closeSidebar();
   },
   settingsTab(name) {
@@ -951,7 +972,7 @@ const SW = {
   openTorrents() {
     this.path = "";
     this.setView("torrents");
-    htmx.ajax("GET", "/htmx/torrents-page", {target: "#browser", swap: "innerHTML"}).then(() => this._markActiveDisk());
+    htmx.ajax("GET", "/htmx/torrents-page", {target: "#browser", swap: "innerHTML settle:140ms"}).then(() => this._markActiveDisk());
     this.closeSidebar();
   },
   pasteMagnet() {
@@ -1407,10 +1428,17 @@ SW.restoreSidebar();
 /* Раздел восстанавливаем после полной загрузки: music.js подключается ниже
    этого скрипта, и на момент его выполнения Music ещё не существует. Ошибку
    не проглатываем — иначе раздел молча остаётся пустым, как это уже было. */
-window.addEventListener("load", () => {
-  try { SW.restoreView(); }
-  catch (e) { console.error("SambaWrapper: не удалось восстановить раздел", e); }
-});
+/* Раздел восстанавливаем на DOMContentLoaded: music.js подключён выше и уже
+   разобран, а событие load ждёт ещё картинки и шрифты — из-за этого пустое
+   окно висело заметно дольше, чем нужно. */
+(function restoreWhenReady() {
+  const go = () => {
+    try { SW.restoreView(); }
+    catch (e) { console.error("SambaWrapper: не удалось восстановить раздел", e); }
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", go, {once: true});
+  else go();
+})();
 SW._syncTheme();
 
 window.addEventListener("focus", () => {
