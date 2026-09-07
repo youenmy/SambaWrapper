@@ -1,5 +1,7 @@
 """SQLite storage for admin password and known mount associations."""
+import json
 import sqlite3
+import time
 from contextlib import contextmanager
 from .config import DB_PATH, DATA_DIR
 
@@ -18,6 +20,11 @@ CREATE TABLE IF NOT EXISTS web_users (
     username TEXT PRIMARY KEY,
     pwhash   TEXT NOT NULL,
     role     TEXT NOT NULL DEFAULT 'user'
+);
+CREATE TABLE IF NOT EXISTS ui_prefs (
+    username TEXT PRIMARY KEY,
+    data     TEXT NOT NULL DEFAULT '{}',
+    updated  REAL NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS tracks (
     id          INTEGER PRIMARY KEY,
@@ -55,6 +62,60 @@ def connect():
         cx.commit()
     finally:
         cx.close()
+
+# ---------- настройки интерфейса, общие для всех устройств пользователя ----------
+#
+# Хранится JSON-объект на пользователя. Запись всегда идёт слиянием по
+# ключам, а не заменой: два устройства правят разные настройки, и полная
+# замена означала бы, что последнее сохранение стирает чужое.
+
+UI_PREFS_LIMIT = 64 * 1024      # закрепления и столбцы столько не занимают
+
+def get_ui_prefs(username: str) -> dict:
+    with connect() as cx:
+        row = cx.execute("SELECT data FROM ui_prefs WHERE username=?", (username,)).fetchone()
+    if not row:
+        return {}
+    try:
+        value = json.loads(row["data"])
+    except ValueError:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+def patch_ui_prefs(username: str, patch: dict) -> dict:
+    """Слить переданные ключи с сохранёнными. Значение null удаляет ключ."""
+    with connect() as cx:
+        row = cx.execute("SELECT data FROM ui_prefs WHERE username=?", (username,)).fetchone()
+        try:
+            data = json.loads(row["data"]) if row else {}
+        except ValueError:
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        for key, value in patch.items():
+            if value is None:
+                data.pop(key, None)
+            else:
+                data[key] = value
+        blob = json.dumps(data, ensure_ascii=False)
+        if len(blob.encode("utf-8")) > UI_PREFS_LIMIT:
+            raise ValueError("настройки интерфейса слишком велики")
+        cx.execute(
+            "INSERT INTO ui_prefs(username, data, updated) VALUES(?,?,?) "
+            "ON CONFLICT(username) DO UPDATE SET data=excluded.data, updated=excluded.updated",
+            (username, blob, time.time()))
+    return data
+
+def rename_ui_prefs(old_name: str, new_name: str) -> None:
+    """Пользователя переименовали — настройки должны переехать вместе с ним."""
+    with connect() as cx:
+        cx.execute("UPDATE OR REPLACE ui_prefs SET username=? WHERE username=?",
+                   (new_name, old_name))
+
+def drop_ui_prefs(username: str) -> None:
+    with connect() as cx:
+        cx.execute("DELETE FROM ui_prefs WHERE username=?", (username,))
+
 
 def get_setting(key: str) -> str | None:
     with connect() as cx:

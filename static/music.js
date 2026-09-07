@@ -86,9 +86,17 @@
     return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
   }
 
+  /* Часть настроек общая для всех устройств пользователя и живёт на сервере.
+     Сохранение остаётся одним вызовом: локальная копия пишется всегда, а
+     синхронизируемые ключи дополнительно уходят наверх — так ни одно место
+     сохранения не приходится помнить отдельно. */
+  var SHARED = {"sw.musPins": "musPins", "sw.musCols": "musCols",
+                "sw.musSorts": "musSorts", "sw.musTree": "musTree", "sw.musViz": "musViz"};
+
   function store(key, value) {
     try { localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value)); }
     catch (e) { /* приватный режим — просто не сохраняем */ }
+    if (SHARED[key] && window.SW && SW.savePref) SW.savePref(SHARED[key]);
   }
   function load(key, fallback) {
     try {

@@ -9,7 +9,12 @@
       // Светлым оформлениям класс dark не нужен: он включает тёмные правила
       // в style.css и dark:-варианты Tailwind, и после перезагрузки светлая
       // тема получала их обратно, хотя при выборе они снимались.
-      var skin = localStorage.getItem("sw.skin") || "classic";
+      // Тему берём из настроек пользователя, пришедших с сервером: они
+      // одинаковы на всех его устройствах, а локальная копия — лишь запасной
+      // вариант, когда страница отдана без настроек (например, вход).
+      var served = {{ (prefs.skin if prefs is defined and prefs and prefs.skin else "")|tojson }};
+      var skin = served || localStorage.getItem("sw.skin") || "classic";
+      if (served) { try { localStorage.setItem("sw.skin", served); } catch (e) {} }
       var light = ["paper", "contrast", "sakura"].indexOf(skin) >= 0;
       if (!light && localStorage.getItem("sw.theme") !== "light") {
         document.documentElement.classList.add("dark");
@@ -81,6 +86,6 @@ document.body.addEventListener("htmx:afterSwap", function(evt) {
 });
 </script>
 {% block scripts %}{% endblock %}
-<script src="/static/music.js?v=91"></script>
+<script src="/static/music.js?v=92"></script>
 </body>
 </html>

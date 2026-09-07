@@ -10,7 +10,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.5"
+APP_VERSION = "3.6"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -162,6 +162,37 @@ def require_admin(request: Request) -> str:
     return user
 
 
+# ---------- настройки интерфейса ----------
+#
+# На сервере живёт только то, что описывает вкус: тема, закрепления,
+# столбцы, сортировка. Громкость, позиция в треке и последний раздел
+# остаются в браузере — они про конкретное устройство, а не про человека.
+
+UI_PREFS_KEYS = {"skin", "musPins", "musCols", "musSorts", "musTree", "musViz"}
+
+@app.get("/api/prefs")
+async def api_prefs(request: Request, user: str = Depends(current_user)):
+    return {"ok": True, "prefs": await asyncio.to_thread(db.get_ui_prefs, user)}
+
+@app.post("/api/prefs")
+async def api_prefs_save(request: Request, user: str = Depends(current_user)):
+    try:
+        patch = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="ожидается JSON")
+    if not isinstance(patch, dict):
+        raise HTTPException(status_code=400, detail="ожидается объект")
+    # чужие ключи не храним: браузер не должен превращать эту таблицу в свалку
+    patch = {k: v for k, v in patch.items() if k in UI_PREFS_KEYS}
+    if not patch:
+        return {"ok": True, "prefs": await asyncio.to_thread(db.get_ui_prefs, user)}
+    try:
+        data = await asyncio.to_thread(db.patch_ui_prefs, user, patch)
+    except ValueError as e:
+        raise HTTPException(status_code=413, detail=str(e))
+    return {"ok": True, "prefs": data}
+
+
 # ---------- page ----------
 
 @app.get("/", response_class=HTMLResponse)
@@ -172,9 +203,11 @@ async def index(request: Request, _: str = Depends(current_user)):
         known = {u["username"] for u in auth.list_web_users()} | {auth.get_username()}
         if request.session.get("user") not in known:
             request.session["user"] = auth.get_username()
+    prefs = await asyncio.to_thread(db.get_ui_prefs, request.session.get("user", ""))
     return templates.TemplateResponse("index.html", {
         "request": request, "mount_root": str(MOUNT_ROOT), "port": portcfg.current_port(),
         "role": current_role(request), "username": request.session.get("user", ""),
+        "prefs": prefs,
     })
 
 
@@ -677,6 +710,8 @@ async def htmx_webuser_passwd(request: Request, _: str = Depends(require_admin),
 async def htmx_webuser_delete(request: Request, _: str = Depends(require_admin),
                               username: str = Form(...)):
     ok, msg = auth.delete_web_user(username)
+    if ok:
+        await asyncio.to_thread(db.drop_ui_prefs, username)   # чтобы не копились сироты
     return _resp(request, ok, msg or f"Пользователь «{username}» удалён", ["reloadSettings"] if ok else [])
 
 @app.post("/htmx/ui-pref", response_class=HTMLResponse)
@@ -688,9 +723,13 @@ async def htmx_ui_pref(request: Request, _: str = Depends(require_admin),
 @app.post("/htmx/admin-account", response_class=HTMLResponse)
 async def htmx_admin_account(request: Request, _: str = Depends(require_admin),
                             username: str = Form(...), password: str = Form("")):
+    was = auth.get_username()
     ok, msg = auth.set_username(username)
     if not ok:
         return _resp(request, False, msg, [])
+    if was != auth.get_username():
+        # настройки интерфейса привязаны к имени — переносим вместе с ним
+        await asyncio.to_thread(db.rename_ui_prefs, was, auth.get_username())
     if password.strip():
         if len(password) < 8:
             return _resp(request, False, "Пароль: минимум 8 символов", [])

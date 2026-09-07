@@ -343,6 +343,86 @@ const SW = {
   /* Светлые темы: остальные всегда тёмные. «Классическая» — единственная,
      что живёт в обоих режимах и слушается переключателя дня и ночи. */
   lightSkins: ["paper", "contrast", "sakura"],
+  /* --------------------------------------------- общие настройки вкуса
+   *
+   * Тема, закрепления, столбцы и сортировка живут на сервере и одинаковы
+   * на всех устройствах пользователя. Всё остальное (громкость, позиция в
+   * треке, последний раздел) остаётся в браузере: это про машину, а не про
+   * человека, и синхронизировать его вредно.
+   *
+   * Локальное хранилище остаётся рабочей копией: интерфейс читает его, как
+   * читал, и продолжает работать, даже когда сервер не ответил. Сервер —
+   * источник истины при загрузке и приёмник изменений после.
+   */
+  prefKeys: {skin: "sw.skin", musPins: "sw.musPins", musCols: "sw.musCols",
+             musSorts: "sw.musSorts", musTree: "sw.musTree", musViz: "sw.musViz"},
+  prefsReady: false,
+
+  /** Разложить пришедшие с сервера настройки по локальным ключам. */
+  applyPrefs(prefs) {
+    if (!prefs) return;
+    Object.entries(this.prefKeys).forEach(([key, ls]) => {
+      if (!(key in prefs)) return;
+      const v = prefs[key];
+      try { localStorage.setItem(ls, typeof v === "string" ? v : JSON.stringify(v)); }
+      catch (e) { /* приватный режим */ }
+    });
+  },
+  /** Собрать то, что уже есть в браузере, — для первой заливки на сервер. */
+  collectPrefs() {
+    const out = {};
+    Object.entries(this.prefKeys).forEach(([key, ls]) => {
+      let raw = null;
+      try { raw = localStorage.getItem(ls); } catch (e) { return; }
+      if (raw === null) return;
+      try { out[key] = JSON.parse(raw); } catch (e) { out[key] = raw; }
+    });
+    return out;
+  },
+  /* Отправляем только изменившийся ключ, а не весь набор: два устройства
+     правят разное, и полная замена стирала бы чужое. Задержка нужна против
+     потока событий — тянуть ширину столбца можно секунду подряд. */
+  savePref(key) {
+    if (!this.prefsReady || !this.prefKeys[key]) return;
+    this._prefQueue = this._prefQueue || {};
+    let raw = null;
+    try { raw = localStorage.getItem(this.prefKeys[key]); } catch (e) { return; }
+    try { this._prefQueue[key] = raw === null ? null : JSON.parse(raw); }
+    catch (e) { this._prefQueue[key] = raw; }
+    clearTimeout(this._prefTimer);
+    this._prefTimer = setTimeout(() => this._prefFlush(), 800);
+  },
+  _prefFlush() {
+    const patch = this._prefQueue;
+    this._prefQueue = null;
+    if (!patch || !Object.keys(patch).length) return;
+    fetch("/api/prefs", {method: "POST", credentials: "same-origin",
+                         headers: {"Content-Type": "application/json"},
+                         body: JSON.stringify(patch)})
+      .catch(() => { /* сеть отвалилась: локальная копия уже сохранена */ });
+  },
+  /** Забрать настройки при старте; пустой ответ означает первый вход. */
+  loadPrefs() {
+    return fetch("/api/prefs", {credentials: "same-origin"})
+      .then((r) => r.json())
+      .then((d) => {
+        const server = (d && d.prefs) || {};
+        if (Object.keys(server).length) {
+          this.applyPrefs(server);
+          this.prefsReady = true;
+        } else {
+          // на сервере пусто — переносим то, что накопилось в этом браузере,
+          // иначе первый же вход с чистой машины стёр бы закрепления
+          this.prefsReady = true;
+          const mine = this.collectPrefs();
+          if (Object.keys(mine).length) {
+            this._prefQueue = mine;
+            this._prefFlush();
+          }
+        }
+      })
+      .catch(() => { /* сервер не ответил — работаем на локальной копии */ });
+  },
   skin() { return localStorage.getItem("sw.skin") || "classic"; },
   setSkin(id) {
     localStorage.setItem("sw.skin", id);
@@ -352,6 +432,7 @@ const SW = {
     if (light) document.documentElement.classList.remove("dark");
     else if (id !== "classic") document.documentElement.classList.add("dark");
     this.closeSkins();
+    this.savePref("skin");
     if (window.Music && Music.viz) Music.viz.recolor();
     this.toast("Оформление: " + (this.skins.find(s => s[0] === id) || [,id])[1]);
   },
@@ -1311,6 +1392,16 @@ const SW = {
   _escHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); },
 };
 window.SW = SW;
+/* Настройки вкуса приходят вместе со страницей, а не отдельным запросом:
+   music.js подключается ниже и читает хранилище сразу при загрузке — успеть
+   ответом на fetch туда невозможно. */
+SW.applyPrefs({{ prefs|tojson }});
+SW.prefsReady = true;
+if (!Object.keys({{ prefs|tojson }}).length) {
+  // на сервере пусто (первый вход после обновления) — переносим накопленное
+  var mine = SW.collectPrefs();
+  if (Object.keys(mine).length) { SW._prefQueue = mine; SW._prefFlush(); }
+}
 document.body.dataset.view = SW.view;
 SW.restoreSidebar();
 /* Раздел восстанавливаем после полной загрузки: music.js подключается ниже
@@ -1321,6 +1412,13 @@ window.addEventListener("load", () => {
   catch (e) { console.error("SambaWrapper: не удалось восстановить раздел", e); }
 });
 SW._syncTheme();
+
+window.addEventListener("focus", () => {
+  // вкладку вернули: настройки могли измениться на другом устройстве
+  if (SW._prefRefresh && Date.now() - SW._prefRefresh < 30000) return;
+  SW._prefRefresh = Date.now();
+  SW.loadPrefs().then(() => { if (window.Music && Music.pins) Music.pins.apply(); });
+});
 
 document.body.addEventListener("refreshBrowser", () => SW.refreshBrowser());
 document.body.addEventListener("refreshSidebar", () => SW.refreshSidebar());
