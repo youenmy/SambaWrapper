@@ -589,6 +589,74 @@ html[data-theme="synth"] {
 }
 
 
+/* ------------------------------------------------------------------- Трон
+ * «Трон»: почти чёрная сетка, холодный неон по краям, оранжевый — только
+ * на предупреждениях (в фильме это цвет противника). Скругления почти
+ * нулевые: интерфейс собран из световых линий, а не из карточек.
+ */
+html[data-theme="tron"] {
+  --sw-bg:        #000308;
+  --sw-surface:   #05090f;
+  --sw-surface-2: #0a1119;
+  --sw-surface-3: #102030;
+  --sw-text:      #dff6ff;
+  --sw-text-2:    #a9dcec;
+  --sw-muted:     #8ec4d6;
+  --sw-faint:     #77aabc;
+  --sw-border:    #0e1c26;
+  --sw-border-2:  #2f7d94;
+  --sw-accent:      #17c8e8;
+  --sw-accent-hover:#4ae2ff;
+  --sw-accent-text: #00131a;
+  --sw-accent-soft: #062430;
+  --sw-accent-ink:  #6ff0ff;
+  --sw-danger:    #ff6a4d;
+  --sw-ok:        #3fe0b0;
+  --sw-warn:      #ffa028;
+  --sw-radius:    0.125rem;
+  --sw-radius-sm: 0.0625rem;
+  --sw-radius-lg: 0.1875rem;
+  --sw-font: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --sw-row-pad: 0.4375rem;
+  --sw-shadow: 0 0 0 1px rgba(23,200,232,.25), 0 8px 26px rgba(0,0,0,.8);
+  --sw-viz-hot-a: #17c8e8;
+  --sw-viz-hot-b: #d9fbff;
+  --sw-viz-cold:  rgba(119,170,188,.25);
+}
+
+/* «Трон» держится не на цвете, а на свете: сетка на фоне, светящиеся рёбра
+ * панелей и неоновый след у активных элементов. Токенами это не описать —
+ * им подвластен цвет, но не свечение и не фон-узор.
+ *
+ * Сетка нарисована градиентами, а не картинкой: масштабируется без файлов
+ * и не мешает читать текст — линии дают меньше процента яркости.
+ */
+/* Селектор с повтором атрибута — не украшение: общий блок тем задаёт body
+   сокращённым `background` с !important, и он сбрасывал бы картинку сетки. */
+html[data-theme="tron"][data-theme] body {
+  background-color: var(--sw-bg) !important;
+  background-image:
+    repeating-linear-gradient(0deg,  rgba(23,200,232,.085) 0 1px, transparent 1px 40px),
+    repeating-linear-gradient(90deg, rgba(23,200,232,.085) 0 1px, transparent 1px 40px) !important;
+}
+/* панели — не карточки, а очерченные светом плоскости */
+html[data-theme="tron"] .bg-white,
+html[data-theme="tron"] .bg-slate-50 { box-shadow: inset 0 0 0 1px rgba(23,200,232,.10); }
+html[data-theme="tron"] .border-slate-200,
+html[data-theme="tron"] .border-slate-100 { border-color: rgba(23,200,232,.18) !important; }
+/* активное и наведённое светится, как ребро диска */
+html[data-theme="tron"] .bg-sky-600 { box-shadow: 0 0 12px rgba(23,200,232,.55); }
+html[data-theme="tron"] .text-sky-600,
+html[data-theme="tron"] .text-sky-700 { text-shadow: 0 0 8px rgba(111,240,255,.45); }
+html[data-theme="tron"] tr.mrow:hover,
+html[data-theme="tron"] tr.tr-row:hover { box-shadow: inset 2px 0 0 var(--sw-accent-ink); }
+html[data-theme="tron"] tr.mus-playing { box-shadow: inset 2px 0 0 var(--sw-accent-ink), 0 0 18px rgba(23,200,232,.18); }
+html[data-theme="tron"] .mus-item.mus-on { box-shadow: inset 2px 0 0 var(--sw-accent-ink); }
+/* поля ввода — тонкая световая рамка вместо серой */
+html[data-theme="tron"] input,
+html[data-theme="tron"] select,
+html[data-theme="tron"] textarea { border-color: rgba(23,200,232,.35) !important; }
+
 /* «Контраст» — не просто светлая тема: она обещает различимость, поэтому
  * границы здесь толще, а кольцо фокуса заметнее. Цветом этого добиться
  * нельзя — толщина линии не описывается токеном. */
