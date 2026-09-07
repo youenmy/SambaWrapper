@@ -333,14 +333,23 @@ const SW = {
     ["amethyst", "Аметист",        "#7c6cf0", "Фиолетовый акцент по тёплому тёмному"],
     ["claude",   "Claude",         "#d97757", "Тёплый тёмно-серый и терракота, как в клиенте"],
     ["paper",    "Бумага",         "#9a5b2c", "Светлая, тёплая, с засечками"],
+    ["nord",     "Север",          "#5579a5", "Холодный сине-серый, ни одного чистого чёрного"],
+    ["ocean",    "Океан",          "#17a2b8", "Глубокая бирюза и светящийся циан"],
+    ["synth",    "Синтвейв",       "#ff2e88", "Фиолетовая ночь, малина и циан, крупные скругления"],
+    ["sakura",   "Сакура",         "#b83266", "Светлая розовая, малиновый акцент, мягкие формы"],
+    ["contrast", "Контраст",       "#0b3fd1", "Чистый белый и чёрный: максимальная различимость"],
   ],
+  /* Светлые темы: остальные всегда тёмные. «Классическая» — единственная,
+     что живёт в обоих режимах и слушается переключателя дня и ночи. */
+  lightSkins: ["paper", "contrast", "sakura"],
   skin() { return localStorage.getItem("sw.skin") || "classic"; },
   setSkin(id) {
     localStorage.setItem("sw.skin", id);
     document.documentElement.dataset.theme = id;
     // тёмные темы не должны зависеть от переключателя дня и ночи
-    if (id !== "classic" && id !== "paper") document.documentElement.classList.add("dark");
-    if (id === "paper") document.documentElement.classList.remove("dark");
+    const light = this.lightSkins.indexOf(id) >= 0;
+    if (light) document.documentElement.classList.remove("dark");
+    else if (id !== "classic") document.documentElement.classList.add("dark");
     this.closeSkins();
     if (window.Music && Music.viz) Music.viz.recolor();
     this.toast("Оформление: " + (this.skins.find(s => s[0] === id) || [,id])[1]);

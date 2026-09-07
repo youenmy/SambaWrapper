@@ -5,9 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}SambaWrapper{% endblock %}</title>
     <script>
-      // тему ставим до отрисовки, иначе страница моргнёт прежними цветами
-      if (localStorage.getItem("sw.theme") !== "light") document.documentElement.classList.add("dark");
-      document.documentElement.dataset.theme = localStorage.getItem("sw.skin") || "classic";
+      // тему ставим до отрисовки, иначе страница моргнёт прежними цветами.
+      // Светлым оформлениям класс dark не нужен: он включает тёмные правила
+      // в style.css и dark:-варианты Tailwind, и после перезагрузки светлая
+      // тема получала их обратно, хотя при выборе они снимались.
+      var skin = localStorage.getItem("sw.skin") || "classic";
+      var light = ["paper", "contrast", "sakura"].indexOf(skin) >= 0;
+      if (!light && localStorage.getItem("sw.theme") !== "light") {
+        document.documentElement.classList.add("dark");
+      }
+      document.documentElement.dataset.theme = skin;
     </script>
     {# Всё своё: приложение работает и когда внешние CDN недоступны. Стили
        Tailwind собраны из шаблонов статическим файлом, шрифт иконок и htmx
@@ -17,7 +24,7 @@
     <link rel="stylesheet" href="/static/tabler-icons.css?v=1">
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="stylesheet" href="/static/style.css?v=82">
-    <link rel="stylesheet" href="/static/themes.css?v=6">
+    <link rel="stylesheet" href="/static/themes.css?v=7">
     <style>
       html { font-size: 120%; }  /* всё на rem → интерфейс крупнее на 20% */
       body { background:#f1f5f9; color:#0f172a; }

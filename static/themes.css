@@ -418,6 +418,188 @@ html[data-theme]:not([data-theme="classic"]) #sw-fill::after {
   background: var(--sw-accent); border-color: var(--sw-surface);
 }
 
+/* ------------------------------------------------------------------ Север
+ * Палитра Nord: холодный сине-серый, ни одного чистого чёрного или белого.
+ * Самая «спокойная» из тёмных тем — для долгой работы вечером.
+ */
+html[data-theme="nord"] {
+  --sw-bg:        #2e3440;
+  --sw-surface:   #3b4252;
+  --sw-surface-2: #434c5e;
+  --sw-surface-3: #4c566a;
+  --sw-text:      #eceff4;
+  --sw-text-2:    #d8dee9;
+  --sw-muted:     #c2cbd8;
+  --sw-faint:     #b3bccb;
+  --sw-border:    #343b49;
+  --sw-border-2:  #828da3;
+  --sw-accent:      #5579a5;
+  --sw-accent-hover:#6f92bd;
+  --sw-accent-text: #ffffff;
+  --sw-accent-soft: #37455c;
+  --sw-accent-ink:  #9dc3dc;
+  --sw-danger:    #e9adb2;
+  --sw-ok:        #abc496;
+  --sw-warn:      #ebcb8b;
+  --sw-radius:    0.5rem;
+  --sw-radius-sm: 0.375rem;
+  --sw-radius-lg: 0.75rem;
+  --sw-font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --sw-row-pad: 0.4375rem;
+  --sw-shadow: 0 6px 18px rgba(0,0,0,.35);
+  --sw-viz-hot-a: #88c0d0;
+  --sw-viz-hot-b: #d8dee9;
+  --sw-viz-cold:  rgba(216,222,233,.22);
+}
+
+/* --------------------------------------------------------------- Контраст
+ * Максимальная различимость: чистый белый фон, почти чёрный текст, тёмные
+ * границы, никаких полутонов и теней. Для яркого солнца и слабого зрения.
+ */
+html[data-theme="contrast"] {
+  --sw-bg:        #ffffff;
+  --sw-surface:   #ffffff;
+  --sw-surface-2: #f2f2f2;
+  --sw-surface-3: #e8e8e8;
+  --sw-text:      #000000;
+  --sw-text-2:    #1a1a1a;
+  --sw-muted:     #333333;
+  --sw-faint:     #4a4a4a;
+  --sw-border:    #8c8c8c;
+  --sw-border-2:  #000000;
+  --sw-accent:      #0b3fd1;
+  --sw-accent-hover:#0932a8;
+  --sw-accent-text: #ffffff;
+  --sw-accent-soft: #dbe4ff;
+  --sw-accent-ink:  #0b3fd1;
+  --sw-danger:    #b00020;
+  --sw-ok:        #005c2e;
+  --sw-warn:      #6b4400;
+  --sw-radius:    0.25rem;
+  --sw-radius-sm: 0.1875rem;
+  --sw-radius-lg: 0.375rem;
+  --sw-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sw-row-pad: 0.5rem;
+  --sw-shadow: 0 0 0 1px #000000;
+  --sw-viz-hot-a: #0b3fd1;
+  --sw-viz-hot-b: #000000;
+  --sw-viz-cold:  rgba(0,0,0,.35);
+}
+
+/* ----------------------------------------------------------------- Океан
+ * Глубокая бирюза: холодный тёмный без синевы «ночного» интерфейса,
+ * акцент — светящийся циан, как подсветка приборной панели.
+ */
+html[data-theme="ocean"] {
+  --sw-bg:        #04161a;
+  --sw-surface:   #0b2229;
+  --sw-surface-2: #123039;
+  --sw-surface-3: #183f4a;
+  --sw-text:      #e6f4f6;
+  --sw-text-2:    #c3e0e4;
+  --sw-muted:     #a4c4ca;
+  --sw-faint:     #92b3ba;
+  --sw-border:    #102c34;
+  --sw-border-2:  #327282;
+  --sw-accent:      #17a2b8;
+  --sw-accent-hover:#1fbdd6;
+  --sw-accent-text: #02181c;
+  --sw-accent-soft: #0a3540;
+  --sw-accent-ink:  #5fd6e6;
+  --sw-danger:    #ff8a80;
+  --sw-ok:        #4bd6a0;
+  --sw-warn:      #f0b429;
+  --sw-radius:    0.75rem;
+  --sw-radius-sm: 0.5rem;
+  --sw-radius-lg: 1rem;
+  --sw-font: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --sw-row-pad: 0.5rem;
+  --sw-shadow: 0 10px 28px rgba(0,0,0,.5);
+  --sw-viz-hot-a: #17a2b8;
+  --sw-viz-hot-b: #9df3ff;
+  --sw-viz-cold:  rgba(146,179,186,.28);
+}
+
+/* ---------------------------------------------------------------- Сакура
+ * Светлая тёплая тема с розовым фоном и малиновым акцентом: вторая после
+ * «Бумаги» дневная, но не бумажная, а мягкая и округлая.
+ */
+html[data-theme="sakura"] {
+  --sw-bg:        #fbf1f3;
+  --sw-surface:   #ffffff;
+  --sw-surface-2: #fdf6f8;
+  --sw-surface-3: #f7e9ed;
+  --sw-text:      #3a1f28;
+  --sw-text-2:    #5e3a45;
+  --sw-muted:     #6f4c57;
+  --sw-faint:     #7f5c68;
+  --sw-border:    #f2e0e5;
+  --sw-border-2:  #b8798d;
+  --sw-accent:      #b83266;
+  --sw-accent-hover:#a32a59;
+  --sw-accent-text: #ffffff;
+  --sw-accent-soft: #fbe4ec;
+  --sw-accent-ink:  #99244f;
+  --sw-danger:    #b3261e;
+  --sw-ok:        #2f7d4f;
+  --sw-warn:      #8a5a00;
+  --sw-radius:    0.875rem;
+  --sw-radius-sm: 0.625rem;
+  --sw-radius-lg: 1.125rem;
+  --sw-font: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --sw-row-pad: 0.5rem;
+  --sw-shadow: 0 6px 18px rgba(122,60,84,.14);
+  --sw-viz-hot-a: #b83266;
+  --sw-viz-hot-b: #f5a8c4;
+  --sw-viz-cold:  rgba(127,92,104,.28);
+}
+
+/* -------------------------------------------------------------- Синтвейв
+ * Самая громкая тема набора: фиолетовая ночь, малиновый акцент, циановый
+ * спектр и крупные скругления. Противоположность «Консоли».
+ */
+html[data-theme="synth"] {
+  --sw-bg:        #120a24;
+  --sw-surface:   #1b1033;
+  --sw-surface-2: #241645;
+  --sw-surface-3: #2e1c57;
+  --sw-text:      #f7f0ff;
+  --sw-text-2:    #ddd0f7;
+  --sw-muted:     #bcaade;
+  --sw-faint:     #ab98d2;
+  --sw-border:    #2a1a4e;
+  --sw-border-2:  #6f4fbb;
+  --sw-accent:      #ff2e88;
+  --sw-accent-hover:#ff5ba3;
+  --sw-accent-text: #1a0010;
+  --sw-accent-soft: #3d1140;
+  --sw-accent-ink:  #ff8ec2;
+  --sw-danger:    #ff6b6b;
+  --sw-ok:        #3ddc97;
+  --sw-warn:      #ffc857;
+  --sw-radius:    1rem;
+  --sw-radius-sm: 0.75rem;
+  --sw-radius-lg: 1.25rem;
+  --sw-font: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --sw-row-pad: 0.5rem;
+  --sw-shadow: 0 8px 30px rgba(255,46,136,.22);
+  --sw-viz-hot-a: #ff2e88;
+  --sw-viz-hot-b: #45e0ff;
+  --sw-viz-cold:  rgba(171,152,210,.28);
+}
+
+
+/* «Контраст» — не просто светлая тема: она обещает различимость, поэтому
+ * границы здесь толще, а кольцо фокуса заметнее. Цветом этого добиться
+ * нельзя — толщина линии не описывается токеном. */
+html[data-theme="contrast"] input,
+html[data-theme="contrast"] select,
+html[data-theme="contrast"] textarea { border-width: 2px !important; }
+html[data-theme="contrast"] tbody tr { border-bottom-width: 2px; }
+html[data-theme="contrast"] thead { border-bottom: 2px solid var(--sw-border-2); }
+html[data-theme="contrast"] :focus-visible { outline-width: 3px; outline-offset: 1px; }
+html[data-theme="contrast"] .rounded-full { border: 1px solid var(--sw-border-2); }
+
 /* ------------------------------------------------- контраст «классики»
  *
  * Классическая тема намеренно осталась на палитре Tailwind, а не на токенах:
