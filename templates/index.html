@@ -68,7 +68,8 @@
   <!-- ===== музыкальный плеер (появляется, когда включён трек) ===== -->
   <div id="mus-bar" class="hidden relative z-[60] h-12 shrink-0 bg-white border-t border-slate-200 flex items-center gap-3 px-3 pl-52">
     <!-- обложка поднимается над доком и вписана по ширине в панель библиотеки (w-52) -->
-    <div id="mus-cover-wrap" class="mus-cover-frame absolute left-2 bottom-2 w-48 h-48">
+    <div id="mus-cover-wrap" class="mus-cover-frame absolute left-2 bottom-2 w-48 h-48 cursor-pointer"
+         onclick="Music.np.show()" title="Во весь экран (F)">
       <div class="w-full h-full rounded-md overflow-hidden mus-nocover">
         <img id="mus-cover" alt="" class="w-full h-full object-cover hidden">
       </div>
@@ -108,6 +109,8 @@
       <input id="mus-vol" type="range" min="0" max="1" step="0.05" value="1" aria-label="Громкость"
              oninput="Music.setVolume(this.value)" class="w-full accent-sky-500 cursor-pointer">
     </div>
+    <button title="Во весь экран (F)" aria-label="Открыть «Сейчас играет» во весь экран"
+            class="text-slate-400 hover:text-sky-600 shrink-0" onclick="Music.np.show()"><i class="ti ti-arrows-maximize"></i></button>
     <button title="Закрыть плеер" class="text-slate-400 hover:text-red-600 shrink-0" onclick="Music.close()"><i class="ti ti-x"></i></button>
     <!-- две деки: пока играет одна, вторая заранее качает следующий трек -->
     <audio id="mus-audio" preload="auto"></audio>
@@ -132,6 +135,53 @@ new MutationObserver(() => {
   m.style.bottom = bar.classList.contains("hidden") ? "0px" : bar.offsetHeight + "px";
 }).observe(document.body, {attributes: true, subtree: true, attributeFilter: ["class"]});
 </script>
+<!-- ===== «Сейчас играет» во весь экран =====
+     Разметка своя, а не из Tailwind: классы режима живут в style.css, и
+     пересобирать стили ради них не нужно. Текст всегда белый на затемнённом
+     фоне — от темы и от обложки контраст здесь не зависит. -->
+<div id="mus-np" class="np" hidden role="dialog" aria-modal="true" aria-label="Сейчас играет">
+  <div class="np-backdrop" aria-hidden="true">
+    <img id="mus-np-bg" alt="">
+    <div class="np-aurora"></div>
+    <div class="np-scrim"></div>
+  </div>
+  <button type="button" class="np-close" onclick="Music.np.hide()"
+          title="Свернуть (Esc)" aria-label="Свернуть"><i class="ti ti-chevron-down"></i></button>
+
+  <div class="np-stage">
+    <div id="mus-np-art" class="np-art">
+      <img id="mus-np-cover" alt="">
+      <i class="ti ti-music np-art-empty" aria-hidden="true"></i>
+    </div>
+    <div class="np-info">
+      <div class="np-kicker">Сейчас играет</div>
+      <div id="mus-np-title" class="np-title">—</div>
+      <div id="mus-np-meta" class="np-meta"></div>
+      <div class="np-controls">
+        <button type="button" id="mus-np-shuffle" class="np-btn" onclick="Music.toggleShuffle()"
+                title="Перемешать" aria-label="Перемешать" aria-pressed="false"><i class="ti ti-arrows-shuffle"></i></button>
+        <button type="button" class="np-btn" onclick="Music.prev()"
+                title="Предыдущий" aria-label="Предыдущий"><i class="ti ti-player-skip-back-filled"></i></button>
+        <button type="button" id="mus-np-play" class="np-play" onclick="Music.toggle()"
+                aria-label="Играть"><i id="mus-np-play-icon" class="ti ti-player-play-filled"></i></button>
+        <button type="button" class="np-btn" onclick="Music.next()"
+                title="Следующий" aria-label="Следующий"><i class="ti ti-player-skip-forward-filled"></i></button>
+        <button type="button" id="mus-np-repeat" class="np-btn" onclick="Music.toggleRepeat()"
+                title="Повтор" aria-label="Повтор" aria-pressed="false"><i class="ti ti-repeat"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="np-bottom">
+    <div class="np-time"><span id="mus-np-cur">0:00</span><span id="mus-np-dur">0:00</span></div>
+    <div id="mus-np-seek" class="np-seek" role="slider" tabindex="0" aria-label="Перемотка"
+         aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+         onkeydown="Music.seekKey(event)" onclick="Music.np.seek(event)">
+      <canvas id="mus-np-viz"></canvas>
+    </div>
+  </div>
+</div>
+
 <div id="confirm-host" class="hidden fixed inset-0 z-[110] bg-black/40 flex items-center justify-center p-4"></div>
 <div id="ctxmenu" class="hidden fixed z-[95] w-48 bg-white border border-slate-200 rounded-lg shadow-lg p-1 text-sm"></div>
 <input type="file" id="uploader" multiple class="hidden" onchange="SW.doUpload(this)">
@@ -455,6 +505,7 @@ const SW = {
     this.closeSkins();
     this.savePref("skin");
     if (window.Music && Music.viz) Music.viz.recolor();
+    if (window.Music && Music.tint) Music.tint.refresh();
     this.toast("Оформление: " + (this.skins.find(s => s[0] === id) || [,id])[1]);
   },
   toggleSkins() {

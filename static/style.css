@@ -426,3 +426,168 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
   #mus-rows.htmx-settling > tr { animation: none; }
   .sw-sidebar { transition: none !important; }
 }
+
+/* ================================================== цвет из обложки
+ *
+ * music.js кладёт в корень три оттенка цвета обложки. Их регистрация через
+ * @property нужна не для порядка: без неё браузер не умеет плавно переходить
+ * от одного значения переменной к другому, и смена трека была бы рывком.
+ */
+@property --sw-cover       { syntax: "<color>"; inherits: true; initial-value: #0284c7; }
+@property --sw-cover-soft  { syntax: "<color>"; inherits: true; initial-value: transparent; }
+@property --sw-cover-faint { syntax: "<color>"; inherits: true; initial-value: transparent; }
+html { transition: --sw-cover .9s ease, --sw-cover-soft .9s ease, --sw-cover-faint .9s ease; }
+
+/* Только декоративные слои: свечение над доком, рамка обложки, головка
+   перемотки. Текст остаётся на токенах темы. */
+html.sw-tinted #mus-bar {
+  box-shadow: 0 -1px 0 var(--sw-cover-soft), 0 -26px 48px -30px var(--sw-cover-soft);
+}
+html.sw-tinted .mus-cover-frame {
+  border-color: var(--sw-cover-soft);
+  box-shadow: 0 .625rem 1.75rem rgba(0, 0, 0, .45), 0 0 38px -8px var(--sw-cover-soft);
+}
+html.sw-tinted #mus-head { background: var(--sw-cover) !important; }
+.mus-cover-frame { transition: border-color .9s ease, box-shadow .9s ease, transform .2s ease; }
+.mus-cover-frame:hover { transform: translateY(-2px); }
+
+
+/* ================================================== «Сейчас играет»
+ *
+ * Своя маленькая сцена поверх приложения. Фон собран из трёх слоёв: размытая
+ * обложка, медленная аврора цвета обложки и затемняющая вуаль. Вуаль — не
+ * украшение: благодаря ей белый текст остаётся читаемым на любой обложке,
+ * хоть на белоснежной.
+ */
+.np {
+  position: fixed; inset: 0; z-index: 97;          /* выше приложения, ниже тостов и подтверждений */
+  display: flex; flex-direction: column;
+  color: #ffffff; background: #05060a;
+  font-family: var(--sw-font, system-ui, sans-serif);
+  opacity: 0;
+  transition: opacity .16s ease-in;                /* уход быстрее появления */
+  overflow: hidden;
+}
+.np.np-on { opacity: 1; transition: opacity .28s ease-out; }
+
+.np-backdrop { position: absolute; inset: 0; pointer-events: none; }
+.np-backdrop img {
+  position: absolute; inset: -12%; width: 124%; height: 124%;
+  object-fit: cover;
+  filter: blur(72px) saturate(1.5) brightness(.5);
+  transform: scale(1.1);
+}
+.np-backdrop img:not([src]) { display: none; }
+.np-aurora {
+  position: absolute; inset: -20%;
+  background:
+    radial-gradient(38% 46% at 22% 30%, var(--sw-cover-soft), transparent 70%),
+    radial-gradient(34% 42% at 78% 68%, var(--sw-cover-faint), transparent 70%),
+    radial-gradient(30% 36% at 60% 18%, var(--sw-cover-faint), transparent 72%);
+  animation: np-drift 14s ease-in-out infinite alternate;
+  mix-blend-mode: screen;
+}
+@keyframes np-drift {
+  from { transform: translate3d(-3%, -2%, 0) scale(1); }
+  to   { transform: translate3d(3%, 2%, 0) scale(1.08); }
+}
+.np-scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,.38) 0%, rgba(0,0,0,.30) 45%, rgba(0,0,0,.72) 100%);
+}
+
+.np-close {
+  position: absolute; top: 1rem; right: 1rem; z-index: 2;
+  width: 2.75rem; height: 2.75rem; border-radius: 999px;
+  display: grid; place-items: center;
+  color: #ffffff; background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.18);
+  font-size: 1.4rem;
+  transition: background .15s ease;
+}
+.np-close:hover { background: rgba(255,255,255,.2); }
+
+.np-stage {
+  position: relative; z-index: 1; flex: 1; min-height: 0;
+  display: flex; align-items: center; justify-content: center;
+  gap: clamp(1.5rem, 5vw, 4.5rem);
+  padding: 3.5rem clamp(1rem, 5vw, 4rem) 1rem;
+}
+.np-art {
+  position: relative; flex: none;
+  width: min(52vh, 40vw); aspect-ratio: 1; max-width: 100%;
+  border-radius: 14px; overflow: hidden;
+  background: rgba(255,255,255,.06);
+  box-shadow: 0 34px 90px -20px rgba(0,0,0,.75), 0 0 70px -14px var(--sw-cover-soft);
+  transform: scale(.94) translateY(8px);
+  transition: transform .45s cubic-bezier(.2,.8,.2,1), box-shadow .9s ease;
+}
+.np.np-on .np-art { transform: none; }
+.np-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.np-art-empty { display: none; }
+.np-art.np-noart img { display: none; }
+.np-art.np-noart .np-art-empty {
+  display: grid; place-items: center; position: absolute; inset: 0;
+  font-size: clamp(3rem, 10vh, 6rem); color: rgba(255,255,255,.35);
+}
+
+.np-info { min-width: 0; max-width: 34rem; text-shadow: 0 1px 14px rgba(0,0,0,.45); }
+.np-kicker {
+  font-size: .75rem; letter-spacing: .14em; text-transform: uppercase;
+  color: rgba(255,255,255,.78); margin-bottom: .6rem;
+}
+.np-title {
+  font-size: clamp(1.6rem, 3.6vw, 3rem); font-weight: 700; line-height: 1.1;
+  letter-spacing: -.01em;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.np-meta {
+  margin-top: .6rem; font-size: clamp(.95rem, 1.5vw, 1.2rem);
+  color: rgba(255,255,255,.84);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.np-controls { display: flex; align-items: center; gap: .9rem; margin-top: 2rem; }
+.np-btn {
+  width: 2.75rem; height: 2.75rem; border-radius: 999px;
+  display: grid; place-items: center; font-size: 1.35rem;
+  color: rgba(255,255,255,.86);
+  transition: color .15s ease, background .15s ease, transform .1s ease;
+}
+.np-btn:hover { color: #ffffff; background: rgba(255,255,255,.12); }
+.np-btn:active, .np-play:active { transform: scale(.94); }
+.np-btn.np-active { color: #ffffff; background: var(--sw-cover-faint); box-shadow: inset 0 0 0 1px var(--sw-cover-soft); }
+.np-play {
+  width: 4.25rem; height: 4.25rem; border-radius: 999px;
+  display: grid; place-items: center; font-size: 1.7rem;
+  color: #0b0b0f; background: #ffffff;
+  box-shadow: 0 10px 34px -8px var(--sw-cover-soft);
+  transition: transform .1s ease, box-shadow .9s ease;
+}
+.np-play:hover { transform: scale(1.04); }
+
+.np-bottom { position: relative; z-index: 1; padding: 0 clamp(1rem, 4vw, 3rem) 1.25rem; }
+.np-time {
+  display: flex; justify-content: space-between;
+  font-size: .8rem; font-variant-numeric: tabular-nums;
+  color: rgba(255,255,255,.8); margin-bottom: .35rem;
+}
+.np-seek { position: relative; height: clamp(4rem, 12vh, 7rem); cursor: pointer; border-radius: 6px; }
+.np-seek canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.np :focus-visible { outline: 2px solid #ffffff; outline-offset: 3px; }
+
+/* узкий экран: обложка сверху, текст под ней */
+@media (max-width: 760px) {
+  .np-stage { flex-direction: column; text-align: center; padding-top: 4rem; }
+  .np-art { width: min(42vh, 78vw); }
+  .np-controls { justify-content: center; }
+  .np-meta { white-space: normal; }
+}
+
+/* Без движения: аврора замирает, обложка не выезжает, режим просто появляется. */
+@media (prefers-reduced-motion: reduce) {
+  .np-aurora { animation: none; }
+  .np, .np.np-on, .np-art, .np-play, .np-btn { transition: none; }
+  .np-art { transform: none; }
+  html { transition: none; }
+  .mus-cover-frame:hover { transform: none; }
+}

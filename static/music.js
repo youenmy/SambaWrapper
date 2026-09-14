@@ -626,10 +626,13 @@
       if (track.cover) {
         cover.src = "/music-cover/" + track.id;
         cover.classList.remove("hidden");
-        cover.onerror = function () { cover.classList.add("hidden"); };
+        cover.onerror = function () { cover.classList.add("hidden"); M.tint.reset(); };
+        M.tint.fromCover(cover);
       } else {
         cover.removeAttribute("src"); cover.classList.add("hidden");
+        M.tint.reset();
       }
+      M.np.sync(track);
       if (track.duration) $("mus-dur").textContent = fmt(track.duration);
       st.recent.push(track.id);
       if (st.recent.length > 150) st.recent.shift();
@@ -697,6 +700,7 @@
     toggleShuffle: function () {
       M.shuffleOn = !M.shuffleOn;
       $("mus-shuffle").classList.toggle("text-sky-600", M.shuffleOn);
+      M.np.buttons();
       // список остаётся в своей сортировке — случайным становится только выбор трека
       SW.toast(M.shuffleOn ? "Случайное воспроизведение включено"
                            : "Случайное воспроизведение выключено");
@@ -736,6 +740,7 @@
     toggleRepeat: function () {
       M.repeatOn = !M.repeatOn;
       $("mus-repeat").classList.toggle("text-sky-600", M.repeatOn);
+      M.np.buttons();
     },
     seekClick: function (event) {
       var a = audio();
@@ -812,6 +817,7 @@
                      : (a.volume < 0.5 ? "ti ti-volume-2" : "ti ti-volume");
     },
     close: function () {
+      M.np.hide();
       clear(audio()); clear(spare());
       M.viz.stop();
       st.now = null; st.nowId = 0;
@@ -943,6 +949,13 @@
           b: pick("--sw-viz-hot-b", "#7dd3fc"),
           cold: pick("--sw-viz-cold", "rgba(148,163,184,0.4)"),
         };
+        // обложка дала свой цвет — сыгранная часть спектра окрашивается в него
+        var t = M.tint.color;
+        if (t) {
+          V._skin.a = "rgb(" + t.r + "," + t.g + "," + t.b + ")";
+          var mix = function (v) { return Math.round(v + (255 - v) * 0.45); };
+          V._skin.b = "rgb(" + mix(t.r) + "," + mix(t.g) + "," + mix(t.b) + ")";
+        }
         return V._skin;
       },
       /** Тема сменилась — пересчитать цвета на следующем кадре. */
@@ -969,27 +982,44 @@
                      "состояние контекста:", V.ctx && V.ctx.state,
                      "деки в графе:", Object.keys(V.sources).join(",") || "нет");
       },
+      /* Кадр: спектр читается один раз, а рисуется в каждый видимый холст —
+       * в полосу дока и, если открыт полноэкранный режим, в его полосу. */
       _draw: function () {
         var V = M.viz, c = $("mus-viz");
         if (!c || !V.analyser) { V.raf = 0; return; }
+        V.analyser.getByteFrequencyData(V.data);
 
+        // тихую запись растягиваем на всю высоту: делим не на 255, а на текущий
+        // пик, который медленно оседает, — громкая всё равно не упрётся в потолок
+        var peak = 0;
+        for (var k = 0; k < V.data.length; k++) if (V.data[k] > peak) peak = V.data[k];
+        V.norm = Math.max(peak, (V.norm || 0) * 0.97, 32);
+
+        var a = audio();
+        var played = (a && a.duration) ? a.currentTime / a.duration : 0;
+        V._paint(c, played, 9, 4);
+        if (M.np.open) {
+          var big = $("mus-np-viz");
+          if (big) V._paint(big, played, 12, 6);
+        }
+        V._checkSilence(peak);
+        V.raf = requestAnimationFrame(V._draw);
+      },
+      _paint: function (c, played01, barPx, gapPx) {
+        var V = M.viz;
         var dpr = window.devicePixelRatio || 1;
         var w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
-        if (w < 2 || h < 2) { V.raf = requestAnimationFrame(V._draw); return; }
+        if (w < 2 || h < 2) return;                   // холст скрыт — рисовать некуда
         if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
 
         var g = c.getContext("2d");
         g.clearRect(0, 0, w, h);
-        V.analyser.getByteFrequencyData(V.data);
-
-        var a = audio();
-        var played = (a && a.duration) ? (a.currentTime / a.duration) * w : 0;
+        var played = played01 * w;
         var bins = V.data.length;
-        var barW = Math.round(9 * dpr);
-        var gap = Math.round(4 * dpr);
+        var barW = Math.round(barPx * dpr);
+        var gap = Math.round(gapPx * dpr);
         var count = Math.max(8, Math.floor(w / (barW + gap)));
         var radius = barW / 2;
-        var peak = 0;
 
         // сыгранная часть — яркий градиент снизу вверх, остаток — приглушённый
         var skin = M.viz._colors();
@@ -999,11 +1029,6 @@
         var cold = g.createLinearGradient(0, h, 0, 0);
         cold.addColorStop(0, skin.cold);
         cold.addColorStop(1, skin.cold);
-
-        // тихую запись растягиваем на всю высоту: делим не на 255, а на текущий
-        // пик, который медленно оседает, — громкая всё равно не упрётся в потолок
-        for (var k = 0; k < bins; k++) if (V.data[k] > peak) peak = V.data[k];
-        V.norm = Math.max(peak, (V.norm || 0) * 0.97, 32);
 
         for (var i = 0; i < count; i++) {
           // верхние бины почти всегда пустые — растягиваем полезную часть спектра
@@ -1020,8 +1045,203 @@
             g.fillRect(x, h - bar, barW, bar);
           }
         }
-        V._checkSilence(peak);
-        V.raf = requestAnimationFrame(V._draw);
+      },
+    },
+
+    /* ------------------------------------------------- цвет из обложки
+     *
+     * Из обложки берётся самый «живой» цвет и расходится по декоративным
+     * слоям: свечению дока, рамке обложки, спектру, фону полноэкранного
+     * режима. Текст не трогается никогда — он остаётся на токенах темы,
+     * поэтому контраст, выверенный по WCAG, от обложки не зависит.
+     */
+    tint: {
+      color: null,
+      _token: 0,
+      /** Обложка текущего трека загрузилась (или уже в кэше) — снять цвет. */
+      fromCover: function (img) {
+        var T = M.tint, token = ++T._token;
+        var run = function () {
+          if (token !== T._token) return;             // успел смениться трек
+          try { T._extract(img); } catch (e) { T.reset(); }
+        };
+        if (!img || !img.getAttribute || !img.getAttribute("src")) { T.reset(); return; }
+        if (img.complete && img.naturalWidth) run();
+        else img.addEventListener("load", run, {once: true});
+      },
+      /** Тема сменилась: у светлой и тёмной разные пределы яркости. */
+      refresh: function () {
+        var img = $("mus-cover");
+        if (img && img.getAttribute("src") && !img.classList.contains("hidden")) M.tint.fromCover(img);
+        else M.tint.reset();
+      },
+      _root: function () { return document.documentElement; },
+      _extract: function (img) {
+        var root = M.tint._root();
+        // «Контраст» обещает отсутствие украшений — в нём не красим ничего
+        if (!root || root.dataset.theme === "contrast") { M.tint.reset(); return; }
+        var size = 24;
+        var c = document.createElement("canvas");
+        c.width = c.height = size;
+        var g = c.getContext("2d", {willReadFrequently: true});
+        g.drawImage(img, 0, 0, size, size);
+        var px = g.getImageData(0, 0, size, size).data;
+
+        /* Среднее по картинке почти всегда даёт грязно-серый. Раскладываем
+           пиксели по корзинам тона и взвешиваем насыщенностью и близостью к
+           средней яркости: побеждает цвет, который на обложке и заметен, и ярок. */
+        var buckets = {};
+        for (var i = 0; i < px.length; i += 4) {
+          var hsl = M.tint._hsl(px[i], px[i + 1], px[i + 2]);
+          if (hsl.s < 0.22 || hsl.l < 0.1 || hsl.l > 0.92) continue;
+          var weight = hsl.s * (1 - Math.abs(hsl.l - 0.5) * 1.3);
+          if (weight <= 0) continue;
+          var key = Math.round(hsl.h * 24) % 24;
+          var b = buckets[key] || (buckets[key] = {w: 0, r: 0, g: 0, b: 0});
+          b.w += weight; b.r += px[i] * weight; b.g += px[i + 1] * weight; b.b += px[i + 2] * weight;
+        }
+        var best = null;
+        Object.keys(buckets).forEach(function (k) {
+          if (!best || buckets[k].w > best.w) best = buckets[k];
+        });
+        // монохромная обложка: подкрашивать нечем, остаёмся на теме
+        if (!best || best.w < size * size * 0.02) { M.tint.reset(); return; }
+
+        var col = M.tint._hsl(best.r / best.w, best.g / best.w, best.b / best.w);
+        // на тёмной теме цвет должен светиться, на светлой — не выгорать
+        var dark = M.tint._isDark();
+        col.s = Math.min(0.9, Math.max(col.s, 0.5));
+        col.l = dark ? Math.min(0.72, Math.max(col.l, 0.58)) : Math.min(0.46, Math.max(col.l, 0.34));
+        M.tint._apply(M.tint._rgb(col.h, col.s, col.l), true);
+      },
+      _isDark: function () {
+        var root = M.tint._root();
+        var v = (getComputedStyle(root).getPropertyValue("--sw-surface") || "").trim();
+        var m = /^#([0-9a-f]{6})$/i.exec(v);
+        if (!m) return root.classList.contains("dark");
+        var n = parseInt(m[1], 16);
+        return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) < 128;
+      },
+      _apply: function (rgb, fromCover) {
+        var root = M.tint._root();
+        if (!root || !root.style) return;
+        var val = rgb.r + " " + rgb.g + " " + rgb.b;
+        root.style.setProperty("--sw-cover", "rgb(" + val + ")");
+        root.style.setProperty("--sw-cover-soft", "rgb(" + val + " / 0.38)");
+        root.style.setProperty("--sw-cover-faint", "rgb(" + val + " / 0.16)");
+        root.classList.toggle("sw-tinted", !!fromCover);
+        M.tint.color = fromCover ? rgb : null;
+        M.viz.recolor();
+      },
+      /** Цвета нет — фону полноэкранного режима всё равно нужен оттенок: берём акцент темы. */
+      reset: function () {
+        M.tint._token++;
+        var root = M.tint._root();
+        if (!root || !root.style) return;
+        var acc = (getComputedStyle(root).getPropertyValue("--sw-accent") || "").trim();
+        var m = /^#([0-9a-f]{6})$/i.exec(acc);
+        var n = m ? parseInt(m[1], 16) : 0x0284c7;
+        M.tint._apply({r: n >> 16, g: (n >> 8) & 255, b: n & 255}, false);
+      },
+      _hsl: function (r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        var max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, h = 0, s = 0;
+        if (max !== min) {
+          var d = max - min;
+          s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+          if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+          else if (max === g) h = (b - r) / d + 2;
+          else h = (r - g) / d + 4;
+          h /= 6;
+        }
+        return {h: h, s: s, l: l};
+      },
+      _rgb: function (h, s, l) {
+        var f = function (n) {
+          var k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l);
+          return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))));
+        };
+        return {r: f(0), g: f(8), b: f(4)};
+      },
+    },
+
+    /* ------------------------------------------------ «Сейчас играет»
+     *
+     * Полноэкранный режим поверх всего приложения: крупная обложка, она же
+     * размытой авророй на фоне и спектр во всю ширину. Открывается клавишей F
+     * или кликом по обложке в доке, закрывается Esc. Звук и очередь — те же,
+     * режим только показывает текущее состояние плеера.
+     */
+    np: {
+      open: false,
+      toggle: function () { if (M.np.open) M.np.hide(); else M.np.show(); },
+      show: function () {
+        var el = $("mus-np");
+        if (!el || !st.now || M.np.open) return;
+        M.np.sync(st.now);
+        M.np._return = document.activeElement;
+        el.hidden = false;
+        M.np.open = true;
+        /* Раскладку пересчитываем принудительно, а не ждём следующего кадра:
+           переход прозрачности всё равно срабатывает, но режим не зависит от
+           requestAnimationFrame — в фоновой вкладке кадры не идут, и оверлей
+           оставался бы невидимым, перехватывая клики. */
+        void el.offsetWidth;
+        el.classList.add("np-on");
+        var play = $("mus-np-play");
+        if (play && play.focus) play.focus({preventScroll: true});
+        M.viz.start();
+      },
+      hide: function () {
+        var el = $("mus-np");
+        if (!el || !M.np.open) return;
+        M.np.open = false;
+        el.classList.remove("np-on");
+        setTimeout(function () { if (!M.np.open) el.hidden = true; }, 180);
+        var back = M.np._return;
+        M.np._return = null;
+        if (back && back.focus && document.body.contains(back)) back.focus({preventScroll: true});
+      },
+      /** Перенести в режим название, обложку и состояние кнопок. */
+      sync: function (track) {
+        var title = $("mus-np-title");
+        if (!title || !track) return;
+        title.textContent = track.title || "—";
+        $("mus-np-meta").textContent = [track.artist, track.album].filter(Boolean).join(" — ");
+        var src = track.cover ? "/music-cover/" + track.id : "";
+        ["mus-np-cover", "mus-np-bg"].forEach(function (id) {
+          var img = $(id);
+          if (!img) return;
+          if (src) img.src = src; else img.removeAttribute("src");
+        });
+        var art = $("mus-np-art");
+        if (art) art.classList.toggle("np-noart", !src);
+        M.np.buttons();
+      },
+      buttons: function () {
+        var a = audio(), icon = $("mus-np-play-icon"), play = $("mus-np-play");
+        var paused = !a || a.paused;
+        if (icon) icon.className = "ti " + (paused ? "ti-player-play-filled" : "ti-player-pause-filled");
+        if (play) play.setAttribute("aria-label", paused ? "Играть" : "Пауза");
+        var sh = $("mus-np-shuffle"), rp = $("mus-np-repeat");
+        if (sh) { sh.classList.toggle("np-active", !!M.shuffleOn); sh.setAttribute("aria-pressed", M.shuffleOn ? "true" : "false"); }
+        if (rp) { rp.classList.toggle("np-active", !!M.repeatOn); rp.setAttribute("aria-pressed", M.repeatOn ? "true" : "false"); }
+      },
+      seek: function (event) {
+        var a = audio();
+        if (!a || !a.duration) return;
+        var box = $("mus-np-seek").getBoundingClientRect();
+        a.currentTime = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) * a.duration;
+      },
+      /** Табуляция не должна уходить в приложение за оверлеем. */
+      trap: function (e) {
+        var el = $("mus-np");
+        var items = Array.prototype.slice.call(el.querySelectorAll("button, [tabindex='0']"))
+          .filter(function (x) { return x.offsetParent !== null; });
+        if (!items.length) return;
+        var first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       },
     },
 
@@ -1603,6 +1823,12 @@
             seek.setAttribute("aria-valuenow", Math.round(pct));
             seek.setAttribute("aria-valuetext", fmt(el.currentTime) + " из " + fmt(el.duration));
           }
+          if (M.np.open) {
+            var npc = $("mus-np-cur"), npd = $("mus-np-dur"), nps = $("mus-np-seek");
+            if (npc) npc.textContent = fmt(el.currentTime);
+            if (npd) npd.textContent = fmt(el.duration);
+            if (nps) nps.setAttribute("aria-valuenow", Math.round(pct));
+          }
           // позицию сохраняем не чаще раза в 5 секунд
           if (!M._savedAt || Date.now() - M._savedAt > 5000) {
             M._savedAt = Date.now();
@@ -1650,6 +1876,7 @@
         el.addEventListener("play", function () {
           if (!active()) return;
           $("mus-play-icon").className = "ti ti-player-pause-filled text-sm";
+          M.np.buttons();
           M.viz.start();
         });
         // звук пошёл — только теперь у деки есть готовая аудиодорожка для отвода
@@ -1659,6 +1886,7 @@
         el.addEventListener("pause", function () {
           if (!active()) return;
           $("mus-play-icon").className = "ti ti-player-play-filled text-sm";
+          M.np.buttons();
         });
       });
 
@@ -1679,8 +1907,19 @@
         if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
         var dialog = $("confirm-host");
         if (dialog && !dialog.classList.contains("hidden")) return;
-        if (SW.view !== "music") return;
-        if (e.key === "Delete") { e.preventDefault(); M.deleteCurrent(); return; }
+        // F (и А на русской раскладке) — полноэкранный режим, где бы ты ни был
+        var plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+        if (plain && /^[fFаА]$/.test(e.key) && st.now) { e.preventDefault(); M.np.toggle(); return; }
+        if (M.np.open) {
+          if (e.key === "Escape") { e.preventDefault(); M.np.hide(); return; }
+          if (e.key === "Tab") { M.np.trap(e); return; }
+        } else if (SW.view !== "music") {
+          return;
+        }
+        if (e.key === "Delete") {
+          if (M.np.open) return;          // удалять файл из полноэкранного режима не даём
+          e.preventDefault(); M.deleteCurrent(); return;
+        }
         if (e.key === " " || e.key === "Spacebar") {
           // гасим и прокрутку страницы, и нажатие кнопки, если фокус на ней:
           // иначе пробел сработал бы дважды
