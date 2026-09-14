@@ -1,16 +1,23 @@
 {% macro arrow(col) %}{% if sort == col %}{{ ' ↓' if desc else ' ↑' }}{% endif %}{% endmacro %}
 {% macro grip() %}<span class="col-grip" draggable="true" title="Перетащить столбец"><i class="ti ti-grip-vertical"></i></span>{% endmacro %}
 
+{# Плашка фильтра уезжает в панель сверху: своя полоса ради одной строки
+   отнимала высоту у списка, а место в панели простаивало. #}
 {% if artist or album or folder %}
-<div class="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-sm sticky top-0 z-20">
-  <i class="ti ti-filter text-sky-600"></i>
-  <span class="truncate">{{ artist }}{% if artist and album %} — {% endif %}{{ album }}{% if folder %}<i class="ti ti-folder text-amber-500 ml-1"></i> {{ folder.split('/')[-1] }}{% endif %}</span>
-  <button class="text-slate-400 hover:text-slate-700 ml-1" onclick="Music.clearFilters()" title="Сбросить фильтр"><i class="ti ti-x"></i></button>
+<div id="mus-filter-chip" hx-swap-oob="outerHTML"
+     class="flex items-center gap-1 shrink-0 min-w-0 max-w-[16rem] px-2 py-0.5 ml-1
+            rounded-lg bg-sky-50 text-sky-700 text-[0.8125rem]">
+  <i class="ti ti-filter text-sm shrink-0"></i>
+  <span class="truncate" title="{{ artist }}{% if artist and album %} — {% endif %}{{ album }} {{ folder }}">{{ artist }}{% if artist and album %} — {% endif %}{{ album }}{% if folder %}<i class="ti ti-folder text-amber-500"></i> {{ folder.split('/')[-1] }}{% endif %}</span>
+  <button class="shrink-0 hover:text-sky-600" onclick="Music.clearFilters()"
+          title="Сбросить фильтр" aria-label="Сбросить фильтр"><i class="ti ti-x text-sm"></i></button>
 </div>
+{% else %}
+<div id="mus-filter-chip" hx-swap-oob="outerHTML" class="hidden"></div>
 {% endif %}
 
 <table class="mus-table text-sm border-collapse">
-  <thead class="sticky {{ 'top-8' if (artist or album or folder) else 'top-0' }} bg-slate-50 text-[0.6875rem] uppercase tracking-wide text-slate-400 select-none z-10">
+  <thead class="sticky top-0 bg-slate-50 text-[0.6875rem] uppercase tracking-wide text-slate-400 select-none z-10">
     <tr>
       <th data-col="pick" class="w-8">
         <input type="checkbox" id="mus-pick-all" title="Выбрать всё загруженное"
