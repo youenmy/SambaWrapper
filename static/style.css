@@ -43,15 +43,31 @@ html.dark .mus-item.mus-on, html.dark .mus-item.mus-on:hover {
   background: #0c2a47 !important; color: #7dd3fc; box-shadow: inset 0 0 0 1.5px #38bdf8;
 }
 
-/* играющий трек — синяя рамка на всю строку */
-tr.mrow.mus-playing > td { background: rgb(224 242 254) !important; }
-tr.mrow.mus-playing > td:first-child { box-shadow: inset 2px 0 0 #0284c7, inset 0 1.5px 0 #0284c7, inset 0 -1.5px 0 #0284c7; }
-tr.mrow.mus-playing > td:last-child  { box-shadow: inset -2px 0 0 #0284c7, inset 0 1.5px 0 #0284c7, inset 0 -1.5px 0 #0284c7; }
-tr.mrow.mus-playing > td:not(:first-child):not(:last-child) { box-shadow: inset 0 1.5px 0 #0284c7, inset 0 -1.5px 0 #0284c7; }
-html.dark tr.mrow.mus-playing > td { background: #0c2a47 !important; }
-html.dark tr.mrow.mus-playing > td:first-child { box-shadow: inset 2px 0 0 #38bdf8, inset 0 1.5px 0 #38bdf8, inset 0 -1.5px 0 #38bdf8; }
-html.dark tr.mrow.mus-playing > td:last-child  { box-shadow: inset -2px 0 0 #38bdf8, inset 0 1.5px 0 #38bdf8, inset 0 -1.5px 0 #38bdf8; }
-html.dark tr.mrow.mus-playing > td:not(:first-child):not(:last-child) { box-shadow: inset 0 1.5px 0 #38bdf8, inset 0 -1.5px 0 #38bdf8; }
+/* Играющий трек — скруглённая рамка на всю строку, как у выбранной папки.
+ *
+ * Края рамки рисуют сами ячейки: левый край со скруглением — ячейка галочки,
+ * правый — ячейка корзины, верх и низ — все. Обе крайние ячейки липкие и
+ * всегда стоят у краёв окна, поэтому рамка замкнута при любой горизонтальной
+ * прокрутке. (Накладка на всю строку не годится: у широкой таблицы её край
+ * уезжает за окно, и рамка снова обрывается.) Скругление фона работает
+ * благодаря раздельной модели границ — см. ниже, рядом с table-layout.
+ *
+ * Класс удвоен намеренно: правила наведения в темах дотягивают фон тенью
+ * последней ячейки и по специфичности иначе перебивали бы правый край. */
+tr.mrow.mus-playing > td { background: rgb(224 242 254) !important; --play-edge: #0284c7; }
+html.dark tr.mrow.mus-playing > td { background: #0c2a47 !important; --play-edge: #38bdf8; }
+.mus-table.mus-table tbody tr.mrow.mus-playing.mus-playing > td {
+  box-shadow: inset 0 1.5px 0 var(--play-edge), inset 0 -1.5px 0 var(--play-edge);
+}
+.mus-table.mus-table tbody tr.mrow.mus-playing.mus-playing > td:first-child {
+  border-radius: var(--sw-radius, .5rem) 0 0 var(--sw-radius, .5rem);
+  box-shadow: inset 1.5px 0 0 var(--play-edge), inset 0 1.5px 0 var(--play-edge), inset 0 -1.5px 0 var(--play-edge);
+}
+.mus-table.mus-table tbody tr.mrow.mus-playing.mus-playing > td:last-child {
+  border-radius: 0 var(--sw-radius, .5rem) var(--sw-radius, .5rem) 0;
+  box-shadow: inset -1.5px 0 0 var(--play-edge), inset 0 1.5px 0 var(--play-edge), inset 0 -1.5px 0 var(--play-edge),
+              -0.5rem 0 0.5rem -0.375rem rgba(0,0,0,.25);   /* отбивка липкой корзины */
+}
 
 /* ============ DARK THEME ============ */
 /* Overrides the light Tailwind utilities used in the templates, scoped to html.dark. */
@@ -195,6 +211,13 @@ html.dark th.col-drop-target { box-shadow: inset 3px 0 0 #38bdf8; }
    а меняется «Альбом». Теперь каждый столбец держит ровно свою ширину, а
    свободное место просто остаётся справа. */
 table.mus-table { table-layout: fixed; width: max-content; min-width: 100%; }
+/* Раздельная модель границ. В слитой браузер по спецификации игнорирует
+   border-radius у ячеек, и скруглить фон играющей строки было бы нечем.
+   В раздельной модели граница у <tr> не рисуется, поэтому разделитель строк
+   переезжает на ячейки; цвет наследуется от строки, и темы им управляют как
+   раньше — через класс border-slate-100 на <tr>. */
+table.mus-table { border-collapse: separate; border-spacing: 0; }
+.mus-table tbody tr > td { border-bottom: 1px solid; border-bottom-color: inherit; }
 /* Единственный столбец без заданной ширины — распорка, поэтому весь остаток
    достаётся ей, а не размазывается по соседям при изменении ширины столбца. */
 .mus-table th[data-col="spacer"], .mus-table td[data-col="spacer"] { width: auto; padding: 0; }
@@ -296,14 +319,9 @@ html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing td[
 /* Раз таблица может быть уже окна, подсветка строки должна дотягиваться до
    правого края — закрашиваем остаток тем же приёмом, что и шапку. */
 .mus-table tbody tr:hover > td:last-child { box-shadow: 60rem 0 0 rgb(248 250 252); }
-.mus-table tbody tr.mus-playing > td:last-child { box-shadow: 60rem 0 0 rgb(224 242 254); }
 html.dark .mus-table tbody tr:hover > td:last-child { box-shadow: 60rem 0 0 #273449; }
-html.dark .mus-table tbody tr.mus-playing > td:last-child { box-shadow: 60rem 0 0 #0c2a47; }
 html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr:hover > td:last-child {
   box-shadow: 60rem 0 0 var(--sw-surface-2);
-}
-html[data-theme]:not([data-theme="classic"]) .mus-table tbody tr.mus-playing > td:last-child {
-  box-shadow: 60rem 0 0 var(--sw-accent-soft);
 }
 
 /* Сворачивание боковой панели. Анимируем ширину, а не сдвиг: соседняя область

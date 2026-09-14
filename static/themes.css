@@ -403,15 +403,8 @@ html[data-theme]:not([data-theme="classic"]) body[data-view="torrents"] #sw-item
   box-shadow: inset 0 0 0 1.5px var(--sw-accent);
   color: var(--sw-accent-ink);
 }
-html[data-theme]:not([data-theme="classic"]) tr.mrow.mus-playing > td:first-child {
-  box-shadow: inset 2px 0 0 var(--sw-accent), inset 0 1.5px 0 var(--sw-accent), inset 0 -1.5px 0 var(--sw-accent);
-}
-html[data-theme]:not([data-theme="classic"]) tr.mrow.mus-playing > td:last-child {
-  box-shadow: inset -2px 0 0 var(--sw-accent), inset 0 1.5px 0 var(--sw-accent), inset 0 -1.5px 0 var(--sw-accent);
-}
-html[data-theme]:not([data-theme="classic"]) tr.mrow.mus-playing > td:not(:first-child):not(:last-child) {
-  box-shadow: inset 0 1.5px 0 var(--sw-accent), inset 0 -1.5px 0 var(--sw-accent);
-}
+/* рамку играющей строки рисуют ячейки (style.css), тема задаёт только цвет */
+html[data-theme]:not([data-theme="classic"]) tr.mrow.mus-playing > td { --play-edge: var(--sw-accent); }
 html[data-theme]:not([data-theme="classic"]) .dup-row.mus-playing {
   background: var(--sw-accent-soft);
   box-shadow: inset 0 0 0 1.5px var(--sw-accent);
@@ -657,7 +650,8 @@ html[data-theme="tron"] .text-sky-600,
 html[data-theme="tron"] .text-sky-700 { text-shadow: 0 0 8px rgba(111,240,255,.45); }
 html[data-theme="tron"] tr.mrow:hover,
 html[data-theme="tron"] tr.tr-row:hover { box-shadow: inset 2px 0 0 var(--sw-accent-ink); }
-html[data-theme="tron"] tr.mus-playing { box-shadow: inset 2px 0 0 var(--sw-accent-ink), 0 0 18px rgba(23,200,232,.18); }
+/* свечения у играющей строки нет: из отдельных ячеек оно складывалось бы
+   кусками, а цельной накладки у строки больше нет */
 html[data-theme="tron"] .mus-item.mus-on { box-shadow: inset 2px 0 0 var(--sw-accent-ink); }
 /* поля ввода — тонкая световая рамка вместо серой */
 html[data-theme="tron"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
