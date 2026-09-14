@@ -45,7 +45,8 @@
 {% endif %}
 
 <div class="flex items-center gap-2.5 px-4 py-1.5 text-[0.6875rem] text-slate-400 border-b border-slate-100 shrink-0">
-  <input type="checkbox" title="Выделить всё" onclick="SW.checkAll(this.checked)">
+  <input type="checkbox" id="fchk-all" title="Выделить всё (Ctrl+A)" aria-label="Выделить всё"
+         onclick="SW.checkAll(this.checked)">
   <span class="flex-1">имя</span><span class="w-24 text-right">размер</span><span class="w-32 text-right pr-1 hidden sm:block">изменён</span>
 </div>
 
@@ -62,7 +63,7 @@
     <div class="frow flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer" data-path="{{ rel }}"
          draggable="true" ondragstart="SW.dragStart(event, {{ rel|tojson|forceescape }})"
          {% if e.is_dir %}ondragover="SW.dragOver(event, this)" ondragleave="this.classList.remove('ring-2','ring-sky-400')" ondrop="SW.drop(event, {{ rel|tojson|forceescape }}, this)"{% endif %}
-         onclick="SW.select({{ rel|tojson|forceescape }}, {{ e.name|tojson|forceescape }}, {{ e.is_dir|tojson|forceescape }})"
+         onclick="SW.rowClick(event, {{ rel|tojson|forceescape }}, {{ e.name|tojson|forceescape }}, {{ e.is_dir|tojson|forceescape }})"
          ondblclick="{% if e.is_dir %}SW.navigate({{ rel|tojson|forceescape }}){% else %}SW.openFile({{ rel|tojson|forceescape }}, {{ e.name|tojson|forceescape }}){% endif %}"
          oncontextmenu="SW.ctx(event, {{ rel|tojson|forceescape }}, {{ e.name|tojson|forceescape }}, {{ e.is_dir|tojson|forceescape }})">
       <input type="checkbox" class="fchk" onclick="event.stopPropagation(); SW.toggleCheck({{ rel|tojson|forceescape }}, this.checked)">

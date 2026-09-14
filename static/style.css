@@ -415,15 +415,14 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
  * только прозрачность.
  */
 #browser.htmx-settling > * { animation: sw-fade-in 140ms ease-out; }
-#music-lists.htmx-settling > *,
-#mus-rows.htmx-settling > tr { animation: sw-fade-in 120ms ease-out; }
+#music-lists.htmx-settling > * { animation: sw-fade-in 120ms ease-out; }
 @keyframes sw-fade-in { from { opacity: 0 } to { opacity: 1 } }
 
 /* Тем, кто просил систему не анимировать, не анимируем ничего. */
 @media (prefers-reduced-motion: reduce) {
   #browser.htmx-settling > *,
-  #music-lists.htmx-settling > *,
-  #mus-rows.htmx-settling > tr { animation: none; }
+  #music-lists.htmx-settling > * { animation: none; }
+  .sw-enter { animation: none !important; }
   .sw-sidebar { transition: none !important; }
 }
 
@@ -598,3 +597,39 @@ html.sw-tinted #mus-head { background: var(--sw-cover) !important; }
    забирая каждый клик. Пока режим гаснет, клики тоже проходят сквозь него. */
 .np[hidden] { display: none !important; }
 .np:not(.np-on) { pointer-events: none; }
+
+/* ---------------------------------------------- отмеченные строки треков
+ * Тон — подложка акцента темы, тот же, что у выбранной папки. Последняя ячейка
+ * дотягивает цвет до края окна тем же приёмом, что наведение и играющий трек. */
+.mus-table tbody tr.mus-picked > td { background: var(--sw-accent-soft, #e0f2fe); }
+.mus-table tbody tr.mus-picked > td:last-child { box-shadow: 60rem 0 0 var(--sw-accent-soft, #e0f2fe); }
+
+/* ------------------------------------------------ графики скорости торрентов */
+.tr-speed { display: inline-flex; align-items: center; justify-content: flex-end; gap: .375rem; }
+.tr-spark { width: 2.5rem; height: .9rem; flex: none; overflow: visible; }
+.tr-spark[data-empty] { visibility: hidden; }     /* место держим: иначе числа прыгали бы */
+.tr-spark-total { width: 4.5rem; height: 1rem; }
+
+/* ------------------------------------------------------ кольцо диска
+ * Дорожка приглушена — информацию несёт дуга, и она проходит 3:1 на панели
+ * во всех темах: акцент, предупреждение и опасность взяты из токенов. */
+.disk-use {
+  display: inline-flex; align-items: center; gap: .25rem;
+  margin-left: auto; flex: none; font-variant-numeric: tabular-nums;
+}
+.disk-ring { width: .95rem; height: .95rem; transform: rotate(-90deg); }
+.disk-ring circle { fill: none; stroke-width: 5; }
+.disk-ring-track { stroke: var(--sw-border-2, #7c95b4); opacity: .45; }
+.disk-ring-fill { stroke-linecap: round; }
+.disk-ok .disk-ring-fill { stroke: var(--sw-accent-ink, #0369a1); }
+.disk-warn { color: var(--sw-warn, #b26205); }
+.disk-warn .disk-ring-fill { stroke: var(--sw-warn, #b26205); }
+.disk-full { color: var(--sw-danger, #dc2626); }
+.disk-full .disk-ring-fill { stroke: var(--sw-danger, #dc2626); }
+
+/* ---------------------------------------------- появление строк волной
+ * Задержку каждой строке ставит ui.js. У строк таблицы — только прозрачность:
+ * transform на <tr> ломает липкие ячейки (галочки и кнопку удаления). */
+.sw-enter { animation: sw-rise .2s cubic-bezier(.2, .8, .2, 1) both; }
+tr.sw-enter { animation-name: sw-fade-in; }
+@keyframes sw-rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }

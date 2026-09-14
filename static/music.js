@@ -1349,29 +1349,71 @@
       var i = st.picked.indexOf(id);
       if (box.checked && i < 0) st.picked.push(id);
       if (!box.checked && i >= 0) st.picked.splice(i, 1);
-      M.pickBar();
+      st.pickAnchor = id;               // от галочки тоже можно продолжить Shift+кликом
+      M.pickRestore();
     },
     pickAll: function (on) {
       document.querySelectorAll("#music-tracks .mus-pick").forEach(function (box) {
-        box.checked = on;
         var id = Number(box.dataset.id);
         var i = st.picked.indexOf(id);
         if (on && i < 0) st.picked.push(id);
         if (!on && i >= 0) st.picked.splice(i, 1);
       });
-      M.pickBar();
+      M.pickRestore();
     },
     pickNone: function () {
       st.picked = [];
-      document.querySelectorAll("#music-tracks .mus-pick").forEach(function (b) { b.checked = false; });
-      var all = $("mus-pick-all"); if (all) all.checked = false;
-      M.pickBar();
+      st.pickAnchor = null;
+      M.pickRestore();
     },
-    /** Вернуть галочки строкам после перерисовки списка. */
+
+    /* ------------------------------------------ выделение как в проводнике
+     * Обычный клик по строке по-прежнему запускает трек: в плеере это главное
+     * действие, и отдавать его под выделение было бы неудобно. Отмечают
+     * модификаторы: Ctrl переключает строку, Shift отмечает диапазон от
+     * последней отмеченной, Ctrl+Shift добавляет диапазон к уже отмеченному.
+     * Сам диапазон считает общий UI.range — тот же, что у файлового браузера. */
+    rowClick: function (event, id) {
+      var add = event.ctrlKey || event.metaKey;
+      if (event.shiftKey) { M.pickRange(id, add); return; }
+      if (add) { M.pickToggle(id); return; }
+      M.play(id);
+    },
+    pickToggle: function (id) {
+      var i = st.picked.indexOf(id);
+      if (i >= 0) st.picked.splice(i, 1); else st.picked.push(id);
+      st.pickAnchor = id;
+      M.pickRestore();
+    },
+    pickRange: function (id, add) {
+      var ids = Array.prototype.map.call(document.querySelectorAll("#music-tracks .mrow"),
+                                         function (row) { return Number(row.dataset.id); });
+      var span = window.UI ? UI.range(ids, st.pickAnchor, id) : [id];
+      if (!span.length) return;
+      if (add) span.forEach(function (x) { if (st.picked.indexOf(x) < 0) st.picked.push(x); });
+      else st.picked = span;
+      // якорь не двигаем: следующий Shift+клик тоже считается от него, как в проводнике
+      if (st.pickAnchor == null) st.pickAnchor = id;
+      M.pickRestore();
+    },
+
+    /** Привести галочки, подсветку строк и общую галочку к st.picked.
+     *  Вызывается и после перерисовки списка: строки приходят без отметок. */
     pickRestore: function () {
-      document.querySelectorAll("#music-tracks .mus-pick").forEach(function (box) {
-        box.checked = st.picked.indexOf(Number(box.dataset.id)) >= 0;
+      var boxes = document.querySelectorAll("#music-tracks .mus-pick"), marked = 0;
+      boxes.forEach(function (box) {
+        var on = st.picked.indexOf(Number(box.dataset.id)) >= 0;
+        box.checked = on;
+        if (on) marked++;
       });
+      document.querySelectorAll("#music-tracks .mrow").forEach(function (row) {
+        row.classList.toggle("mus-picked", st.picked.indexOf(Number(row.dataset.id)) >= 0);
+      });
+      var all = $("mus-pick-all");
+      if (all) {
+        all.checked = boxes.length > 0 && marked === boxes.length;
+        all.indeterminate = marked > 0 && marked < boxes.length;
+      }
       M.pickBar();
     },
     /** Панель массовых действий видна, только когда что-то отмечено. */
@@ -1921,6 +1963,13 @@
           if (e.key === "Tab") { M.np.trap(e); return; }
         } else if (SW.view !== "music") {
           return;
+        }
+        // Ctrl+A — отметить все загруженные треки (распознаёт общий UI.isSelectAll)
+        if (window.UI && UI.isSelectAll(e) && !M.np.open) {
+          e.preventDefault(); M.pickAll(true); return;
+        }
+        if (e.key === "Escape" && !M.np.open && st.picked.length) {
+          e.preventDefault(); M.pickNone(); return;
         }
         if (e.key === "Delete") {
           if (M.np.open) return;          // удалять файл из полноэкранного режима не даём

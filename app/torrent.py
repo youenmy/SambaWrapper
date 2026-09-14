@@ -211,6 +211,9 @@ def stats() -> dict | None:
     return {
         "down": _human_rate(s.get("downloadSpeed", 0)) or "0",
         "up": _human_rate(s.get("uploadSpeed", 0)) or "0",
+        # сырые байты в секунду — для графика скорости в браузере
+        "down_bps": int(s.get("downloadSpeed", 0) or 0),
+        "up_bps": int(s.get("uploadSpeed", 0) or 0),
         "count": s.get("torrentCount", 0),
         "active": s.get("activeTorrentCount", 0),
         "alt": bool(alt),

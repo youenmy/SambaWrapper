@@ -593,21 +593,65 @@ const SW = {
   },
 
   checked: new Set(),
-  select(path, name, isDir) { this.sel = {path, name, isDir}; this._mark(); },
-  toggleCheck(path, on) { if (on) this.checked.add(path); else this.checked.delete(path); this._mark(); this._bar(); },
-  checkAll(on) {
+  _anchor: null,
+  select(path, name, isDir) { this.sel = {path, name, isDir}; this._anchor = path; this._mark(); },
+  /* Клик по строке — как в проводнике: без модификаторов выбирает одну
+     строку, Ctrl добавляет или убирает строку, Shift выделяет диапазон от
+     последней выбранной, Ctrl+Shift добавляет диапазон к выделенному.
+     Диапазон считает общий UI.range — тот же, что у списка треков. */
+  rowClick(ev, path, name, isDir) {
+    const add = ev.ctrlKey || ev.metaKey;
+    if (ev.shiftKey) { this._range(path, name, isDir, add); return; }
+    if (add) {
+      // одиночный выбор становится частью множественного, а не теряется
+      if (this.sel && !this.checked.size) this.checked.add(this.sel.path);
+      if (this.checked.has(path)) this.checked.delete(path); else this.checked.add(path);
+      this.sel = {path, name, isDir}; this._anchor = path;
+      this._mark(); this._bar();
+      return;
+    }
     this.checked.clear();
-    document.querySelectorAll("#browser .fchk").forEach(c => {
-      c.checked = on; if (on) this.checked.add(c.closest(".frow").dataset.path);
-    });
+    this.select(path, name, isDir);
+    this._bar();
+  },
+  _range(path, name, isDir, add) {
+    const rows = [...document.querySelectorAll("#browser .frow[data-path]")].map(r => r.dataset.path);
+    const span = UI.range(rows, this._anchor, path);
+    if (!span.length) return;
+    if (!add) this.checked.clear();
+    span.forEach(p => this.checked.add(p));
+    this.sel = {path, name, isDir};
+    if (this._anchor == null) this._anchor = path;   // якорь остаётся на месте, как в проводнике
     this._mark(); this._bar();
   },
-  resetSel() { this.sel = null; this.checked.clear(); },
+  toggleCheck(path, on) {
+    if (on) this.checked.add(path); else this.checked.delete(path);
+    this._anchor = path;
+    this._mark(); this._bar();
+  },
+  checkAll(on) {
+    this.checked.clear();
+    if (on) document.querySelectorAll("#browser .frow[data-path]").forEach(r => this.checked.add(r.dataset.path));
+    this._mark(); this._bar();
+  },
+  resetSel() { this.sel = null; this._anchor = null; this.checked.clear(); },
+  /* Подсветка, галочки строк и общая галочка всегда выводятся из состояния,
+     а не живут своей жизнью: иначе после Shift+клика галочки расходились
+     бы с тем, что на самом деле выделено. */
   _mark() {
-    document.querySelectorAll("#browser .frow").forEach(r => {
-      const on = this.checked.has(r.dataset.path) || (this.sel && r.dataset.path === this.sel.path);
-      r.classList.toggle("bg-sky-50", on);
+    const rows = document.querySelectorAll("#browser .frow[data-path]");
+    rows.forEach(r => {
+      const picked = this.checked.has(r.dataset.path);
+      const on = picked || (!this.checked.size && this.sel && r.dataset.path === this.sel.path);
+      r.classList.toggle("bg-sky-50", !!on);
+      const box = r.querySelector(".fchk");
+      if (box) box.checked = picked;
     });
+    const all = document.getElementById("fchk-all");
+    if (all) {
+      all.checked = rows.length > 0 && this.checked.size === rows.length;
+      all.indeterminate = this.checked.size > 0 && this.checked.size < rows.length;
+    }
   },
   _bar() {
     const el = document.getElementById("selinfo");
@@ -1353,7 +1397,9 @@ const SW = {
   },
 
   ctx(evt, rel, name, isDir) {
-    evt.preventDefault(); this.select(rel, name, isDir);
+    evt.preventDefault();
+    if (!this.checked.has(rel)) this.checked.clear();
+    this.select(rel, name, isDir); this._bar();
     const items = [];
     if (isDir) items.push(["ti-folder-open","Открыть",() => SW.navigate(rel)]);
     else {
@@ -1513,6 +1559,57 @@ document.body.addEventListener("htmx:afterSwap", (e) => {
   if (e.target && (e.target.id === "sidebar" || e.target.id === "browser")) SW._markActiveDisk();
   if (e.target && e.target.id === "tr-tbody") SW._trMark();
   if (e.target && e.target.id === "browser") { SW.trSel = 0; SW._trArrows(); }
+  // списки проявляются волной; опрашиваемые по таймеру (торренты) — нет
+  if (window.UI && e.target && e.target.id === "mus-rows") UI.enterRows(e.target.querySelectorAll("tr.mrow"));
+  if (window.UI && e.target && e.target.id === "browser") UI.enterRows(e.target.querySelectorAll(".frow"));
+});
+
+/* Выделение в файловом браузере с клавиатуры: Ctrl+A — всё, Esc — снять.
+   Сочетание распознаёт общий UI.isSelectAll — тот же, что у списка треков. */
+document.addEventListener("keydown", (e) => {
+  if (SW.view !== "files") return;
+  if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  const busy = ["confirm-host", "modal-host"].some((id) => {
+    const el = document.getElementById(id);
+    return el && !el.classList.contains("hidden");
+  });
+  if (busy) return;
+  if (window.UI && UI.isSelectAll(e)) { e.preventDefault(); SW.checkAll(true); }
+  else if (e.key === "Escape" && (SW.checked.size || SW.sel)) { SW.sel = null; SW.checkAll(false); }
+});
+
+/* Графики скорости торрентов. Замер берётся на каждом опросе, даже когда
+   сервер ответил 204 и разметка не менялась: неизменная скорость — тоже
+   точка на графике, иначе линия застывала бы вместе со строкой. */
+SW.trSample = function () {
+  if (!window.UI) return;
+  const body = document.getElementById("tr-tbody");
+  if (!body) return;
+  body.querySelectorAll("tr[data-tid]").forEach((r) => {
+    UI.spark.push("d" + r.dataset.tid, Number(r.dataset.down) || 0);
+    UI.spark.push("u" + r.dataset.tid, Number(r.dataset.up) || 0);
+  });
+  UI.spark.drawAll(body);
+};
+SW.trSampleTotal = function () {
+  if (!window.UI) return;
+  const box = document.getElementById("tr-stats");
+  const raw = box && box.querySelector("[data-down]");
+  if (!raw) return;
+  UI.spark.push("total-d", Number(raw.dataset.down) || 0);
+  UI.spark.push("total-u", Number(raw.dataset.up) || 0);
+  UI.spark.drawAll(box);
+};
+document.body.addEventListener("htmx:afterSettle", (e) => {
+  if (!e.target) return;
+  if (e.target.id === "tr-tbody") SW.trSample();
+  if (e.target.id === "tr-stats") SW.trSampleTotal();
+});
+document.body.addEventListener("htmx:afterRequest", (e) => {
+  const d = e.detail || {};
+  if (!d.elt || !d.xhr || d.xhr.status !== 204) return;     // на 200 замер делает afterSettle
+  if (d.elt.id === "tr-tbody") SW.trSample();
+  if (d.elt.id === "tr-stats") SW.trSampleTotal();
 });
 
 document.addEventListener("click", (e) => {

@@ -31,10 +31,21 @@
           {% endif %}
         </div>
         <div class="pl-6 mt-0.5">
-          <div class="text-[0.625rem] text-slate-400">{{ fsmap.get(p.fstype, p.fstype|upper) }} · {{ p.size_human }}{% if p.free_human %} · своб. {{ p.free_human }}{% endif %}{% if p.uuid %} · авто <span class="{{ 'text-emerald-600' if p.auto_mount else 'text-slate-500' }}">{{ 'вкл' if p.auto_mount else 'выкл' }}</span>{% endif %}</div>
-          {% if p.used_pct is not none %}
-          <div class="h-1 bg-slate-200 rounded mt-1 mr-2 overflow-hidden"><div class="h-full {{ 'bg-red-500' if p.used_pct >= 90 else 'bg-sky-500' }}" style="width:{{ p.used_pct }}%"></div></div>
-          {% endif %}
+          {# Заполнение — кольцом и числом в той же строке: полоска занимала отдельную
+             строку и красилась в красный только за 90%, а между «всё хорошо» и
+             «сломалось» не было ступени. Теперь три уровня: до 75, до 90, выше. #}
+          <div class="text-[0.625rem] text-slate-400 flex items-center gap-1 mr-2">
+            <span class="min-w-0 truncate">{{ fsmap.get(p.fstype, p.fstype|upper) }} · {{ p.size_human }}{% if p.free_human %} · своб. {{ p.free_human }}{% endif %}{% if p.uuid %} · авто <span class="{{ 'text-emerald-600' if p.auto_mount else 'text-slate-500' }}">{{ 'вкл' if p.auto_mount else 'выкл' }}</span>{% endif %}</span>
+            {% if p.used_pct is not none %}
+            {% set lvl = 'full' if p.used_pct >= 90 else ('warn' if p.used_pct >= 75 else 'ok') %}
+            <span class="disk-use disk-{{ lvl }}" title="Занято {{ p.used_pct }}%">
+              <svg class="disk-ring" viewBox="0 0 36 36" role="img" aria-label="Занято {{ p.used_pct }}%">
+                <circle class="disk-ring-track" cx="18" cy="18" r="14" pathLength="100"></circle>
+                <circle class="disk-ring-fill" cx="18" cy="18" r="14" pathLength="100" stroke-dasharray="{{ p.used_pct }} 100"></circle>
+              </svg>{{ p.used_pct }}%
+            </span>
+            {% endif %}
+          </div>
         </div>
         {% for sh in p.shares %}
           {% set sh_w = sh.write_list or (sh.guest_ok and not sh.read_only) %}

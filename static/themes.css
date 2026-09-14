@@ -311,14 +311,21 @@ html[data-theme]:not([data-theme="classic"]) .text-amber-700 { color: var(--sw-w
 html[data-theme]:not([data-theme="classic"]) .bg-amber-100 { background: color-mix(in srgb, var(--sw-warn) 20%, transparent) !important; }
 html[data-theme]:not([data-theme="classic"]) .bg-emerald-100 { background: color-mix(in srgb, var(--sw-ok) 18%, transparent) !important; }
 
-/* поля ввода */
-html[data-theme]:not([data-theme="classic"]) input,
+/* поля ввода
+ * Только текстовые. Раньше правило ловило любой input, и чекбоксы получали
+ * фон и рамку темы — браузер переставал рисовать галочку, и во всех темах,
+ * кроме классической, отмеченное выглядело неотмеченным. Чекбоксам, радио и
+ * ползункам достаточно цвета акцента. */
+html[data-theme]:not([data-theme="classic"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 html[data-theme]:not([data-theme="classic"]) select,
 html[data-theme]:not([data-theme="classic"]) textarea {
   background: var(--sw-surface-2) !important;
   border-color: var(--sw-border-2) !important;
   color: var(--sw-text) !important;
 }
+html[data-theme]:not([data-theme="classic"]) input[type="checkbox"],
+html[data-theme]:not([data-theme="classic"]) input[type="radio"],
+html[data-theme]:not([data-theme="classic"]) input[type="range"] { accent-color: var(--sw-accent); }
 html[data-theme]:not([data-theme="classic"]) input::placeholder { color: var(--sw-faint) !important; }
 
 /* геометрия и плотность */
@@ -653,14 +660,14 @@ html[data-theme="tron"] tr.tr-row:hover { box-shadow: inset 2px 0 0 var(--sw-acc
 html[data-theme="tron"] tr.mus-playing { box-shadow: inset 2px 0 0 var(--sw-accent-ink), 0 0 18px rgba(23,200,232,.18); }
 html[data-theme="tron"] .mus-item.mus-on { box-shadow: inset 2px 0 0 var(--sw-accent-ink); }
 /* поля ввода — тонкая световая рамка вместо серой */
-html[data-theme="tron"] input,
+html[data-theme="tron"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 html[data-theme="tron"] select,
 html[data-theme="tron"] textarea { border-color: rgba(23,200,232,.35) !important; }
 
 /* «Контраст» — не просто светлая тема: она обещает различимость, поэтому
  * границы здесь толще, а кольцо фокуса заметнее. Цветом этого добиться
  * нельзя — толщина линии не описывается токеном. */
-html[data-theme="contrast"] input,
+html[data-theme="contrast"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 html[data-theme="contrast"] select,
 html[data-theme="contrast"] textarea { border-width: 2px !important; }
 html[data-theme="contrast"] tbody tr { border-bottom-width: 2px; }

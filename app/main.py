@@ -10,7 +10,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.10"
+APP_VERSION = "3.11"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -832,8 +832,11 @@ async def htmx_torrents_stats(request: Request, _: str = Depends(current_user), 
     alt = '<span class="text-amber-500" title="Тихий режим включён"><i class="ti ti-tortoise"></i></span>' if s["alt"] else ""
     return _polled(request, HTMLResponse(
         f'<span>{s["count"]} торрентов · активных {s["active"]}</span>'
-        f'<span class="text-sky-600 ml-auto"><i class="ti ti-arrow-down"></i>{s["down"]}</span>'
-        f'<span class="text-emerald-600"><i class="ti ti-arrow-up"></i>{s["up"]}</span>{alt}'), sig)
+        f'<span class="text-sky-600 ml-auto tr-speed"><svg class="tr-spark tr-spark-total" data-spark="total-d" aria-hidden="true"></svg>'
+        f'<i class="ti ti-arrow-down"></i>{s["down"]}</span>'
+        f'<span class="text-emerald-600 tr-speed"><svg class="tr-spark tr-spark-total" data-spark="total-u" aria-hidden="true"></svg>'
+        f'<i class="ti ti-arrow-up"></i>{s["up"]}</span>{alt}'
+        f'<span hidden data-down="{s["down_bps"]}" data-up="{s["up_bps"]}"></span>'), sig)
 
 @app.post("/htmx/torrent-move", response_class=HTMLResponse)
 async def htmx_torrent_move(request: Request, _: str = Depends(current_user),

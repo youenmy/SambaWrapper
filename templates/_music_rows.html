@@ -7,7 +7,7 @@
       oncontextmenu="Music.fs.trackMenu(event, {{ t.id }}, {{ t.path|tojson|forceescape }}, {{ (t.title or t.rel)|tojson|forceescape }})"
       tabindex="0" aria-label="{{ t.title or t.rel }}{% if t.artist %} — {{ t.artist }}{% endif %}"
       onkeydown="SW.rowKey(event, () => Music.play({{ t.id }}))"
-      onclick="Music.play({{ t.id }})">
+      onclick="Music.rowClick(event, {{ t.id }})">
     <td data-col="pick">
       <input type="checkbox" class="mus-pick" data-id="{{ t.id }}"
              aria-label="Отметить: {{ t.title or t.rel }}"
