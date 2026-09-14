@@ -1789,10 +1789,16 @@
       if (track.cover) {
         cover.src = "/music-cover/" + track.id;
         cover.classList.remove("hidden");
-        cover.onerror = function () { cover.classList.add("hidden"); };
+        cover.onerror = function () { cover.classList.add("hidden"); M.tint.reset(); };
+        M.tint.fromCover(cover);
       } else {
         cover.removeAttribute("src"); cover.classList.add("hidden");
+        M.tint.reset();
       }
+      /* Восстановленный после перезагрузки трек проходит мимо playTrack, поэтому
+         подкраску и полноэкранный режим надо подготовить здесь же — иначе цвет
+         появлялся только со следующим треком. */
+      M.np.sync(track);
       M.markRow();
     },
 

@@ -591,3 +591,10 @@ html.sw-tinted #mus-head { background: var(--sw-cover) !important; }
   html { transition: none; }
   .mus-cover-frame:hover { transform: none; }
 }
+
+/* Скрытый оверлей обязан не существовать для мыши. Tailwind прячет [hidden]
+   через display:none, но у .np та же специфичность и правило стоит позже —
+   display:flex побеждал, и прозрачный режим лежал поверх всего приложения,
+   забирая каждый клик. Пока режим гаснет, клики тоже проходят сквозь него. */
+.np[hidden] { display: none !important; }
+.np:not(.np-on) { pointer-events: none; }
