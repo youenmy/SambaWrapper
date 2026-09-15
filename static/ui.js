@@ -49,11 +49,15 @@
     if (box.classList.contains("sw-scrolled-x") !== x) box.classList.toggle("sw-scrolled-x", x);
   }, true);
 
-  /* Строки нового списка проявляются короткой волной: первые 16 с шагом
-     15 мс, остальные сразу — ждать конца волны на длинном списке незачем.
-     Строки, которые уже были на экране (подгрузка следующей страницы
-     дописывает к ним новые), повторно не анимируются. */
-  var WAVE = 16, STEP = 15;
+  /* Строки нового списка проявляются короткой волной — сверху до низа экрана.
+     Раньше волна охватывала фиксированные 16 строк и на высоком мониторе
+     обрывалась примерно на 70 % высоты. Теперь анимируются все новые строки,
+     которые видны в окне (но не больше 60), а шаг подстраивается так, чтобы
+     вся волна укладывалась примерно в треть секунды: 24 строки — по 15 мс,
+     40 строк — по 9 мс. Строки ниже края окна и дописанные при подгрузке
+     следующей страницы появляются сразу; уже показанные повторно не
+     анимируются. */
+  var STEP = 15, SPREAD = 360, MAX_WAVE = 60;
   function reducedMotion() {
     return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }
@@ -63,22 +67,31 @@
   }
   function enterRows(nodes) {
     if (!nodes) return 0;
-    var skipMotion = reducedMotion(), shown = 0;
+    var fresh = [];
     for (var i = 0; i < nodes.length; i++) {
-      var row = nodes[i];
-      if (row.dataset.entered) continue;
-      row.dataset.entered = "1";
-      if (skipMotion || shown >= WAVE) continue;
-      var delay = shown * STEP;
+      if (!nodes[i].dataset.entered) fresh.push(nodes[i]);
+      nodes[i].dataset.entered = "1";
+    }
+    if (reducedMotion()) return 0;
+    // сколько новых строк реально видно: волна должна дойти до низа окна
+    var bottom = window.innerHeight || document.documentElement.clientHeight;
+    var visible = 0;
+    while (visible < fresh.length && visible < MAX_WAVE &&
+           fresh[visible].getBoundingClientRect().top < bottom) {
+      visible++;
+    }
+    var step = visible ? Math.min(STEP, SPREAD / visible) : STEP;
+    for (var k = 0; k < visible; k++) {
+      var row = fresh[k];
+      var delay = Math.round(k * step);
       row.style.animationDelay = delay + "ms";
       row.classList.add("sw-enter");
       row.addEventListener("animationend", function (e) { settle(e.currentTarget); }, {once: true});
       // Анимация может вовсе не начаться — строка скрыта или вкладка в фоне.
       // Тогда animationend не придёт, и класс снимается по таймеру.
       setTimeout(settle.bind(null, row), delay + 600);
-      shown++;
     }
-    return shown;
+    return visible;
   }
 
   /* Мини-графики скорости.
