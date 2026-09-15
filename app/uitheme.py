@@ -137,6 +137,9 @@ def clean_fx(value) -> dict:
         "image_v": image_v,
         "dim": _float(v.get("dim"), 0.0, 0.85, 0.35),
         "blur": _int(v.get("blur"), 0, 24, 0),
+        # стекло: насколько панели непрозрачны и как сильно размывают фон под собой
+        "glass_alpha": _float(v.get("glass_alpha"), 0.2, 0.95, 0.76),
+        "glass_blur": _int(v.get("glass_blur"), 0, 24, 18),
     }
 
 
@@ -151,12 +154,18 @@ def custom_css(theme: dict | None) -> str:
 
 
 def fx_style(fx: dict) -> str:
-    """Переменные картинки фона для атрибута style у <html>.
-    Принимает только результат clean_fx: адрес собирается из числа версии."""
-    if fx.get("bg") != "image" or not fx.get("image_v"):
-        return ""
-    return (f"--fx-image:url('/theme-bg?v={int(fx['image_v'])}');"
-            f"--fx-dim:{float(fx['dim'])};--fx-blur:{int(fx['blur'])}px")
+    """Переменные эффектов для атрибута style у <html>: картинка фона и
+    настройки стекла. Принимает только результат clean_fx — в строку попадают
+    лишь числа, адрес картинки собирается из номера версии."""
+    parts = []
+    if fx.get("bg") == "image" and fx.get("image_v"):
+        parts.append(f"--fx-image:url('/theme-bg?v={int(fx['image_v'])}')")
+        parts.append(f"--fx-dim:{float(fx['dim'])}")
+        parts.append(f"--fx-blur:{int(fx['blur'])}px")
+    if fx.get("glass"):
+        parts.append(f"--fx-glass-alpha:{float(fx['glass_alpha'])}")
+        parts.append(f"--fx-glass-blur:{int(fx['glass_blur'])}px")
+    return ";".join(parts)
 
 
 # ---------- картинка фона ----------

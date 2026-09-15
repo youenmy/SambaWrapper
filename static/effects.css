@@ -78,9 +78,11 @@ html[data-fx-glass] #sw-header,
 html[data-fx-glass] #sidebar,
 html[data-fx-glass] #browser,
 html[data-fx-glass] #mus-bar {
-  background: color-mix(in srgb, var(--sw-surface, #ffffff) 76%, transparent) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(1.25);
-  backdrop-filter: blur(18px) saturate(1.25);
+  /* непрозрачность и размытие настраиваются в конструкторе: с жёсткими 76 %
+     и 18 px картинка фона превращалась в мутное пятно */
+  background: color-mix(in srgb, var(--sw-surface, #ffffff) calc(var(--fx-glass-alpha, .76) * 100%), transparent) !important;
+  -webkit-backdrop-filter: blur(var(--fx-glass-blur, 18px)) saturate(1.25);
+  backdrop-filter: blur(var(--fx-glass-blur, 18px)) saturate(1.25);
 }
 /* backdrop-filter делает каждую панель отдельным контекстом наложения. Меню
    оформления и меню пользователя живут внутри шапки, их z-index действует
@@ -181,6 +183,7 @@ html[data-fx-glow] #mus-head { box-shadow: 0 0 10px 1px var(--sw-cover, var(--sw
 .st-btn:hover { background: var(--sw-surface-2, #f8fafc); }
 .st-btn.st-primary { background: var(--sw-accent, #027cbb); border-color: var(--sw-accent, #027cbb); color: var(--sw-accent-text, #ffffff); }
 .st-btn.st-primary:hover { background: var(--sw-accent-hover, #0369a1); }
+.st-btn.st-danger:hover { color: var(--sw-danger, #dc2626); border-color: var(--sw-danger, #dc2626); }
 
 /* картинка фона в панели */
 .st-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }

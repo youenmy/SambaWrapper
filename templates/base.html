@@ -34,7 +34,7 @@
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="stylesheet" href="/static/style.css?v=88">
     <link rel="stylesheet" href="/static/themes.css?v=11">
-    <link rel="stylesheet" href="/static/effects.css?v=3">
+    <link rel="stylesheet" href="/static/effects.css?v=4">
     {# своя тема — после themes.css: её токены должны перекрыть токены html.dark #}
     <style id="sw-custom-theme">{{ custom_css|safe if custom_css is defined else "" }}</style>
     <style>
@@ -95,6 +95,6 @@ document.body.addEventListener("htmx:afterSwap", function(evt) {
 {% block scripts %}{% endblock %}
 <script src="/static/ui.js?v=2"></script>
 <script src="/static/music.js?v=99"></script>
-<script src="/static/theme-studio.js?v=3"></script>
+<script src="/static/theme-studio.js?v=4"></script>
 </body>
 </html>

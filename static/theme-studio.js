@@ -170,7 +170,8 @@
   var FX_BG = [["none", "Без узора"], ["grid", "Сетка"], ["dots", "Точки"], ["lines", "Штриховка"],
                ["noise", "Зерно"], ["aurora", "Аврора"], ["image", "Картинка"]];
   var COLORS = [["bg", "Фон"], ["surface", "Панели"], ["text", "Текст"], ["accent", "Акцент"]];
-  var DEFAULT_FX = {bg: "none", glass: false, glow: false, tint: true, image_v: 0, dim: 0.35, blur: 0};
+  var DEFAULT_FX = {bg: "none", glass: false, glow: false, tint: true, image_v: 0, dim: 0.35, blur: 0,
+                    glass_alpha: 0.76, glass_blur: 18};
   var BG_MAX_BYTES = 12 * 1024 * 1024;
 
   var HEX_RE = /^#[0-9a-f]{6}$/i;
@@ -225,7 +226,9 @@
     if (bg === "image" && !imageV) bg = "none";          // картинки нет — и фона-картинки нет
     return {bg: bg, glass: fx.glass === true, glow: fx.glow === true, tint: fx.tint !== false,
             image_v: imageV, dim: Math.round(num(fx.dim, 0, 0.85, 0.35) * 100) / 100,
-            blur: Math.round(num(fx.blur, 0, 24, 0))};
+            blur: Math.round(num(fx.blur, 0, 24, 0)),
+            glass_alpha: Math.round(num(fx.glass_alpha, 0.2, 0.95, 0.76) * 100) / 100,
+            glass_blur: Math.round(num(fx.glass_blur, 0, 24, 18))};
   }
   function applyFx(fx) {
     fx = cleanFx(fx);
@@ -238,6 +241,8 @@
     else html.style.removeProperty("--fx-image");
     html.style.setProperty("--fx-dim", String(fx.dim));
     html.style.setProperty("--fx-blur", fx.blur + "px");
+    html.style.setProperty("--fx-glass-alpha", String(fx.glass_alpha));
+    html.style.setProperty("--fx-glass-blur", fx.glass_blur + "px");
   }
   function refreshMusic() {
     if (!window.Music) return;
@@ -371,7 +376,7 @@
         }}),
       ]),
       el("div", {class: "st-field"}, [
-        el("label", {for: "st-blur", class: "st-lbl"}, [el("span", {text: "Размытие "}), el("output", {id: "st-blur-out"})]),
+        el("label", {for: "st-blur", class: "st-lbl"}, [el("span", {text: "Размытие картинки "}), el("output", {id: "st-blur-out"})]),
         el("input", {type: "range", id: "st-blur", min: "0", max: "24", step: "1", oninput: function () {
           ui.fx.blur = Number(this.value); sync(); preview();
         }}),
@@ -379,9 +384,27 @@
       el("p", {class: "st-note", text: "Сквозь панели картинку видно при включённом стекле. Затемнение помогает тексту оставаться читаемым."}),
     ]);
 
+    // Настройки стекла: насколько панели непрозрачны и насколько размывают фон
+    // под собой. Видны, только когда стекло включено.
+    var glassBlock = el("div", {id: "st-glass-opts", class: "st-image", hidden: ""}, [
+      el("div", {class: "st-field"}, [
+        el("label", {for: "st-galpha", class: "st-lbl"}, [el("span", {text: "Непрозрачность панелей "}), el("output", {id: "st-galpha-out"})]),
+        el("input", {type: "range", id: "st-galpha", min: "20", max: "95", step: "5", oninput: function () {
+          ui.fx.glass_alpha = Number(this.value) / 100; sync(); preview();
+        }}),
+      ]),
+      el("div", {class: "st-field"}, [
+        el("label", {for: "st-gblur", class: "st-lbl"}, [el("span", {text: "Размытие под панелями "}), el("output", {id: "st-gblur-out"})]),
+        el("input", {type: "range", id: "st-gblur", min: "0", max: "24", step: "1", oninput: function () {
+          ui.fx.glass_blur = Number(this.value); sync(); preview();
+        }}),
+      ]),
+      el("p", {class: "st-note", text: "Чем прозрачнее панели, тем виднее фон, но тем труднее читать текст — на яркой картинке помогает затемнение."}),
+    ]);
+
     function toggle(id, label, field, invert) {
       return el("label", {class: "st-switch"}, [
-        el("input", {type: "checkbox", id: id, onchange: function () { ui.fx[field] = this.checked; preview(); }}),
+        el("input", {type: "checkbox", id: id, onchange: function () { ui.fx[field] = this.checked; sync(); preview(); }}),
         el("span", {text: label}),
       ]);
     }
@@ -427,6 +450,7 @@
           fileInput,
           imageBlock,
           toggle("st-glass", "Стекло — полупрозрачные панели с размытием", "glass"),
+          glassBlock,
           toggle("st-glow", "Свечение акцентных элементов", "glow"),
           toggle("st-tint", "Цвет из обложки играющего трека", "tint"),
         ]),
@@ -442,6 +466,10 @@
         el("button", {type: "button", class: "st-btn", title: "Вставить описание темы", onclick: function () {
           SW.prompt("Вставь описание темы (JSON)", "", importTheme, {ok: "Загрузить"});
         }}, [el("i", {class: "ti ti-clipboard-text"})]),
+        // удалить можно только уже сохранённую тему
+        Studio.saved() ? el("button", {type: "button", id: "st-remove", class: "st-btn st-danger",
+                                       title: "Удалить свою тему", "aria-label": "Удалить свою тему",
+                                       onclick: confirmRemove}, [el("i", {class: "ti ti-trash"})]) : null,
         el("span", {class: "st-spacer"}),
         el("button", {type: "button", class: "st-btn", text: "Отмена", onclick: function () { Studio.cancel(); }}),
         el("button", {type: "button", class: "st-btn st-primary", text: "Сохранить", onclick: function () { Studio.save(); }}),
@@ -486,6 +514,11 @@
     p.querySelector("#st-dim-out").textContent = Math.round(ui.fx.dim * 100) + " %";
     p.querySelector("#st-blur").value = ui.fx.blur;
     p.querySelector("#st-blur-out").textContent = ui.fx.blur + " px";
+    p.querySelector("#st-glass-opts").hidden = !ui.fx.glass;
+    p.querySelector("#st-galpha").value = Math.round(ui.fx.glass_alpha * 100);
+    p.querySelector("#st-galpha-out").textContent = Math.round(ui.fx.glass_alpha * 100) + " %";
+    p.querySelector("#st-gblur").value = ui.fx.glass_blur;
+    p.querySelector("#st-gblur-out").textContent = ui.fx.glass_blur + " px";
   }
 
   /** Пересчитать тему и показать её на живом приложении. */
@@ -555,7 +588,8 @@
         ui.fx.image_v = res.d.v;
         // картинку видно только сквозь прозрачные панели — стекло включаем сразу;
         // переключатель в панели это показывает, и его можно выключить
-        ui.fx.glass = true;
+        // при первом включении стекло мягче обычного, иначе картинку не разглядеть
+        if (!ui.fx.glass) { ui.fx.glass = true; ui.fx.glass_alpha = 0.6; ui.fx.glass_blur = 6; }
         status.textContent = "";
         sync(); preview();
       })
@@ -570,7 +604,8 @@
   function exportTheme() {
     // картинка живёт на сервере у владельца — в описание темы она не попадает
     var fx = {bg: ui.fx.bg === "image" ? "none" : ui.fx.bg, glass: ui.fx.glass, glow: ui.fx.glow,
-              tint: ui.fx.tint, dim: ui.fx.dim, blur: ui.fx.blur};
+              tint: ui.fx.tint, dim: ui.fx.dim, blur: ui.fx.blur,
+              glass_alpha: ui.fx.glass_alpha, glass_blur: ui.fx.glass_blur};
     var data = {name: ui.theme.name, base: ui.theme.base, font: ui.state.font,
                 density: ui.state.density, radius_px: ui.state.radius_px, fx: fx};
     SW._copyText(JSON.stringify(data, null, 2), function () { SW.toast("Описание темы скопировано"); });
@@ -607,6 +642,16 @@
     SW.toast("Тема загружена — проверь и сохрани");
   }
 
+  function confirmRemove() {
+    var saved = Studio.saved();
+    if (!saved) return;
+    var nl = String.fromCharCode(10);
+    SW.confirm("Удалить свою тему «" + (saved.name || "Своя тема") + "»?" + nl +
+               "Если она сейчас включена, оформление вернётся к классической теме. " +
+               "Эффекты и картинка фона останутся.",
+      function () { Studio.removeTheme(); }, {ok: "Удалить", danger: true});
+  }
+
   function close() {
     document.removeEventListener("keydown", ui.keys, true);
     ui.panel.remove();
@@ -636,6 +681,29 @@
       }
       applyFx(Studio.fx());
       refreshMusic();
+    },
+
+    /** Удалить свою тему: из браузера и из настроек на сервере.
+     *
+     * Эффекты — отдельная настройка и не трогаются. Если своя тема была
+     * включена, оформление переходит на классическую; если в конструкторе
+     * шёл только предпросмотр поверх другой темы — возвращается та тема. */
+    removeTheme: function () {
+      var snap = ui ? ui.snapshot : null;
+      if (ui) close();
+      try { localStorage.removeItem(LS_THEME); } catch (e) { /* приватный режим */ }
+      styleEl().textContent = "";
+      if (window.SW && SW.savePref) SW.savePref("customTheme");   // null на сервере удаляет ключ
+      var active = snap ? snap.theme : html.dataset.theme;
+      if (active === "custom") {
+        if (window.SW && SW.setSkin) SW.setSkin("classic");
+      } else if (snap) {
+        html.dataset.theme = snap.theme;
+        html.classList.toggle("dark", snap.dark);
+      }
+      applyFx(snap ? snap.fx : Studio.fx());
+      refreshMusic();
+      if (window.SW && SW.toast) SW.toast("Своя тема удалена");
     },
 
     open: function () {
