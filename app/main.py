@@ -10,14 +10,14 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.12"
+APP_VERSION = "3.13"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.sessions import SessionMiddleware
-from . import auth, db, disks, browse, samba, fileops, portcfg, dlna, torrent, shell, music
+from . import auth, db, disks, browse, samba, fileops, portcfg, dlna, torrent, shell, music, uitheme
 from .config import MOUNT_ROOT, DATA_DIR
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -184,7 +184,7 @@ def _polled(request: Request, response, sig: str):
 # столбцы, сортировка. Громкость, позиция в треке и последний раздел
 # остаются в браузере — они про конкретное устройство, а не про человека.
 
-UI_PREFS_KEYS = {"skin", "musPins", "musCols", "musSorts", "musTree", "musViz"}
+UI_PREFS_KEYS = {"skin", "musPins", "musCols", "musSorts", "musTree", "musViz", "customTheme", "fx"}
 
 @app.get("/api/prefs")
 async def api_prefs(request: Request, user: str = Depends(current_user)):
@@ -200,6 +200,15 @@ async def api_prefs_save(request: Request, user: str = Depends(current_user)):
         raise HTTPException(status_code=400, detail="ожидается объект")
     # чужие ключи не храним: браузер не должен превращать эту таблицу в свалку
     patch = {k: v for k, v in patch.items() if k in UI_PREFS_KEYS}
+    # своя тема и эффекты попадают в <style> и атрибуты страницы — храним
+    # только то, что прошло строгую проверку (null по-прежнему удаляет ключ)
+    if patch.get("customTheme") is not None:
+        cleaned = uitheme.clean_custom_theme(patch["customTheme"])
+        if cleaned is None:
+            raise HTTPException(status_code=400, detail="своя тема не прошла проверку")
+        patch["customTheme"] = cleaned
+    if patch.get("fx") is not None:
+        patch["fx"] = uitheme.clean_fx(patch["fx"])
     if not patch:
         return {"ok": True, "prefs": await asyncio.to_thread(db.get_ui_prefs, user)}
     try:
@@ -207,6 +216,15 @@ async def api_prefs_save(request: Request, user: str = Depends(current_user)):
     except ValueError as e:
         raise HTTPException(status_code=413, detail=str(e))
     return {"ok": True, "prefs": data}
+
+
+def _theme_context(prefs: dict) -> dict:
+    theme = uitheme.clean_custom_theme(prefs.get("customTheme"))
+    return {
+        "custom_css": uitheme.custom_css(theme),
+        "custom_dark": theme["dark"] if theme else None,
+        "fx": uitheme.clean_fx(prefs.get("fx")),
+    }
 
 
 # ---------- page ----------
@@ -224,6 +242,9 @@ async def index(request: Request, _: str = Depends(current_user)):
         "request": request, "mount_root": str(MOUNT_ROOT), "port": portcfg.current_port(),
         "role": current_role(request), "username": request.session.get("user", ""),
         "prefs": prefs,
+        # своя тема и эффекты вставляются прямо в разметку, чтобы страница не
+        # моргала; значения проверяются ещё раз — хранилище могло быть старым
+        **_theme_context(prefs),
     })
 
 

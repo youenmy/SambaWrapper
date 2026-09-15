@@ -1078,8 +1078,11 @@
       _root: function () { return document.documentElement; },
       _extract: function (img) {
         var root = M.tint._root();
-        // «Контраст» обещает отсутствие украшений — в нём не красим ничего
-        if (!root || root.dataset.theme === "contrast") { M.tint.reset(); return; }
+        // «Контраст» обещает отсутствие украшений, а в эффектах подкраску
+        // можно выключить явно — в обоих случаях остаёмся на цветах темы
+        if (!root || root.dataset.theme === "contrast" || root.dataset.fxTint === "off") {
+          M.tint.reset(); return;
+        }
         var size = 24;
         var c = document.createElement("canvas");
         c.width = c.height = size;

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru"{% if fx is defined %} data-fx-bg="{{ fx.bg }}"{% if fx.glass %} data-fx-glass{% endif %}{% if fx.glow %} data-fx-glow{% endif %}{% if not fx.tint %} data-fx-tint="off"{% endif %}{% endif %}>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,10 +15,14 @@
       var served = {{ (prefs.skin if prefs is defined and prefs and prefs.skin else "")|tojson }};
       var skin = served || localStorage.getItem("sw.skin") || "classic";
       if (served) { try { localStorage.setItem("sw.skin", served); } catch (e) {} }
+      // У своей темы режим задан ею самой. Если своей темы нет (страница
+      // входа или тема не прошла проверку), показываем классическую.
+      var customDark = {{ (custom_dark if custom_dark is defined else none)|tojson }};
+      if (skin === "custom" && customDark === null) skin = "classic";
       var light = ["paper", "contrast", "sakura"].indexOf(skin) >= 0;
-      if (!light && localStorage.getItem("sw.theme") !== "light") {
-        document.documentElement.classList.add("dark");
-      }
+      var dark = skin === "custom" ? customDark
+               : (!light && localStorage.getItem("sw.theme") !== "light");
+      if (dark) document.documentElement.classList.add("dark");
       document.documentElement.dataset.theme = skin;
     </script>
     {# Всё своё: приложение работает и когда внешние CDN недоступны. Стили
@@ -30,6 +34,9 @@
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="stylesheet" href="/static/style.css?v=88">
     <link rel="stylesheet" href="/static/themes.css?v=11">
+    <link rel="stylesheet" href="/static/effects.css?v=1">
+    {# своя тема — после themes.css: её токены должны перекрыть токены html.dark #}
+    <style id="sw-custom-theme">{{ custom_css|safe if custom_css is defined else "" }}</style>
     <style>
       html { font-size: 120%; }  /* всё на rem → интерфейс крупнее на 20% */
       body { background:#f1f5f9; color:#0f172a; }
@@ -87,6 +94,7 @@ document.body.addEventListener("htmx:afterSwap", function(evt) {
 </script>
 {% block scripts %}{% endblock %}
 <script src="/static/ui.js?v=2"></script>
-<script src="/static/music.js?v=98"></script>
+<script src="/static/music.js?v=99"></script>
+<script src="/static/theme-studio.js?v=2"></script>
 </body>
 </html>
