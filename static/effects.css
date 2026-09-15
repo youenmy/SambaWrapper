@@ -54,6 +54,20 @@ html[data-fx-bg="aurora"] body::before {
   from { transform: translate3d(-4%, -3%, 0) scale(1); }
   to   { transform: translate3d(4%, 3%, 0) scale(1.1); }
 }
+/* своя картинка: нижний слой — изображение с размытием (слой вынесен за
+   края экрана на двойной радиус, чтобы размытый край не просвечивал), над
+   ним вуаль цвета фона темы — она держит читаемость на яркой фотографии */
+html[data-fx-bg="image"][data-fx-bg] body { background-image: none !important; isolation: isolate; }
+html[data-fx-bg="image"] body::before {
+  content: ""; position: fixed; z-index: -2; pointer-events: none;
+  inset: calc(var(--fx-blur, 0px) * -2);
+  background: var(--fx-image, none) center / cover no-repeat;
+  filter: blur(var(--fx-blur, 0px));
+}
+html[data-fx-bg="image"] body::after {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: color-mix(in srgb, var(--sw-bg, #0b1220) calc(var(--fx-dim, .35) * 100%), transparent);
+}
 
 /* ---------------------------------------------------------------- стекло
  * Крупные панели становятся полупрозрачными и размывают то, что под ними.
@@ -167,6 +181,17 @@ html[data-fx-glow] #mus-head { box-shadow: 0 0 10px 1px var(--sw-cover, var(--sw
 .st-btn:hover { background: var(--sw-surface-2, #f8fafc); }
 .st-btn.st-primary { background: var(--sw-accent, #027cbb); border-color: var(--sw-accent, #027cbb); color: var(--sw-accent-text, #ffffff); }
 .st-btn.st-primary:hover { background: var(--sw-accent-hover, #0369a1); }
+
+/* картинка фона в панели */
+.st-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.st-image { margin: .1rem 0 .6rem; }
+.st-image-row { display: flex; gap: .6rem; align-items: center; margin-bottom: .55rem; }
+.st-thumb {
+  width: 5.5rem; height: 3.4rem; object-fit: cover; flex: none;
+  border-radius: var(--sw-radius-sm, .375rem); border: 1px solid var(--sw-border-2, #7c95b4);
+  background: var(--sw-surface-2, #f8fafc);
+}
+.st-image-actions { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; min-width: 0; }
 
 /* узкий экран: панель превращается в лист снизу */
 @media (max-width: 640px) {

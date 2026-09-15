@@ -168,9 +168,10 @@
   var FONT_LABELS = [["system", "Системный"], ["display", "Округлый"], ["mono", "Моноширинный"], ["serif", "С засечками"]];
   var DENSITY_LABELS = [["compact", "Плотно"], ["normal", "Обычно"], ["roomy", "Просторно"]];
   var FX_BG = [["none", "Без узора"], ["grid", "Сетка"], ["dots", "Точки"], ["lines", "Штриховка"],
-               ["noise", "Зерно"], ["aurora", "Аврора"]];
+               ["noise", "Зерно"], ["aurora", "Аврора"], ["image", "Картинка"]];
   var COLORS = [["bg", "Фон"], ["surface", "Панели"], ["text", "Текст"], ["accent", "Акцент"]];
-  var DEFAULT_FX = {bg: "none", glass: false, glow: false, tint: true};
+  var DEFAULT_FX = {bg: "none", glass: false, glow: false, tint: true, image_v: 0, dim: 0.35, blur: 0};
+  var BG_MAX_BYTES = 12 * 1024 * 1024;
 
   var HEX_RE = /^#[0-9a-f]{6}$/i;
   var RGBA_RE = /^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*(?:0|1|0?\.\d{1,3})\s*\)$/;
@@ -214,10 +215,17 @@
     }
     return el;
   }
+  function num(v, lo, hi, dflt) {
+    return typeof v === "number" && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : dflt;
+  }
   function cleanFx(fx) {
     fx = fx && typeof fx === "object" ? fx : {};
+    var imageV = Math.round(num(fx.image_v, 0, 1e15, 0));
     var bg = FX_BG.some(function (x) { return x[0] === fx.bg; }) ? fx.bg : "none";
-    return {bg: bg, glass: fx.glass === true, glow: fx.glow === true, tint: fx.tint !== false};
+    if (bg === "image" && !imageV) bg = "none";          // картинки нет — и фона-картинки нет
+    return {bg: bg, glass: fx.glass === true, glow: fx.glow === true, tint: fx.tint !== false,
+            image_v: imageV, dim: Math.round(num(fx.dim, 0, 0.85, 0.35) * 100) / 100,
+            blur: Math.round(num(fx.blur, 0, 24, 0))};
   }
   function applyFx(fx) {
     fx = cleanFx(fx);
@@ -225,6 +233,11 @@
     html.toggleAttribute("data-fx-glass", fx.glass);
     html.toggleAttribute("data-fx-glow", fx.glow);
     if (fx.tint) html.removeAttribute("data-fx-tint"); else html.setAttribute("data-fx-tint", "off");
+    // картинка фона: адрес собирается только из числа версии, остальное — числа
+    if (fx.image_v) html.style.setProperty("--fx-image", 'url("/theme-bg?v=' + fx.image_v + '")');
+    else html.style.removeProperty("--fx-image");
+    html.style.setProperty("--fx-dim", String(fx.dim));
+    html.style.setProperty("--fx-blur", fx.blur + "px");
   }
   function refreshMusic() {
     if (!window.Music) return;
@@ -325,9 +338,46 @@
     var chips = el("div", {class: "st-chips", role: "group", "aria-label": "Узор фона"});
     FX_BG.forEach(function (b) {
       chips.appendChild(el("button", {type: "button", class: "st-chip", "data-bg": b[0], text: b[1], onclick: function () {
+        // картинки ещё нет — сначала выбрать файл, фон переключится после загрузки
+        if (b[0] === "image" && !ui.fx.image_v) { ui.panel.querySelector("#st-file").click(); return; }
         ui.fx.bg = b[0]; sync(); preview();
       }}));
     });
+
+    // Картинка фона: файл уходит на сервер, в настройках хранится только номер версии.
+    // Поле выбора файла визуально скрыто, но доступно: его открывают кнопка и чип «Картинка».
+    var fileInput = el("input", {type: "file", id: "st-file", class: "st-file",
+                                 accept: "image/jpeg,image/png,image/webp,image/gif,image/bmp",
+                                 "aria-label": "Файл картинки для фона", onchange: function () {
+      uploadImage(this.files && this.files[0]);
+      this.value = "";
+    }});
+    var imageBlock = el("div", {id: "st-image", class: "st-image", hidden: ""}, [
+      el("div", {class: "st-image-row"}, [
+        el("img", {id: "st-thumb", class: "st-thumb", alt: "Картинка фона"}),
+        el("div", {class: "st-image-actions"}, [
+          el("button", {type: "button", class: "st-btn", text: "Выбрать картинку…",
+                        onclick: function () { ui.panel.querySelector("#st-file").click(); }}),
+          el("button", {type: "button", class: "st-btn", text: "Убрать", onclick: function () {
+            ui.fx.bg = "none"; ui.fx.image_v = 0; sync(); preview();
+          }}),
+          el("span", {id: "st-image-status", class: "st-note", role: "status"}),
+        ]),
+      ]),
+      el("div", {class: "st-field"}, [
+        el("label", {for: "st-dim", class: "st-lbl"}, [el("span", {text: "Затемнение "}), el("output", {id: "st-dim-out"})]),
+        el("input", {type: "range", id: "st-dim", min: "0", max: "85", step: "5", oninput: function () {
+          ui.fx.dim = Number(this.value) / 100; sync(); preview();
+        }}),
+      ]),
+      el("div", {class: "st-field"}, [
+        el("label", {for: "st-blur", class: "st-lbl"}, [el("span", {text: "Размытие "}), el("output", {id: "st-blur-out"})]),
+        el("input", {type: "range", id: "st-blur", min: "0", max: "24", step: "1", oninput: function () {
+          ui.fx.blur = Number(this.value); sync(); preview();
+        }}),
+      ]),
+      el("p", {class: "st-note", text: "Сквозь панели картинку видно при включённом стекле. Затемнение помогает тексту оставаться читаемым."}),
+    ]);
 
     function toggle(id, label, field, invert) {
       return el("label", {class: "st-switch"}, [
@@ -374,6 +424,8 @@
         el("section", {class: "st-sec"}, [
           el("h4", {class: "st-h"}, [el("span", {text: "Эффекты"}), el("span", {class: "st-note", text: "для любой темы"})]),
           chips,
+          fileInput,
+          imageBlock,
           toggle("st-glass", "Стекло — полупрозрачные панели с размытием", "glass"),
           toggle("st-glow", "Свечение акцентных элементов", "glow"),
           toggle("st-tint", "Цвет из обложки играющего трека", "tint"),
@@ -417,6 +469,23 @@
     p.querySelector("#st-glass").checked = ui.fx.glass;
     p.querySelector("#st-glow").checked = ui.fx.glow;
     p.querySelector("#st-tint").checked = ui.fx.tint;
+    p.querySelector("#st-image").hidden = ui.fx.bg !== "image";
+    var thumb = p.querySelector("#st-thumb");
+    if (ui.fx.image_v) {
+      if (thumb.getAttribute("data-v") !== String(ui.fx.image_v)) {
+        thumb.src = "/theme-bg?v=" + ui.fx.image_v;
+        thumb.setAttribute("data-v", String(ui.fx.image_v));
+      }
+      thumb.hidden = false;
+    } else {
+      thumb.removeAttribute("src");
+      thumb.removeAttribute("data-v");
+      thumb.hidden = true;
+    }
+    p.querySelector("#st-dim").value = Math.round(ui.fx.dim * 100);
+    p.querySelector("#st-dim-out").textContent = Math.round(ui.fx.dim * 100) + " %";
+    p.querySelector("#st-blur").value = ui.fx.blur;
+    p.querySelector("#st-blur-out").textContent = ui.fx.blur + " px";
   }
 
   /** Пересчитать тему и показать её на живом приложении. */
@@ -464,9 +533,46 @@
     sum.className = "st-summary " + (bad ? "st-fail" : "st-pass");
   }
 
+  /* Загрузка картинки фона. Проверку формата и размера делает сервер; здесь —
+     только быстрый отказ, чтобы не гнать по сети заведомо неподходящий файл. */
+  function uploadImage(file) {
+    if (!ui || !file) return;
+    if (!/^image\//.test(file.type)) { SW.toast("Нужен файл изображения"); return; }
+    if (file.size > BG_MAX_BYTES) { SW.toast("Картинка больше 12 МБ"); return; }
+    var status = ui.panel.querySelector("#st-image-status");
+    ui.panel.querySelector("#st-image").hidden = false;
+    status.textContent = "Загружаю…";
+    var form = new FormData();
+    form.append("file", file);
+    fetch("/api/theme-bg", {method: "POST", body: form, credentials: "same-origin"})
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) { return {ok: r.ok, d: d}; });
+      })
+      .then(function (res) {
+        if (!ui) return;
+        if (!res.ok || !res.d || !res.d.v) throw new Error((res.d && res.d.detail) || "сервер не принял файл");
+        ui.fx.bg = "image";
+        ui.fx.image_v = res.d.v;
+        // картинку видно только сквозь прозрачные панели — стекло включаем сразу;
+        // переключатель в панели это показывает, и его можно выключить
+        ui.fx.glass = true;
+        status.textContent = "";
+        sync(); preview();
+      })
+      .catch(function (e) {
+        if (!ui) return;
+        status.textContent = "";
+        sync();
+        SW.toast("Картинка не загрузилась: " + e.message);
+      });
+  }
+
   function exportTheme() {
+    // картинка живёт на сервере у владельца — в описание темы она не попадает
+    var fx = {bg: ui.fx.bg === "image" ? "none" : ui.fx.bg, glass: ui.fx.glass, glow: ui.fx.glow,
+              tint: ui.fx.tint, dim: ui.fx.dim, blur: ui.fx.blur};
     var data = {name: ui.theme.name, base: ui.theme.base, font: ui.state.font,
-                density: ui.state.density, radius_px: ui.state.radius_px, fx: ui.fx};
+                density: ui.state.density, radius_px: ui.state.radius_px, fx: fx};
     SW._copyText(JSON.stringify(data, null, 2), function () { SW.toast("Описание темы скопировано"); });
   }
 
@@ -489,7 +595,13 @@
     if (typeof o.radius_px === "number" && isFinite(o.radius_px)) {
       ui.state.radius_px = Math.max(0, Math.min(20, Math.round(o.radius_px)));
     }
-    if (o.fx && typeof o.fx === "object") ui.fx = cleanFx(o.fx);
+    if (o.fx && typeof o.fx === "object") {
+      // чужой номер картинки здесь ничего не значит — оставляем свою
+      var ownImage = ui.fx.image_v;
+      ui.fx = cleanFx(o.fx);
+      ui.fx.image_v = ownImage;
+      if (ui.fx.bg === "image" && !ownImage) ui.fx.bg = "none";
+    }
     ui.touched = true;
     sync(); preview();
     SW.toast("Тема загружена — проверь и сохрани");

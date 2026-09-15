@@ -10,7 +10,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.14"
+APP_VERSION = "3.15"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -209,6 +209,8 @@ async def api_prefs_save(request: Request, user: str = Depends(current_user)):
         patch["customTheme"] = cleaned
     if patch.get("fx") is not None:
         patch["fx"] = uitheme.clean_fx(patch["fx"])
+        # файлы картинок, на которые сохранённые настройки больше не ссылаются, не копим
+        await asyncio.to_thread(uitheme.drop_backgrounds, user, (patch["fx"]["image_v"],))
     if not patch:
         return {"ok": True, "prefs": await asyncio.to_thread(db.get_ui_prefs, user)}
     try:
@@ -218,12 +220,44 @@ async def api_prefs_save(request: Request, user: str = Depends(current_user)):
     return {"ok": True, "prefs": data}
 
 
+@app.post("/api/theme-bg")
+async def api_theme_bg_upload(request: Request, user: str = Depends(current_user),
+                              file: UploadFile = File(...)):
+    """Картинка фона: проверяется и перекодируется, в ответ — номер версии.
+    Версия, на которую ссылаются сохранённые настройки, остаётся на диске,
+    чтобы «Отмена» в конструкторе не теряла прежнюю картинку."""
+    try:
+        data = await file.read(uitheme.BG_MAX_BYTES + 1)
+    finally:
+        await file.close()
+    prefs = await asyncio.to_thread(db.get_ui_prefs, user)
+    keep = uitheme.clean_fx(prefs.get("fx"))["image_v"] or None
+    try:
+        version = await asyncio.to_thread(uitheme.save_background, user, data, keep)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True, "v": version}
+
+
+@app.get("/theme-bg")
+async def theme_bg(request: Request, user: str = Depends(current_user), v: int = 0):
+    """Картинка фона текущего пользователя. Адрес с номером версии не меняется
+    для одного файла, поэтому браузер может держать её в кэше сколько угодно."""
+    path = uitheme.bg_path(user, v)
+    if v <= 0 or not path.is_file():
+        raise HTTPException(status_code=404, detail="картинки нет")
+    return FileResponse(path, media_type="image/jpeg",
+                        headers={"Cache-Control": "private, max-age=31536000, immutable"})
+
+
 def _theme_context(prefs: dict) -> dict:
     theme = uitheme.clean_custom_theme(prefs.get("customTheme"))
+    fx = uitheme.clean_fx(prefs.get("fx"))
     return {
         "custom_css": uitheme.custom_css(theme),
         "custom_dark": theme["dark"] if theme else None,
-        "fx": uitheme.clean_fx(prefs.get("fx")),
+        "fx": fx,
+        "fx_style": uitheme.fx_style(fx),
     }
 
 
@@ -749,6 +783,7 @@ async def htmx_webuser_delete(request: Request, _: str = Depends(require_admin),
     ok, msg = auth.delete_web_user(username)
     if ok:
         await asyncio.to_thread(db.drop_ui_prefs, username)   # чтобы не копились сироты
+        await asyncio.to_thread(uitheme.drop_backgrounds, username)
     return _resp(request, ok, msg or f"Пользователь «{username}» удалён", ["reloadSettings"] if ok else [])
 
 @app.post("/htmx/ui-pref", response_class=HTMLResponse)
@@ -767,6 +802,7 @@ async def htmx_admin_account(request: Request, _: str = Depends(require_admin),
     if was != auth.get_username():
         # настройки интерфейса привязаны к имени — переносим вместе с ним
         await asyncio.to_thread(db.rename_ui_prefs, was, auth.get_username())
+        await asyncio.to_thread(uitheme.rename_backgrounds, was, auth.get_username())
     if password.strip():
         if len(password) < 8:
             return _resp(request, False, "Пароль: минимум 8 символов", [])
