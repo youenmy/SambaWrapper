@@ -91,6 +91,63 @@ html[data-fx-glass] #mus-bar {
    соседними панелями, но остаётся ниже дока (z 60) и всех окон. */
 html[data-fx-glass] #sw-header { position: relative; z-index: 45; }
 
+/* Липкие элементы внутри стеклянных панелей: шапки таблиц и списков, колонки
+   галочек и корзины. Непрозрачный фон нужен им, только чтобы уезжающие строки
+   не просвечивали, а поверх картинки фона они стояли тёмными полосами. Любой
+   постоянный полупрозрачный фон тоже давал полосу: он ложится вторым слоем
+   поверх уже полупрозрачной панели.
+
+   Поэтому фон появляется, только когда под элементом действительно что-то
+   есть. ui.js ставит прокручиваемому контейнеру класс sw-scrolled-y (список
+   сдвинут вниз) и sw-scrolled-x (сдвинут вбок). В покое шапки и колонки
+   прозрачны. Шапкам при прокрутке — стекло с размытием не меньше 10 px, даже
+   если стекло панелей без размытия, иначе текст строк лёг бы на заголовки.
+   Колонкам галочек и корзины — только плотный фон без размытия: это две ячейки
+   на каждую строку, и сотни слоёв с backdrop-filter тормозили бы прокрутку.
+
+   Селекторы через #browser: правила тем красят эти элементы с !important и
+   большей специфичностью. Подсветка играющей и отмеченной строки задаётся
+   ниже отдельно, чтобы не потеряться. */
+html[data-fx-glass] #browser thead.sticky,
+html[data-fx-glass] #browser thead.sticky th,
+html[data-fx-glass] #browser #music-lists .sticky,
+html[data-fx-glass] #browser #tr-details .sticky,
+html[data-fx-glass] #browser .mus-table tbody td[data-col="pick"],
+html[data-fx-glass] #browser .mus-table tbody td[data-col="actions"] {
+  background: transparent !important;
+  transition: background-color .15s ease;
+}
+/* у шапок списков те же id, что в правиле покоя выше, — иначе оно сильнее
+   и фон при прокрутке оставался прозрачным, хотя размытие включалось */
+html[data-fx-glass] #browser .sw-scrolled-y thead.sticky th,
+html[data-fx-glass] #browser #music-lists.sw-scrolled-y .sticky,
+html[data-fx-glass] #browser #tr-details.sw-scrolled-y .sticky {
+  background: color-mix(in srgb, var(--sw-surface-2, #f8fafc) min(96%, calc(var(--fx-glass-alpha, .76) * 100% + 12%)), transparent) !important;
+  -webkit-backdrop-filter: blur(max(10px, var(--fx-glass-blur, 18px))) saturate(1.2);
+  backdrop-filter: blur(max(10px, var(--fx-glass-blur, 18px))) saturate(1.2);
+}
+html[data-fx-glass] #browser .sw-scrolled-x .mus-table tbody td[data-col="pick"],
+html[data-fx-glass] #browser .sw-scrolled-x .mus-table tbody td[data-col="actions"] {
+  background: color-mix(in srgb, var(--sw-surface, #ffffff) min(96%, calc(var(--fx-glass-alpha, .76) * 100% + 20%)), transparent) !important;
+}
+html[data-fx-glass] #browser .sw-scrolled-x .mus-table tbody tr:hover > td[data-col="pick"],
+html[data-fx-glass] #browser .sw-scrolled-x .mus-table tbody tr:hover > td[data-col="actions"] {
+  background: color-mix(in srgb, var(--sw-surface-2, #f8fafc) min(96%, calc(var(--fx-glass-alpha, .76) * 100% + 20%)), transparent) !important;
+}
+/* Тень-отбивка слева от корзины нужна, только когда под колонкой проезжают
+   строки; в покое она читалась тонкой линией поверх картинки. У играющей
+   строки тень последней ячейки несёт правый край рамки — её не трогаем. */
+html[data-fx-glass] #browser .mus-table tbody tr:not(.mus-playing) > td[data-col="actions"] { box-shadow: none; }
+html[data-fx-glass] #browser .sw-scrolled-x .mus-table tbody tr:not(.mus-playing) > td[data-col="actions"] {
+  box-shadow: -0.5rem 0 0.5rem -0.375rem rgba(0, 0, 0, .25);
+}
+html[data-fx-glass] #browser .mus-table tbody tr.mus-playing > td[data-col="pick"],
+html[data-fx-glass] #browser .mus-table tbody tr.mus-playing > td[data-col="actions"],
+html[data-fx-glass] #browser .mus-table tbody tr.mus-picked > td[data-col="pick"],
+html[data-fx-glass] #browser .mus-table tbody tr.mus-picked > td[data-col="actions"] {
+  background: var(--sw-accent-soft, #e0f2fe) !important;
+}
+
 /* -------------------------------------------------------------- свечение */
 html[data-fx-glow] .bg-sky-600,
 html[data-fx-glow] .np-play {
