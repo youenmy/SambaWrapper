@@ -12,7 +12,8 @@
   var LS = {
     view: "sw.musView",       // фильтры и сортировка
     track: "sw.musTrack",     // что играло и на какой секунде
-    volume: "sw.musVolume",
+    volume: "sw.musVolume",   // прежняя линейная громкость — читается один раз для переноса
+    level: "sw.musLevel",     // положение ползунка громкости
     muted: "sw.musMuted",     // приглушение тоже переживает перезагрузку
     cols: "sw.musCols",
     tree: "sw.musTree",       // режим дерева папок
@@ -775,34 +776,70 @@
     /* Громкость хранится одним значением и раздаётся обеим декам.
        Раньше новая дека копировала громкость у прежней; стоило прежней
        оказаться со значением по умолчанию — и в хранилище уезжала единица,
-       то есть максимум. Теперь копировать не у кого: есть сохранённое число. */
-    volume: function () {
-      var v = parseFloat(localStorage.getItem(LS.volume));
-      return isNaN(v) ? 1 : Math.max(0, Math.min(1, v));
+       то есть максимум. Теперь копировать не у кого: есть сохранённое число.
+
+       Хранится положение ползунка (0…1), а шкала логарифмическая — в
+       децибелах. Слух воспринимает громкость логарифмически: при линейной
+       шкале почти вся слышимая разница умещалась в нижней части ползунка, там
+       каждый шаг был скачком, а верхние шаги звучали одинаково. Теперь весь
+       ползунок охватывает VOLUME_DB децибел, и каждый шаг прибавляет одно и то
+       же число децибел: середина — −25 дБ. Чистый логарифм до нуля не доходит,
+       поэтому крайнее левое положение — тишина. Ползунок идёт по 1 %
+       (100 уровней), колесо и стрелки — по 2 %. */
+    VOLUME_STEP: 0.02,
+    VOLUME_DB: 50,
+    level: function () {
+      var l = parseFloat(localStorage.getItem(LS.level));
+      if (isNaN(l)) {
+        // Перенос прежней линейной громкости по той же шкале: положение
+        // выбирается так, чтобы после обновления звук не стал ни громче, ни тише.
+        var old = parseFloat(localStorage.getItem(LS.volume));
+        if (isNaN(old)) l = 1;
+        else if (old <= 0) l = 0;
+        else l = 1 + 20 * Math.log10(Math.min(1, old)) / M.VOLUME_DB;
+        l = Math.max(0, Math.min(1, l));
+        store(LS.level, String(Math.round(l * 1000) / 1000));
+      }
+      return Math.max(0, Math.min(1, l));
     },
-    setVolume: function (value) {
-      var v = Math.max(0, Math.min(1, parseFloat(value)));
-      if (isNaN(v)) return;
-      store(LS.volume, String(v));
+    /** Громкость в децибелах относительно максимума (0 — максимум). */
+    decibels: function () {
+      var l = M.level();
+      return l <= 0 ? -Infinity : (l - 1) * M.VOLUME_DB;
+    },
+    /** Громкость, которая уходит в деку: из децибел обратно в множитель. */
+    volume: function () {
+      var l = M.level();
+      return l <= 0 ? 0 : Math.pow(10, M.decibels() / 20);
+    },
+    setVolume: function (level) {
+      var l = Math.max(0, Math.min(1, parseFloat(level)));
+      if (isNaN(l)) return;
+      store(LS.level, String(Math.round(l * 1000) / 1000));
       M._applyVolume();
       M._volumeIcon();
     },
     /** Раздать сохранённую громкость обеим декам и ползунку. */
     _applyVolume: function () {
-      var v = M.volume();
-      var muted = localStorage.getItem(LS.muted) === "1" || v <= 0;
+      var l = M.level(), v = M.volume();
+      var muted = localStorage.getItem(LS.muted) === "1" || l <= 0;
       [$("mus-audio"), $("mus-audio-b")].forEach(function (el) {
         if (!el) return;
         el.volume = v;
         el.muted = muted;
       });
       var slider = $("mus-vol");
-      if (slider) slider.value = muted ? 0 : v;
+      if (slider) {
+        slider.value = muted ? 0 : l;
+        var pct = muted ? "выключена"
+                : Math.round(l * 100) + " % (" + Math.round(M.decibels()) + " дБ)";
+        slider.title = "Громкость: " + pct;
+        slider.setAttribute("aria-valuetext", pct);
+      }
     },
     volumeWheel: function (event) {
       event.preventDefault();
-      var a = audio();
-      M.setVolume(M.volume() + (event.deltaY < 0 ? 0.05 : -0.05));
+      M.setVolume(M.level() + (event.deltaY < 0 ? M.VOLUME_STEP : -M.VOLUME_STEP));
     },
     mute: function () {
       var on = !audio().muted;
@@ -814,7 +851,7 @@
       var a = audio(), icon = $("mus-vol-icon");
       if (!icon) return;
       icon.className = (a.muted || a.volume === 0) ? "ti ti-volume-off"
-                     : (a.volume < 0.5 ? "ti ti-volume-2" : "ti ti-volume");
+                     : (M.level() < 0.5 ? "ti ti-volume-2" : "ti ti-volume");
     },
     close: function () {
       M.np.hide();
@@ -1996,7 +2033,7 @@
         } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
           if (!a) return;
           e.preventDefault();
-          M.setVolume(M.volume() + (e.key === "ArrowUp" ? 0.05 : -0.05));
+          M.setVolume(M.level() + (e.key === "ArrowUp" ? M.VOLUME_STEP : -M.VOLUME_STEP));
         }
       });
 

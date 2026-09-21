@@ -106,7 +106,7 @@
     <div id="mus-vol-zone" class="hidden sm:flex items-center gap-2 w-32 h-full shrink-0">
       <button onclick="Music.mute()" title="Звук" aria-label="Выключить звук"
               class="text-slate-400 hover:text-slate-700"><i id="mus-vol-icon" class="ti ti-volume"></i></button>
-      <input id="mus-vol" type="range" min="0" max="1" step="0.05" value="1" aria-label="Громкость"
+      <input id="mus-vol" type="range" min="0" max="1" step="0.01" value="1" aria-label="Громкость"
              oninput="Music.setVolume(this.value)" class="w-full accent-sky-500 cursor-pointer">
     </div>
     <button title="Во весь экран (F)" aria-label="Открыть «Сейчас играет» во весь экран"
