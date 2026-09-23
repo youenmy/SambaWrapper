@@ -10,7 +10,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.19"
+APP_VERSION = "3.20"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -109,8 +109,29 @@ LOGIN_MAX_FAILS = 5
 LOGIN_LOCK_SECS = 15 * 60
 _login_fails: dict[str, list] = {}  # ip -> [fail_count, locked_until_ts]
 
+_LOOPBACK = {"127.0.0.1", "::1"}
+
 def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else "?"
+    """Адрес клиента. Снаружи приложение открывают через nginx на этой же
+    машине, и для uvicorn все такие запросы приходят с 127.0.0.1 — без этой
+    поправки пять чужих неудачных входов блокировали вход всем, включая
+    владельца. Настоящий адрес nginx кладёт в X-Real-IP; верим заголовку
+    только от самого nginx, иначе его подделал бы любой, кто достучится до
+    порта приложения напрямую."""
+    peer = request.client.host if request.client else "?"
+    if peer in _LOOPBACK:
+        real = (request.headers.get("x-real-ip") or "").strip()
+        if real and len(real) <= 45 and re.fullmatch(r"[0-9A-Fa-f:.]+", real):
+            return real
+    return peer
+
+def _forget_old_fails(now: float) -> None:
+    """Таблица неудачных входов не должна расти бесконечно от перебора с
+    разных адресов: истёкшие записи выбрасываются."""
+    if len(_login_fails) < 1000:
+        return
+    for ip in [k for k, (count, until) in _login_fails.items() if until < now]:
+        _login_fails.pop(ip, None)
 
 @app.post("/login")
 async def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
@@ -122,6 +143,7 @@ async def login_submit(request: Request, username: str = Form(...), password: st
         return RedirectResponse("/login?err=2", status_code=303)
     role = auth.authenticate(username, password)
     if not role:
+        _forget_old_fails(now)
         rec = _login_fails.setdefault(ip, [0, 0.0])
         rec[0] += 1
         if rec[0] >= LOGIN_MAX_FAILS:
@@ -357,7 +379,7 @@ async def htmx_browse(request: Request, _: str = Depends(current_user), path: st
 async def htmx_mount(request: Request, _: str = Depends(require_admin),
                      path: str = Form(...), mount_name: str = Form(...), fstype: str = Form(...),
                      uuid: str = Form(""), label: str = Form(""), auto_mount: str = Form("no")):
-    ok, msg = disks.mount_partition(path, mount_name, fstype)
+    ok, msg = await asyncio.to_thread(disks.mount_partition, path, mount_name, fstype)
     if ok:
         if uuid:
             disks.remember_mount({"uuid": uuid, "label": label or None}, mount_name, auto_mount == "yes")
@@ -368,7 +390,7 @@ async def htmx_mount(request: Request, _: str = Depends(require_admin),
 @app.post("/htmx/umount", response_class=HTMLResponse)
 async def htmx_umount(request: Request, _: str = Depends(require_admin),
                       mount_point: str = Form(...), force: str = Form("no")):
-    ok, msg = disks.unmount(mount_point, force=(force == "yes"))
+    ok, msg = await asyncio.to_thread(disks.unmount, mount_point, force == "yes")
     return _resp(request, ok, msg or "Диск отключён — можно безопасно извлекать",
                  ["refreshSidebar", "refreshBrowser"])
 
@@ -400,7 +422,7 @@ async def htmx_disk_check(request: Request, _: str = Depends(require_admin), dev
 async def htmx_mkdir(request: Request, _: str = Depends(current_user),
                      path: str = Form(...), name: str = Form(...)):
     try:
-        fileops.mkdir(path, name)
+        await asyncio.to_thread(fileops.mkdir, path, name)
         return _resp(request, True, f"Папка «{name}» создана", ["refreshBrowser"])
     except fileops.FileOpError as e:
         return _resp(request, False, str(e), [])
@@ -409,7 +431,7 @@ async def htmx_mkdir(request: Request, _: str = Depends(current_user),
 async def htmx_rename(request: Request, _: str = Depends(current_user),
                       path: str = Form(...), new_name: str = Form(...)):
     try:
-        fileops.rename(path, new_name)
+        await asyncio.to_thread(fileops.rename, path, new_name)
         return _resp(request, True, "Переименовано", ["refreshBrowser", "refreshSidebar"])
     except fileops.FileOpError as e:
         return _resp(request, False, str(e), [])
@@ -417,7 +439,9 @@ async def htmx_rename(request: Request, _: str = Depends(current_user),
 @app.post("/htmx/delete", response_class=HTMLResponse)
 async def htmx_delete(request: Request, _: str = Depends(current_user), path: str = Form(...)):
     try:
-        fileops.delete(path)
+        # удаление большой папки идёт минутами — в цикле событий оно
+        # остановило бы весь сервер, включая играющую музыку
+        await asyncio.to_thread(fileops.delete, path)
         return _resp(request, True, "Удалено", ["refreshBrowser"])
     except fileops.FileOpError as e:
         return _resp(request, False, str(e), [])
@@ -428,7 +452,7 @@ async def htmx_delete_many(request: Request, _: str = Depends(current_user),
     errs = []
     for p in paths:
         try:
-            fileops.delete(p)
+            await asyncio.to_thread(fileops.delete, p)
         except fileops.FileOpError as e:
             errs.append(f"{p}: {e}")
     if errs:
@@ -441,7 +465,7 @@ async def htmx_move_many(request: Request, _: str = Depends(current_user),
     n, errs = 0, []
     for s in srcs:
         try:
-            fileops.move(s, dest_dir); n += 1
+            await asyncio.to_thread(fileops.move, s, dest_dir); n += 1
         except fileops.FileOpError as e:
             errs.append(f"{s}: {e}")
     if errs:
@@ -451,15 +475,16 @@ async def htmx_move_many(request: Request, _: str = Depends(current_user),
 
 @app.get("/htmx/move-form", response_class=HTMLResponse)
 async def htmx_move_form(request: Request, _: str = Depends(current_user), path: str = ""):
+    dirs = await asyncio.to_thread(fileops.list_dirs_under_mounts)
     return templates.TemplateResponse("_move_form.html", {
-        "request": request, "src": path, "dirs": fileops.list_dirs_under_mounts(),
+        "request": request, "src": path, "dirs": dirs,
     })
 
 @app.post("/htmx/move", response_class=HTMLResponse)
 async def htmx_move(request: Request, _: str = Depends(current_user),
                     src: str = Form(...), dest_dir: str = Form(...)):
     try:
-        fileops.move(src, dest_dir)
+        await asyncio.to_thread(fileops.move, src, dest_dir)
         return _resp(request, True, "Перемещено", ["refreshBrowser", "closeModal"])
     except fileops.FileOpError as e:
         return _resp(request, False, str(e), [])
@@ -477,7 +502,8 @@ async def htmx_mkdirs(request: Request, _: str = Depends(current_user), dirs: li
 async def htmx_upload(request: Request, _: str = Depends(current_user),
                       dir: str = Form(...), file: UploadFile = File(...)):
     try:
-        fileops.save_upload(dir, file.filename, file.file)
+        # копирование гигабайтного файла в цикле событий замораживало сервер
+        await asyncio.to_thread(fileops.save_upload, dir, file.filename, file.file)
         return _resp(request, True, f"Загружено: {file.filename}", ["refreshBrowser"])
     except fileops.FileOpError as e:
         return _resp(request, False, str(e), [])
@@ -501,7 +527,16 @@ async def stream(request: Request, _: str = Depends(current_user), path: str = "
     except fileops.FileOpError as e:
         raise HTTPException(status_code=404, detail=str(e))
     mime, _enc = mimetypes.guess_type(f.name)
-    return FileResponse(str(f), media_type=mime or "application/octet-stream")
+    # Встроенно, с настоящим типом, отдаём только звук, видео и картинки. HTML
+    # или скрипт с диска (из торрента, от другого пользователя), открытый по
+    # этому адресу, иначе выполнился бы как страница приложения — со всеми
+    # правами того, кто его открыл. Остальное уходит скачиванием, а заголовок
+    # sandbox не даёт запустить скрипт даже из SVG, открытого напрямую.
+    headers = {"Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'"}
+    if not mime or mime.split("/")[0] not in ("audio", "video", "image"):
+        return FileResponse(str(f), filename=f.name, media_type="application/octet-stream",
+                            headers=headers)
+    return FileResponse(str(f), media_type=mime, headers=headers)
 
 _TEXT_SUB_CODECS = {"subrip", "srt", "ass", "ssa", "webvtt", "mov_text", "text"}
 
@@ -837,7 +872,7 @@ async def htmx_dlna(request: Request, _: str = Depends(current_user)):
     })
 
 @app.post("/htmx/dlna-toggle", response_class=HTMLResponse)
-async def htmx_dlna_toggle(request: Request, _: str = Depends(current_user), enable: str = Form("no")):
+async def htmx_dlna_toggle(request: Request, _: str = Depends(require_admin), enable: str = Form("no")):
     ok, msg = dlna.enable() if enable == "yes" else dlna.disable()
     return _resp(request, ok, msg, ["refreshSidebar", "reloadDlna"] if ok else [])
 
@@ -974,7 +1009,7 @@ async def htmx_torrent_alt_speed(request: Request, _: str = Depends(require_admi
     return _resp(request, ok, msg, [])
 
 @app.post("/htmx/torrent-toggle", response_class=HTMLResponse)
-async def htmx_torrent_toggle(request: Request, _: str = Depends(current_user), enable: str = Form("no")):
+async def htmx_torrent_toggle(request: Request, _: str = Depends(require_admin), enable: str = Form("no")):
     ok, msg = torrent.enable() if enable == "yes" else torrent.disable()
     return _resp(request, ok, msg, ["refreshSidebar", "reloadTorrents"] if ok else [])
 

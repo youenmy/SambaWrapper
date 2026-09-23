@@ -98,6 +98,19 @@ def suggest_mount_name(part: dict) -> str:
 def mount_partition(path: str, mount_name: str, fstype: str) -> tuple[bool, str]:
     if not SAFE_MOUNT_NAME.match(mount_name):
         return False, "Имя точки монтирования: только A-Z a-z 0-9 _ . - (до 32 символов)"
+    # Путь устройства приходит из формы и уходит в sudo mount, а для ext4 после
+    # монтирования ещё и выполняется chown корня раздела. Поэтому монтируем
+    # только раздел, который lsblk знает и который ещё нигде не смонтирован —
+    # системный диск так не зацепить ни опечаткой, ни подменённым запросом.
+    # Файловую систему тоже берём у lsblk, а не из формы.
+    part = {p["path"]: p for p in list_partitions()}.get(path)
+    if not part:
+        return False, "Раздел не найден"
+    if part.get("mountpoint"):
+        return False, f"Раздел уже смонтирован в {part['mountpoint']}"
+    if not part.get("mountable"):
+        return False, f"Файловая система {part.get('fstype')} не поддерживается"
+    fstype = part["fstype"]
     target = MOUNT_ROOT / mount_name
     target_str = str(target)
     if not target_str.startswith(str(MOUNT_ROOT) + "/") and target_str != str(MOUNT_ROOT):

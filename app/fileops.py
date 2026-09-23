@@ -64,7 +64,25 @@ def rename(rel_path: str, new_name: str) -> str:
     src.rename(dst)
     return str(dst.relative_to(MOUNT_ROOT.resolve()))
 
+def _safe_link_target(rel_path: str) -> Path:
+    """Как _safe_target, но последний элемент пути не разыменовывается.
+
+    Символьную ссылку удаляют саму, а не то, на что она указывает: прежде
+    путь разрешался целиком, и удаление ссылки на папку стирало саму папку."""
+    base = MOUNT_ROOT.resolve()
+    raw = base / rel_path.lstrip("/")
+    if raw.name in ("", ".", ".."):
+        return _safe_target(rel_path)
+    parent = raw.parent.resolve()
+    if parent != base and base not in parent.parents:
+        raise FileOpError("Путь вне разрешённой зоны")
+    return parent / raw.name
+
 def delete(rel_path: str) -> None:
+    target = _safe_link_target(rel_path)
+    if target.is_symlink():
+        target.unlink()               # только ссылка, её цель не трогаем
+        return
     target = _safe_target(rel_path)
     if target == MOUNT_ROOT.resolve():
         raise FileOpError("Нельзя удалить корень")
