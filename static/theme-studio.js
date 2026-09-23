@@ -224,7 +224,7 @@
     var imageV = Math.round(num(fx.image_v, 0, 1e15, 0));
     var bg = FX_BG.some(function (x) { return x[0] === fx.bg; }) ? fx.bg : "none";
     if (bg === "image" && !imageV) bg = "none";          // картинки нет — и фона-картинки нет
-    return {bg: bg, glass: fx.glass === true, glow: fx.glow === true, tint: fx.tint !== false,
+    return {bg: bg, glass: fx.glass === true, glow: fx.glow === true, tint: fx.tint !== false, motion: fx.motion === true,
             image_v: imageV, dim: Math.round(num(fx.dim, 0, 0.85, 0.35) * 100) / 100,
             blur: Math.round(num(fx.blur, 0, 24, 0)),
             glass_alpha: Math.round(num(fx.glass_alpha, 0.2, 0.95, 0.76) * 100) / 100,
@@ -235,6 +235,7 @@
     html.setAttribute("data-fx-bg", fx.bg);
     html.toggleAttribute("data-fx-glass", fx.glass);
     html.toggleAttribute("data-fx-glow", fx.glow);
+    html.toggleAttribute("data-fx-motion", fx.motion);
     if (fx.tint) html.removeAttribute("data-fx-tint"); else html.setAttribute("data-fx-tint", "off");
     // картинка фона: адрес собирается только из числа версии, остальное — числа
     if (fx.image_v) html.style.setProperty("--fx-image", 'url("/theme-bg?v=' + fx.image_v + '")');
@@ -453,6 +454,7 @@
           glassBlock,
           toggle("st-glow", "Свечение акцентных элементов", "glow"),
           toggle("st-tint", "Цвет из обложки играющего трека", "tint"),
+          toggle("st-motion", "Анимации, даже если система просит их убрать", "motion"),
         ]),
         el("section", {class: "st-sec"}, [
           el("h4", {class: "st-h", text: "Читаемость"}),
@@ -497,6 +499,7 @@
     p.querySelector("#st-glass").checked = ui.fx.glass;
     p.querySelector("#st-glow").checked = ui.fx.glow;
     p.querySelector("#st-tint").checked = ui.fx.tint;
+    p.querySelector("#st-motion").checked = ui.fx.motion;
     p.querySelector("#st-image").hidden = ui.fx.bg !== "image";
     var thumb = p.querySelector("#st-thumb");
     if (ui.fx.image_v) {

@@ -59,6 +59,7 @@
      анимируются. */
   var STEP = 15, SPREAD = 360, MAX_WAVE = 60;
   function reducedMotion() {
+    if (document.documentElement.hasAttribute("data-fx-motion")) return false;
     return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }
   function settle(row) {

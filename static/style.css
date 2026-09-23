@@ -270,7 +270,7 @@ tr.mrow > td {
 .dup-row { transition: background-color .2s ease, box-shadow .2s ease; }
 
 @media (prefers-reduced-motion: reduce) {
-  tr.mrow > td, .dup-row { transition: none; }
+  html:not([data-fx-motion]) tr.mrow > td, html:not([data-fx-motion]) .dup-row { transition: none; }
 }
 
 /* Кнопка удаления прижата к правому краю списка: ячейка липкая, а сама кнопка
@@ -438,10 +438,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 
 /* Тем, кто просил систему не анимировать, не анимируем ничего. */
 @media (prefers-reduced-motion: reduce) {
-  #browser.htmx-settling > *,
-  #music-lists.htmx-settling > * { animation: none; }
-  .sw-enter { animation: none !important; }
-  .sw-sidebar { transition: none !important; }
+  html:not([data-fx-motion]) #browser.htmx-settling > *, html:not([data-fx-motion]) #music-lists.htmx-settling > * { animation: none; }
+  html:not([data-fx-motion]) .sw-enter { animation: none !important; }
+  html:not([data-fx-motion]) .sw-sidebar { transition: none !important; }
 }
 
 /* ================================================== цвет из обложки
@@ -602,11 +601,11 @@ html.sw-tinted #mus-head { background: var(--sw-cover) !important; }
 
 /* Без движения: аврора замирает, обложка не выезжает, режим просто появляется. */
 @media (prefers-reduced-motion: reduce) {
-  .np-aurora { animation: none; }
-  .np, .np.np-on, .np-art, .np-play, .np-btn { transition: none; }
-  .np-art { transform: none; }
-  html { transition: none; }
-  .mus-cover-frame:hover { transform: none; }
+  html:not([data-fx-motion]) .np-aurora { animation: none; }
+  html:not([data-fx-motion]) .np, html:not([data-fx-motion]) .np.np-on, html:not([data-fx-motion]) .np-art, html:not([data-fx-motion]) .np-play, html:not([data-fx-motion]) .np-btn { transition: none; }
+  html:not([data-fx-motion]) .np-art { transform: none; }
+  html:not([data-fx-motion]) { transition: none; }
+  html:not([data-fx-motion]) .mus-cover-frame:hover { transform: none; }
 }
 
 /* Скрытый оверлей обязан не существовать для мыши. Tailwind прячет [hidden]
