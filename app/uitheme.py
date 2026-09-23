@@ -134,9 +134,6 @@ def clean_fx(value) -> dict:
         "glow": v.get("glow") is True,
         # подкраска цветом обложки включена, пока её явно не выключили
         "tint": v.get("tint") is not False,
-        # анимации даже при системном «уменьшить движение» (Chrome иногда
-        # сообщает его, хотя в Windows анимации включены)
-        "motion": v.get("motion") is True,
         "image_v": image_v,
         "dim": _float(v.get("dim"), 0.0, 0.85, 0.35),
         "blur": _int(v.get("blur"), 0, 24, 0),

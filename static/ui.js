@@ -58,10 +58,6 @@
      следующей страницы появляются сразу; уже показанные повторно не
      анимируются. */
   var STEP = 15, SPREAD = 360, MAX_WAVE = 60;
-  function reducedMotion() {
-    if (document.documentElement.hasAttribute("data-fx-motion")) return false;
-    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  }
   function settle(row) {
     row.classList.remove("sw-enter");
     row.style.animationDelay = "";
@@ -92,7 +88,7 @@
       nodes[i].dataset.entered = "1";
     }
     // в фоновой вкладке волну никто не увидит — строки просто появляются
-    if (!fresh.length || reducedMotion() || document.hidden) return 0;
+    if (!fresh.length || document.hidden) return 0;
     /* Список перерисовали второй раз подряд — например, «вся библиотека
        вперемешку» сначала сбрасывает фильтры, а потом прыгает к странице
        выбранного трека. Для глаза это одна смена списка, вторая волна

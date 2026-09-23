@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru"{% if fx is defined %} data-fx-bg="{{ fx.bg }}"{% if fx.glass %} data-fx-glass{% endif %}{% if fx.glow %} data-fx-glow{% endif %}{% if fx.motion %} data-fx-motion{% endif %}{% if not fx.tint %} data-fx-tint="off"{% endif %}{% if fx_style %} style="{{ fx_style }}"{% endif %}{% endif %}>
+<html lang="ru"{% if fx is defined %} data-fx-bg="{{ fx.bg }}"{% if fx.glass %} data-fx-glass{% endif %}{% if fx.glow %} data-fx-glow{% endif %}{% if not fx.tint %} data-fx-tint="off"{% endif %}{% if fx_style %} style="{{ fx_style }}"{% endif %}{% endif %}>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -32,9 +32,9 @@
     <script src="/static/htmx.js?v=1"></script>
     <link rel="stylesheet" href="/static/tabler-icons.css?v=1">
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-    <link rel="stylesheet" href="/static/style.css?v=89">
+    <link rel="stylesheet" href="/static/style.css?v=90">
     <link rel="stylesheet" href="/static/themes.css?v=11">
-    <link rel="stylesheet" href="/static/effects.css?v=8">
+    <link rel="stylesheet" href="/static/effects.css?v=9">
     {# своя тема — после themes.css: её токены должны перекрыть токены html.dark #}
     <style id="sw-custom-theme">{{ custom_css|safe if custom_css is defined else "" }}</style>
     <style>
@@ -93,8 +93,8 @@ document.body.addEventListener("htmx:afterSwap", function(evt) {
 });
 </script>
 {% block scripts %}{% endblock %}
-<script src="/static/ui.js?v=8"></script>
+<script src="/static/ui.js?v=9"></script>
 <script src="/static/music.js?v=101"></script>
-<script src="/static/theme-studio.js?v=5"></script>
+<script src="/static/theme-studio.js?v=6"></script>
 </body>
 </html>

@@ -258,8 +258,3 @@ html[data-fx-glow] #mus-head { box-shadow: 0 0 10px 1px var(--sw-cover, var(--sw
   .st { top: auto; left: .5rem; right: .5rem; bottom: .5rem; width: auto; max-height: 78vh; }
 }
 
-/* без движения: аврора стоит, панель просто появляется */
-@media (prefers-reduced-motion: reduce) {
-  html:not([data-fx-motion])[data-fx-bg="aurora"] body::before { animation: none; }
-  html:not([data-fx-motion]) .st { animation: none; }
-}
