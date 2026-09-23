@@ -1416,7 +1416,7 @@
           var playing = (id === st.nowId);
           var following = playing ? M._nextInQueue(id) : null;
           M._request(id, function () {
-            if (playing) { if (following) M.playTrack(following); else M.close(); }
+            if (playing) M._playAfterDelete(following);
             M.dropRow(id);
           });
         },
@@ -1552,7 +1552,7 @@
               var gone = res.deleted;
               if (gone.indexOf(st.nowId) >= 0) {
                 var next = M._nextInQueue(st.nowId);
-                if (next && gone.indexOf(next.id) < 0) M.playTrack(next); else M.close();
+                M._playAfterDelete(next && gone.indexOf(next.id) < 0 ? next : null);
               }
               gone.forEach(function (id) { M.dropRow(id); });
               st.picked = st.picked.filter(function (id) { return gone.indexOf(id) < 0; });
@@ -1613,10 +1613,17 @@
         function () {
           var following = M._nextInQueue(track.id);
           M._request(track.id, function () {
-            if (following) M.playTrack(following); else M.close();
+            M._playAfterDelete(following);
             M.dropRow(track.id);
           });
         }, {ok: "Удалить", danger: true, quick: true});
+    },
+    /** Играющий трек удалён: дальше — как при «следующем». В режиме
+        «перемешать» это случайный трек (удалённый сервер уже не вернёт),
+        иначе — сосед по списку; соседа нет — плеер закрывается. */
+    _playAfterDelete: function (following) {
+      if (M.shuffleOn) return M.playRandom();
+      if (following) M.playTrack(following); else M.close();
     },
     _nextInQueue: function (id) {
       var i = -1;
@@ -1730,8 +1737,7 @@
           if (wasPlaying) {
             if (following) M.playCopy(following.id);
             else {
-              var next = M._nextInQueue(id);
-              if (next) M.playTrack(next); else M.close();
+              M._playAfterDelete(M._nextInQueue(id));
             }
           }
           M.dropRow(id);          // и в списке за окном строка уходит на месте
