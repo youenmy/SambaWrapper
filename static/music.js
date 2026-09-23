@@ -519,13 +519,13 @@
       var box = $("mus-search"); if (box) box.value = "";
       M.reloadTracks(); M.reloadLists();
     },
-    /* Играть всю библиотеку вперемешку: снимаем фильтры, включаем случайный
-       режим и сразу берём первый трек с сервера — ждать отрисовки списка не
-       нужно, выбор всё равно идёт по всей выборке, а не по показанным строкам. */
-    shuffleAll: function () {
+    /* Играть всю библиотеку: снимаем фильтры и запускаем первый трек, когда
+       список придёт. Порядок не трогаем — сортировка и «случайно» остаются
+       такими, как их настроили. При включённом «случайно» первый трек берётся
+       случайный, как и все следующие. */
+    playAll: function () {
+      M._playFirst = true;
       M.clearFilters();
-      if (!M.shuffleOn) M.toggleShuffle();
-      M.playRandom();
     },
 
     goPage: function (page) {
@@ -550,7 +550,11 @@
       } else if (isFirst) {
         M._nextAt = null;                       // список сменился — ждать нечего
       }
-      if (M._playAfterLoad) {
+      if (M._playFirst && isFirst) {
+        M._playFirst = false;
+        if (M.shuffleOn) M.playRandom();
+        else if (st.queue[0]) M.playTrack(st.queue[0]);
+      } else if (M._playAfterLoad) {
         var wanted = M._playAfterLoad;
         M._playAfterLoad = null;
         var found = M._find(wanted);
