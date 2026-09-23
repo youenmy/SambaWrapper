@@ -92,11 +92,10 @@
     }
     // в фоновой вкладке волну никто не увидит — строки просто появляются
     if (!fresh.length || reducedMotion() || document.hidden) return 0;
-    /* Меряем в следующем кадре: прокрутка к играющему треку делается тем же
-       ответом сервера, и порядок относительно этого вызова не гарантирован.
-       Кадр ещё не нарисован, поэтому строки не успевают мелькнуть. */
-    requestAnimationFrame(function () { wave(fresh); });
-    return fresh.length;
+    /* Меряем сразу, как в 3.17, когда волна работала: отложенный замер в
+       requestAnimationFrame давал кадр без анимации и мог не найти видимых
+       строк вовсе. */
+    return wave(fresh).length;
   }
   function wave(fresh) {
     var view = viewport(fresh[0]);
@@ -106,6 +105,8 @@
       if (rect.bottom > view.top && rect.top < view.bottom) visible.push(fresh[j]);
       else if (visible.length) break;                  // ниже видимой части — дальше не смотрим
     }
+    // замер ничего не нашёл (раскладка ещё не готова) — волна по первым строкам
+    if (!visible.length) visible = fresh.slice(0, 24);
     var step = visible.length ? Math.min(STEP, SPREAD / visible.length) : STEP;
     for (var k = 0; k < visible.length; k++) {
       var row = visible[k];
