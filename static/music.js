@@ -92,7 +92,8 @@
      синхронизируемые ключи дополнительно уходят наверх — так ни одно место
      сохранения не приходится помнить отдельно. */
   var SHARED = {"sw.musPins": "musPins", "sw.musCols": "musCols",
-                "sw.musSorts": "musSorts", "sw.musTree": "musTree", "sw.musViz": "musViz"};
+                "sw.musSorts": "musSorts", "sw.musTree": "musTree", "sw.musViz": "musViz",
+                "sw.musTrack": "musTrack"};   // что играло и с какой секунды — продолжить на другом компе
 
   function store(key, value) {
     try { localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value)); }
@@ -1959,10 +1960,18 @@
             if (npd) npd.textContent = fmt(el.duration);
             if (nps) nps.setAttribute("aria-valuenow", Math.round(pct));
           }
-          // позицию сохраняем не чаще раза в 5 секунд
+          // позицию сохраняем не чаще раза в 5 секунд (и сразу на паузе — ниже)
           if (!M._savedAt || Date.now() - M._savedAt > 5000) {
             M._savedAt = Date.now();
             if (st.now) store(LS.track, {track: st.now, time: el.currentTime});
+          }
+        });
+        // поставили на паузу — точную секунду сохраняем сразу: скорее всего,
+        // дальше слушать будут уже с другого устройства
+        el.addEventListener("pause", function () {
+          if (el === audio() && st.now && el.currentTime > 0) {
+            M._savedAt = Date.now();
+            store(LS.track, {track: st.now, time: el.currentTime});
           }
         });
         el.addEventListener("loadedmetadata", function () {

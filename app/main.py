@@ -11,7 +11,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.29"
+APP_VERSION = "3.30"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -204,10 +204,24 @@ def _polled(request: Request, response, sig: str):
 # ---------- настройки интерфейса ----------
 #
 # На сервере живёт только то, что описывает вкус: тема, закрепления,
-# столбцы, сортировка. Громкость, позиция в треке и последний раздел
-# остаются в браузере — они про конкретное устройство, а не про человека.
+# столбцы, сортировка — и что играло с какой секунды, чтобы продолжить
+# слушать с другого компьютера. Громкость и последний раздел остаются в
+# браузере — они про конкретное устройство, а не про человека.
 
-UI_PREFS_KEYS = {"skin", "musPins", "musCols", "musSorts", "musTree", "musViz", "customTheme", "fx"}
+UI_PREFS_KEYS = {"skin", "musPins", "musCols", "musSorts", "musTree", "musViz", "customTheme", "fx",
+                 "musTrack"}
+
+def _clean_now_playing(value):
+    """Играющий трек: id — целое (из него собираются адреса), время — число."""
+    if not isinstance(value, dict) or not isinstance(value.get("track"), dict):
+        return None
+    track = value["track"]
+    if not isinstance(track.get("id"), int) or isinstance(track.get("id"), bool):
+        return None
+    t = value.get("time")
+    time = float(t) if isinstance(t, (int, float)) and not isinstance(t, bool) and 0 <= t < 10 ** 6 else 0.0
+    keep = {k: v for k, v in track.items() if isinstance(v, (str, int, float, bool)) or v is None}
+    return {"track": keep, "time": time}
 
 @app.get("/api/prefs")
 async def api_prefs(request: Request, user: str = Depends(current_user)):
@@ -230,6 +244,10 @@ async def api_prefs_save(request: Request, user: str = Depends(current_user)):
         if cleaned is None:
             raise HTTPException(status_code=400, detail="своя тема не прошла проверку")
         patch["customTheme"] = cleaned
+    if patch.get("musTrack") is not None:
+        patch["musTrack"] = _clean_now_playing(patch["musTrack"])
+        if patch["musTrack"] is None:
+            raise HTTPException(status_code=400, detail="трек не прошёл проверку")
     if patch.get("fx") is not None:
         patch["fx"] = uitheme.clean_fx(patch["fx"])
         # файлы картинок, на которые сохранённые настройки больше не ссылаются, не копим
