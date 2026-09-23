@@ -124,10 +124,31 @@ def save_upload(rel_dir: str, filename: str, fileobj) -> str:
         dest_dir.mkdir(parents=True, exist_ok=True)  # для загрузки папок целиком
     elif not dest_dir.is_dir():
         raise FileOpError("Папка назначения не найдена")
-    dst = dest_dir / filename
-    with open(dst, "wb") as out:
-        shutil.copyfileobj(fileobj, out, length=1024 * 1024)
+    # Занятое имя не затираем: файл ложится рядом как «имя (1).ext», как в
+    # проводнике. Пишем во временный скрытый файл и переименовываем только
+    # после успешной записи — оборванная загрузка не оставляет половинку под
+    # настоящим именем.
+    dst = _free_name(dest_dir / filename)
+    part = dest_dir / f".{dst.name}.part"
+    try:
+        with open(part, "wb") as out:
+            shutil.copyfileobj(fileobj, out, length=1024 * 1024)
+        os.replace(part, dst)
+    except BaseException:
+        part.unlink(missing_ok=True)
+        raise
     return str(dst.relative_to(MOUNT_ROOT.resolve()))
+
+def _free_name(path: Path) -> Path:
+    """Свободное имя рядом: «файл.txt» → «файл (1).txt» → «файл (2).txt»."""
+    if not path.exists():
+        return path
+    stem, suffix = path.stem, path.suffix
+    for n in range(1, 1000):
+        candidate = path.with_name(f"{stem} ({n}){suffix}")
+        if not candidate.exists():
+            return candidate
+    raise FileOpError("Слишком много файлов с таким именем")
 
 def makedirs(rel_path: str) -> None:
     target = _safe_target(rel_path)

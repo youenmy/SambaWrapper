@@ -287,7 +287,11 @@
       all: function () { return load(LS.sorts, {}) || {}; },
       save: function () {
         var map = M.sortScope.all();
-        map[M.sortScope.key()] = {sort: st.sort, desc: st.desc, seed: st.seed};
+        var key = M.sortScope.key();
+        // ключ переставляется в конец: вытесняется самая давно тронутая область,
+        // а не та, что появилась первой и которой пользуются постоянно
+        delete map[key];
+        map[key] = {sort: st.sort, desc: st.desc, seed: st.seed};
         // список областей не должен расти бесконечно
         var keys = Object.keys(map);
         if (keys.length > 60) delete map[keys[0]];
@@ -539,6 +543,13 @@
       M._watchScroll();
       M.markRow();
       M.columns.apply();
+      if (M._nextAt != null && !isFirst) {
+        var at = M._nextAt;
+        M._nextAt = null;
+        if (st.queue[at]) M.playTrack(st.queue[at]);   // «следующий» из новой порции
+      } else if (isFirst) {
+        M._nextAt = null;                       // список сменился — ждать нечего
+      }
       if (M._playAfterLoad) {
         var wanted = M._playAfterLoad;
         M._playAfterLoad = null;
@@ -572,7 +583,7 @@
                  artist: st.artist, album: st.album, folder: st.folder,
                  page: next, seed: st.seed},
       }).then(function () { st.page = next; })
-        .catch(function () { st.loading = false; });
+        .catch(function () { st.loading = false; M._nextAt = null; });
     },
 
     /** Страховка: собрать очередь прямо из таблицы, если она разошлась. */
@@ -676,11 +687,12 @@
       if (i + 1 < st.queue.length) return M.playTrack(st.queue[i + 1]);
       // дошли до конца загруженного — подгружаем ещё, если есть
       if (st.hasMore) {
-        var known = st.queue.length;
+        /* Следующий трек — в ещё не загруженной порции. Раньше переход ждал
+           ровно 0,7 с: через интернет порция часто приходит позже, и музыка
+           молча останавливалась. Теперь appendQueue запускает трек, когда
+           порция действительно пришла. */
+        M._nextAt = st.queue.length;
         M.loadMore();
-        setTimeout(function () {
-          if (st.queue.length > known) M.playTrack(st.queue[known]);
-        }, 700);
         return;
       }
       M.playTrack(st.queue[0]);                // список кончился — начинаем сначала
@@ -1040,7 +1052,16 @@
           if (big) V._paint(big, played, 12, 6);
         }
         V._checkSilence(peak);
+        /* На паузе спектр стоит, а 60 кадров в секунду гоняли процессор
+           впустую. Рисуем последний кадр и останавливаемся; start() на
+           событии play запустит цикл снова. */
+        if (a && a.paused) { V.raf = 0; return; }
         V.raf = requestAnimationFrame(V._draw);
+      },
+      /** Один кадр на паузе: перемотка должна сдвигать сыгранную часть спектра. */
+      frame: function () {
+        var V = M.viz;
+        if (st.viz && V.analyser && !V.raf) V.raf = requestAnimationFrame(V._draw);
       },
       _paint: function (c, played01, barPx, gapPx) {
         var V = M.viz;
@@ -1473,16 +1494,20 @@
         function () {
           fetch("/htmx/music-delete-many", {
             method: "POST", body: new URLSearchParams({ids: ids.join(",")}),
-          }).then(function (r) { return r.text(); })
-            .then(function (html) {
-              SW._toastHtml(html);
-              // играющий трек мог оказаться среди удалённых
-              if (ids.indexOf(st.nowId) >= 0) {
+          }).then(M._deletedFrom)
+            .then(function (res) {
+              SW._toastHtml(res.html);
+              /* Убираем только то, что сервер подтвердил: файл на защищённом
+                 диске остаётся, и его строка исчезать не должна. Неудалённые
+                 остаются отмеченными — их видно и можно повторить. */
+              var gone = res.deleted;
+              if (gone.indexOf(st.nowId) >= 0) {
                 var next = M._nextInQueue(st.nowId);
-                if (next && ids.indexOf(next.id) < 0) M.playTrack(next); else M.close();
+                if (next && gone.indexOf(next.id) < 0) M.playTrack(next); else M.close();
               }
-              ids.forEach(function (id) { M.dropRow(id); });
-              M.pickNone();
+              gone.forEach(function (id) { M.dropRow(id); });
+              st.picked = st.picked.filter(function (id) { return gone.indexOf(id) < 0; });
+              M.pickRestore();
             })
             .catch(function () { SW.toast("Не удалось удалить"); });
         }, {ok: "Удалить", danger: true});
@@ -1550,10 +1575,22 @@
       if (i < 0) return null;
       return st.queue[i + 1] || st.queue[i - 1] || null;
     },
+    /** Ответ на удаление: текст тоста и id, которые сервер действительно удалил. */
+    _deletedFrom: function (r) {
+      var header = r.headers.get("X-Deleted") || "";
+      var deleted = header.split(",").filter(Boolean).map(Number);
+      return r.text().then(function (html) { return {html: html, deleted: deleted}; });
+    },
+    /* done вызывается, только если файл действительно удалён: раньше
+       интерфейс убирал строку и переключал музыку и при отказе сервера
+       (нет прав, защищённый от записи диск), хотя файл оставался на месте. */
     _request: function (id, done) {
       fetch("/htmx/music-delete", {method: "POST", body: new URLSearchParams({id: id})})
-        .then(function (r) { return r.text(); })
-        .then(function (html) { SW._toastHtml(html); if (done) done(); })
+        .then(M._deletedFrom)
+        .then(function (res) {
+          SW._toastHtml(res.html);
+          if (done && res.deleted.indexOf(id) >= 0) done();
+        })
         .catch(function () { SW.toast("Не удалось удалить"); });
     },
 
@@ -1901,6 +1938,7 @@
         el.addEventListener("timeupdate", function () {
           if (!active()) return;
           var pct = el.duration ? el.currentTime / el.duration * 100 : 0;
+          if (el.paused) M.viz.frame();        // перемотка на паузе
           var fill = $("mus-fill"), head = $("mus-head"), cur = $("mus-cur");
           if (fill) fill.style.width = pct + "%";
           if (head) head.style.left = pct + "%";
@@ -1995,6 +2033,12 @@
         if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
         var dialog = $("confirm-host");
         if (dialog && !dialog.classList.contains("hidden")) return;
+        /* Под открытым окном (настройки, столбцы, видео) клавиши плеера
+           молчат: Delete в настройках предлагал удалить играющий трек, а F
+           открывал полноэкранный режим поверх окна. Исключение — окно
+           дубликатов: Delete в нём удаляет звучащую копию намеренно. */
+        var modal = $("modal-host");
+        if (modal && !modal.classList.contains("hidden") && !modal.querySelector(".dup-group")) return;
         // F (и А на русской раскладке) — полноэкранный режим, где бы ты ни был
         var plain = !e.ctrlKey && !e.metaKey && !e.altKey;
         if (plain && /^[fFаА]$/.test(e.key) && st.now) { e.preventDefault(); M.np.toggle(); return; }

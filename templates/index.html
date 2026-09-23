@@ -236,14 +236,6 @@ const SW = {
     const mu = document.getElementById("sw-item-music");
     if (mu) mu.classList.toggle("sw-active", this.view === "music");
   },
-  settingsTab(name) {
-    document.querySelectorAll("#modal-host .st-pane").forEach(p => p.classList.toggle("hidden", p.id !== "st-" + name));
-    document.querySelectorAll("#modal-host .st-tab").forEach(b => {
-      const on = b.dataset.tab === name;
-      b.classList.toggle("border-sky-600", on); b.classList.toggle("text-sky-600", on);
-      b.classList.toggle("border-transparent", !on); b.classList.toggle("text-slate-500", !on);
-    });
-  },
 
 
   // ---------- список треков: фильтры, поиск, сортировка ----------
@@ -256,11 +248,6 @@ const SW = {
     this.path = "";
     this.setView("music");
     Music.open();
-    this.closeSidebar();
-  },
-  openDlna() {
-    this.setView("dlna");
-    htmx.ajax("GET", "/htmx/dlna-page", {target: "#browser", swap: "innerHTML settle:140ms"}).then(() => this._markActiveDisk());
     this.closeSidebar();
   },
 
@@ -286,6 +273,9 @@ const SW = {
   _modalOpened(host) {
     const panel = host.firstElementChild;
     if (!panel) return;
+    // окно открыли поверх другого — прежний обработчик клавиш снимаем, иначе
+    // они копятся, и Escape закрывает окно по нескольку раз
+    if (this._modalKeys) { document.removeEventListener("keydown", this._modalKeys, true); this._modalKeys = null; }
     panel.setAttribute("role", "dialog");
     panel.setAttribute("aria-modal", "true");
     const head = panel.querySelector("h3, h2");
@@ -1315,7 +1305,21 @@ const SW = {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/htmx/upload");
       xhr.upload.onprogress = (e) => { if (e.lengthComputable) bar.style.width = Math.round(e.loaded / e.total * 100) + "%"; };
-      xhr.onload = () => { bar.style.width = "100%"; bar.classList.remove("bg-sky-500"); bar.classList.add("bg-emerald-500"); up(i + 1); };
+      xhr.onload = () => {
+        /* Сервер отвечает тостом и на отказ (не диск, нет прав), а истёкшая
+           сессия приводит на страницу входа — раньше полоса зеленела и тогда,
+           хотя файла не было. Успех — это код 2xx и тост без пометки ошибки. */
+        const text = xhr.responseText || "";
+        const expired = /\/login(\?|$)/.test(xhr.responseURL || "");
+        const ok = xhr.status >= 200 && xhr.status < 300 && !expired && !/bg-red-600/.test(text);
+        bar.style.width = "100%";
+        bar.classList.remove("bg-sky-500");
+        bar.classList.add(ok ? "bg-emerald-500" : "bg-red-500");
+        if (expired) this.toast("Сессия истекла — войди заново, файл не загружен");
+        else if (!ok) this._toastHtml(text || '<div class="toast-msg rounded-lg px-4 py-3 text-sm shadow-lg bg-red-600 text-white">Файл не загружен</div>');
+        else if (/сохранён как/.test(text)) this._toastHtml(text);   // имя было занято
+        up(i + 1);
+      };
       xhr.onerror = () => { bar.classList.remove("bg-sky-500"); bar.classList.add("bg-red-500"); up(i + 1); };
       document.getElementById("ut-title").textContent = "Загрузка " + (i + 1) + "/" + list.length;
       xhr.send(fd);
@@ -1580,7 +1584,6 @@ window.addEventListener("focus", () => {
 document.body.addEventListener("refreshBrowser", () => SW.refreshBrowser());
 document.body.addEventListener("refreshSidebar", () => SW.refreshSidebar());
 document.body.addEventListener("closeModal", () => SW.closeModal());
-document.body.addEventListener("reloadSettings", () => SW.openModal("/htmx/settings"));
 document.body.addEventListener("reloadDlna", () => { if (SW.view === "dlna") SW.openDlna(); });
 document.body.addEventListener("reloadSettings", () => SW.openModal("/htmx/settings"));
 document.body.addEventListener("reloadTorrents", () => SW.openTorrents());

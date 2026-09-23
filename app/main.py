@@ -10,7 +10,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.21"
+APP_VERSION = "3.22"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -503,7 +503,11 @@ async def htmx_upload(request: Request, _: str = Depends(current_user),
                       dir: str = Form(...), file: UploadFile = File(...)):
     try:
         # копирование гигабайтного файла в цикле событий замораживало сервер
-        await asyncio.to_thread(fileops.save_upload, dir, file.filename, file.file)
+        saved = await asyncio.to_thread(fileops.save_upload, dir, file.filename, file.file)
+        name = saved.rsplit("/", 1)[-1]
+        if name != file.filename:
+            return _resp(request, True, f"«{file.filename}» уже был — сохранён как «{name}»",
+                         ["refreshBrowser"])
         return _resp(request, True, f"Загружено: {file.filename}", ["refreshBrowser"])
     except fileops.FileOpError as e:
         return _resp(request, False, str(e), [])
@@ -1313,7 +1317,11 @@ async def htmx_music_hide(request: Request, _: str = Depends(require_admin),
 @app.post("/htmx/music-delete", response_class=HTMLResponse)
 async def htmx_music_delete(request: Request, _: str = Depends(current_user), id: int = Form(...)):
     ok, msg = await asyncio.to_thread(music.delete_track, id)
-    return _resp(request, ok, msg, ["refreshMusicTracks"] if ok else [])
+    resp = _resp(request, ok, msg, ["refreshMusicTracks"] if ok else [])
+    # клиент убирает строку и переключает музыку только по этому списку:
+    # по тексту тоста не понять, удалён ли файл на самом деле
+    resp.headers["X-Deleted"] = str(id) if ok else ""
+    return resp
 
 
 @app.post("/htmx/music-delete-many", response_class=HTMLResponse)
@@ -1325,16 +1333,21 @@ async def htmx_music_delete_many(request: Request, _: str = Depends(current_user
     if not wanted:
         return _resp(request, False, "Ничего не выбрано", [])
 
-    done, failed = 0, []
+    deleted, failed = [], []
     for tid in wanted:
         ok, msg = await asyncio.to_thread(music.delete_track, tid)
         if ok:
-            done += 1
+            deleted.append(tid)
         else:
             failed.append(msg)
     if failed:
-        return _resp(request, done > 0, f"Удалено {done} из {len(wanted)}: {failed[0]}", [])
-    return _resp(request, True, f"Удалено треков: {done}", [])
+        resp = _resp(request, bool(deleted),
+                     f"Удалено {len(deleted)} из {len(wanted)}: {failed[0]}", [])
+    else:
+        resp = _resp(request, True, f"Удалено треков: {len(deleted)}", [])
+    # строки неудалённых треков должны остаться на экране
+    resp.headers["X-Deleted"] = ",".join(str(t) for t in deleted)
+    return resp
 
 
 @app.get("/healthz", response_class=PlainTextResponse)
