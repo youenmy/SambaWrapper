@@ -11,7 +11,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.31"
+APP_VERSION = "3.32"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -209,7 +209,7 @@ def _polled(request: Request, response, sig: str):
 # браузере — они про конкретное устройство, а не про человека.
 
 UI_PREFS_KEYS = {"skin", "musPins", "musCols", "musSorts", "musTree", "musViz", "customTheme", "fx",
-                 "musTrack"}
+                 "musTrack", "musAllNow"}
 
 def _clean_now_playing(value):
     """Играющий трек: id — целое (из него собираются адреса), время — число."""
@@ -244,10 +244,11 @@ async def api_prefs_save(request: Request, user: str = Depends(current_user)):
         if cleaned is None:
             raise HTTPException(status_code=400, detail="своя тема не прошла проверку")
         patch["customTheme"] = cleaned
-    if patch.get("musTrack") is not None:
-        patch["musTrack"] = _clean_now_playing(patch["musTrack"])
-        if patch["musTrack"] is None:
-            raise HTTPException(status_code=400, detail="трек не прошёл проверку")
+    for key in ("musTrack", "musAllNow"):
+        if patch.get(key) is not None:
+            patch[key] = _clean_now_playing(patch[key])
+            if patch[key] is None:
+                raise HTTPException(status_code=400, detail="трек не прошёл проверку")
     if patch.get("fx") is not None:
         patch["fx"] = uitheme.clean_fx(patch["fx"])
         # файлы картинок, на которые сохранённые настройки больше не ссылаются, не копим
@@ -1153,6 +1154,14 @@ async def api_music_random(request: Request, _: str = Depends(current_user),
             "track": {"id": t["id"], "title": t["title"], "artist": t["artist"],
                       "album": t["album"], "duration": t["duration"],
                       "cover": bool(t["has_cover"])}}
+
+@app.get("/api/music-track-page")
+async def api_music_track_page(request: Request, id: int, _: str = Depends(current_user),
+                               sort: str = "artist", desc: str = "no", seed: int = 0):
+    """На какой странице «Все треки» лежит трек — чтобы показать его строку."""
+    page = await asyncio.to_thread(music.track_page, id, "", sort, desc == "yes",
+                                   "", "", "", MUSIC_PAGE_SIZE, seed)
+    return {"page": page}
 
 @app.get("/htmx/music-lists", response_class=HTMLResponse)
 async def htmx_music_lists(request: Request, _: str = Depends(current_user),

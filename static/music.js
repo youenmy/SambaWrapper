@@ -12,6 +12,7 @@
   var LS = {
     view: "sw.musView",       // фильтры и сортировка
     track: "sw.musTrack",     // что играло и на какой секунде
+    allNow: "sw.musAllNow",   // то же, но только для «Все треки» — кнопка «играть» продолжает отсюда
     volume: "sw.musVolume",   // прежняя линейная громкость — читается один раз для переноса
     level: "sw.musLevel",     // положение ползунка громкости
     muted: "sw.musMuted",     // приглушение тоже переживает перезагрузку
@@ -93,7 +94,7 @@
      сохранения не приходится помнить отдельно. */
   var SHARED = {"sw.musPins": "musPins", "sw.musCols": "musCols",
                 "sw.musSorts": "musSorts", "sw.musTree": "musTree", "sw.musViz": "musViz",
-                "sw.musTrack": "musTrack"};   // что играло и с какой секунды — продолжить на другом компе
+                "sw.musTrack": "musTrack", "sw.musAllNow": "musAllNow"};   // что играло и с какой секунды — продолжить на другом компе
 
   function store(key, value) {
     try { localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value)); }
@@ -525,8 +526,39 @@
        такими, как их настроили. При включённом «случайно» первый трек берётся
        случайный, как и все следующие. */
     playAll: function () {
-      M._playFirst = true;
+      var saved = load(LS.allNow, null);
+      var a = audio();
+      if (saved && saved.track && st.nowId === saved.track.id) {
+        // этот трек и так стоит в плеере — просто продолжаем
+        st.nowAll = true;
+        M.clearFilters();
+        if (a.paused) a.play().catch(function () {});
+        return;
+      }
+      if (saved && saved.track) M._resumeAll = saved;
+      else M._playFirst = true;
       M.clearFilters();
+    },
+    /** Продолжить трек «Все треки» с сохранённой секунды. */
+    _resume: function (saved) {
+      M.playTrack(saved.track);
+      st.nowAll = true;
+      var a = audio(), t = saved.time || 0;
+      if (t > 0) {
+        if (a.readyState > 0) a.currentTime = t;
+        else a.addEventListener("loadedmetadata", function once() {
+          a.removeEventListener("loadedmetadata", once);
+          a.currentTime = t;
+        });
+      }
+      // трек может лежать дальше первой страницы — показываем его страницу
+      if (!document.querySelector('#music-tracks .mrow[data-id="' + saved.track.id + '"]')) {
+        fetch("/api/music-track-page?" + new URLSearchParams({id: saved.track.id, sort: st.sort,
+                desc: st.desc ? "yes" : "no", seed: st.seed}))
+          .then(function (r) { return r.json(); })
+          .then(function (d) { if (d && d.page > 1) M.jumpToPage(d.page); })
+          .catch(function () {});
+      }
     },
 
     goPage: function (page) {
@@ -551,7 +583,11 @@
       } else if (isFirst) {
         M._nextAt = null;                       // список сменился — ждать нечего
       }
-      if (M._playFirst && isFirst) {
+      if (M._resumeAll && isFirst) {
+        var resume = M._resumeAll;
+        M._resumeAll = null;
+        M._resume(resume);
+      } else if (M._playFirst && isFirst) {
         M._playFirst = false;
         if (M.shuffleOn) M.playRandom();
         else if (st.queue[0]) M.playTrack(st.queue[0]);
@@ -658,7 +694,15 @@
       M.viz.start();
       M.preloadNext();
       M._fitLists();
+      st.nowAll = M._isAll();                   // трек запущен из «Все треки»
       store(LS.track, {track: track, time: 0});
+    },
+    _isAll: function () { return !st.q && !st.artist && !st.album && !st.folder; },
+    /** Запомнить секунду; для трека из «Все треки» — ещё и отдельно, чтобы
+        кнопка «играть» возвращала туда после прослушивания других папок. */
+    _savePos: function (time) {
+      store(LS.track, {track: st.now, time: time});
+      if (st.nowAll) store(LS.allNow, {track: st.now, time: time});
     },
 
     /** Заранее скачать следующий трек во вторую деку. */
@@ -1909,6 +1953,8 @@
       }
       var track = saved.track;
       st.now = track; st.nowId = track.id;
+      var all = load(LS.allNow, null);
+      st.nowAll = !!(all && all.track && all.track.id === track.id);
       a.src = "/music-audio/" + track.id;
       a.addEventListener("loadedmetadata", function once() {
         if (saved.time > 0) a.currentTime = saved.time;
@@ -1970,7 +2016,7 @@
           // позицию сохраняем не чаще раза в 5 секунд (и сразу на паузе — ниже)
           if (!M._savedAt || Date.now() - M._savedAt > 5000) {
             M._savedAt = Date.now();
-            if (st.now) store(LS.track, {track: st.now, time: el.currentTime});
+            if (st.now) M._savePos(el.currentTime);
           }
         });
         // поставили на паузу — точную секунду сохраняем сразу: скорее всего,
@@ -1978,7 +2024,7 @@
         el.addEventListener("pause", function () {
           if (el === audio() && st.now && el.currentTime > 0) {
             M._savedAt = Date.now();
-            store(LS.track, {track: st.now, time: el.currentTime});
+            M._savePos(el.currentTime);
           }
         });
         el.addEventListener("loadedmetadata", function () {
