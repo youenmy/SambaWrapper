@@ -65,6 +65,24 @@
     row.classList.remove("sw-enter");
     row.style.animationDelay = "";
   }
+  /* Видимые строки — те, что пересекаются и с окном браузера, и с окном
+     прокрутки списка. Раньше считались строки «от начала списка до низа
+     экрана»: когда плеер прокручивал список к играющему треку, анимации
+     уходили строкам, уехавшим вверх за экран, а видимая часть появлялась
+     рывком. */
+  function viewport(row) {
+    var top = 0, bottom = window.innerHeight || document.documentElement.clientHeight;
+    for (var el = row.parentElement; el && el !== document.body; el = el.parentElement) {
+      var oy = getComputedStyle(el).overflowY;
+      if (oy === "auto" || oy === "scroll") {
+        var r = el.getBoundingClientRect();
+        top = Math.max(top, r.top);
+        bottom = Math.min(bottom, r.bottom);
+        break;
+      }
+    }
+    return {top: top, bottom: bottom};
+  }
   function enterRows(nodes) {
     if (!nodes) return 0;
     var fresh = [];
@@ -72,17 +90,25 @@
       if (!nodes[i].dataset.entered) fresh.push(nodes[i]);
       nodes[i].dataset.entered = "1";
     }
-    if (reducedMotion()) return 0;
-    // сколько новых строк реально видно: волна должна дойти до низа окна
-    var bottom = window.innerHeight || document.documentElement.clientHeight;
-    var visible = 0;
-    while (visible < fresh.length && visible < MAX_WAVE &&
-           fresh[visible].getBoundingClientRect().top < bottom) {
-      visible++;
+    // в фоновой вкладке волну никто не увидит — строки просто появляются
+    if (!fresh.length || reducedMotion() || document.hidden) return 0;
+    /* Меряем в следующем кадре: прокрутка к играющему треку делается тем же
+       ответом сервера, и порядок относительно этого вызова не гарантирован.
+       Кадр ещё не нарисован, поэтому строки не успевают мелькнуть. */
+    requestAnimationFrame(function () { wave(fresh); });
+    return fresh.length;
+  }
+  function wave(fresh) {
+    var view = viewport(fresh[0]);
+    var visible = [];
+    for (var j = 0; j < fresh.length && visible.length < MAX_WAVE; j++) {
+      var rect = fresh[j].getBoundingClientRect();
+      if (rect.bottom > view.top && rect.top < view.bottom) visible.push(fresh[j]);
+      else if (visible.length) break;                  // ниже видимой части — дальше не смотрим
     }
-    var step = visible ? Math.min(STEP, SPREAD / visible) : STEP;
-    for (var k = 0; k < visible; k++) {
-      var row = fresh[k];
+    var step = visible.length ? Math.min(STEP, SPREAD / visible.length) : STEP;
+    for (var k = 0; k < visible.length; k++) {
+      var row = visible[k];
       var delay = Math.round(k * step);
       row.style.animationDelay = delay + "ms";
       row.classList.add("sw-enter");
