@@ -2,6 +2,7 @@
 import asyncio
 import contextlib
 import hashlib
+from html import escape as html_escape
 import json
 import logging
 import mimetypes
@@ -10,7 +11,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.22"
+APP_VERSION = "3.23"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -308,6 +309,15 @@ async def index(request: Request, _: str = Depends(current_user)):
 
 @app.get("/htmx/sidebar", response_class=HTMLResponse)
 async def htmx_sidebar(request: Request, _: str = Depends(current_user), sig: str = ""):
+    # lsblk, пять вызовов systemctl и запрос к торрент-демону — раз в 8 секунд
+    # у каждого открытого клиента; в цикле событий это замораживало сервер
+    ctx = await asyncio.to_thread(_sidebar_context)
+    return _polled(request, templates.TemplateResponse("_sidebar.html", {
+        "request": request, "role": current_role(request), **ctx,
+    }), sig)
+
+
+def _sidebar_context() -> dict:
     partitions = disks.list_partitions()
     shares = samba.list_shares()
     root = str(MOUNT_ROOT)
@@ -327,13 +337,13 @@ async def htmx_sidebar(request: Request, _: str = Depends(current_user), sig: st
             assigned.update(s["name"] for s in p["shares"])
     orphan_shares = sorted([s for s in shares if s["name"] not in assigned],
                            key=lambda s: s["name"].lower())
-    return _polled(request, templates.TemplateResponse("_sidebar.html", {
-        "request": request, "partitions": partitions, "shares": shares,
+    return {
+        "partitions": partitions, "shares": shares,
         "orphan_shares": orphan_shares, "stale": disks.list_stale_mounts(),
         "dlna": dlna.status(), "torrent": torrent.status(), "mount_root": root,
         "music": music.stats(),
-        "role": current_role(request),
-    }), sig)
+    }
+
 
 @app.post("/htmx/stale-clean", response_class=HTMLResponse)
 async def htmx_stale_clean(request: Request, _: str = Depends(require_admin), mountpoint: str = Form(...)):
@@ -858,7 +868,8 @@ async def htmx_set_port(request: Request, _: str = Depends(require_admin), port:
 @app.get("/htmx/dlna-page", response_class=HTMLResponse)
 async def htmx_dlna_page(request: Request, _: str = Depends(current_user)):
     root = str(MOUNT_ROOT)
-    dirs = [{"abs": root, "label": "Все диски"}] +            [{"abs": str(MOUNT_ROOT / r), "label": r} for r in fileops.list_dirs_under_mounts()]
+    rels = await asyncio.to_thread(fileops.list_dirs_under_mounts)
+    dirs = [{"abs": root, "label": "Все диски"}] + [{"abs": str(MOUNT_ROOT / r), "label": r} for r in rels]
     return templates.TemplateResponse("_dlna_page.html", {
         "request": request, "st": dlna.status(), "mount_root": root,
         "media_dir": dlna.media_dir(), "dirs": dirs, "role": current_role(request),
@@ -890,7 +901,8 @@ async def htmx_dlna_rescan(request: Request, _: str = Depends(current_user)):
 
 @app.get("/htmx/torrents-page", response_class=HTMLResponse)
 async def htmx_torrents_page(request: Request, _: str = Depends(current_user)):
-    dirs = [{"abs": str(MOUNT_ROOT / r), "label": r} for r in fileops.list_dirs_under_mounts()]
+    rels = await asyncio.to_thread(fileops.list_dirs_under_mounts)
+    dirs = [{"abs": str(MOUNT_ROOT / r), "label": r} for r in rels]
     return templates.TemplateResponse("_torrents_page.html", {
         "request": request, "st": torrent.status(), "dirs": dirs,
         "role": current_role(request),
@@ -899,7 +911,7 @@ async def htmx_torrents_page(request: Request, _: str = Depends(current_user)):
 @app.get("/htmx/torrent-dest", response_class=HTMLResponse)
 async def htmx_torrent_dest(request: Request, _: str = Depends(current_user)):
     items = []
-    for r in fileops.list_dirs_under_mounts():
+    for r in await asyncio.to_thread(fileops.list_dirs_under_mounts):
         items.append({"abs": str(MOUNT_ROOT / r), "rel": r,
                       "depth": r.count("/"), "name": r.split("/")[-1]})
     return templates.TemplateResponse("_torrent_dest.html", {"request": request, "items": items})
@@ -1068,7 +1080,6 @@ async def htmx_music_page(request: Request, _: str = Depends(current_user)):
     return templates.TemplateResponse("_music_page.html", {
         "request": request, "st": await asyncio.to_thread(music.stats),
         "library": music.library_path(), "role": current_role(request),
-        "dirs": [{"abs": str(MOUNT_ROOT / r), "label": r} for r in fileops.list_dirs_under_mounts()],
     })
 
 @app.get("/htmx/music-tracks", response_class=HTMLResponse)
@@ -1168,7 +1179,9 @@ async def htmx_music_scan_status(request: Request, _: str = Depends(current_user
                f'{round(stats["duration"] / 3600)} ч</span>')
     if not s["running"]:
         if s["error"]:
-            return HTMLResponse(f'<span class="text-red-500">Ошибка: {s["error"]}</span>{counter}')
+            # в тексте ошибки бывает путь, а имя папки на диске может
+            # содержать разметку — вставляем только экранированным
+            return HTMLResponse(f'<span class="text-red-500">Ошибка: {html_escape(s["error"])}</span>{counter}')
         return HTMLResponse(counter)
     pct = round(s["done"] / s["found"] * 100) if s["found"] else 0
     return HTMLResponse(
@@ -1195,7 +1208,7 @@ async def htmx_music_library_picker(request: Request, _: str = Depends(require_a
     root = str(MOUNT_ROOT)
     items = [{"abs": root, "label": "Все диски", "depth": 0}]
     items += [{"abs": str(MOUNT_ROOT / r), "label": r.split("/")[-1], "depth": r.count("/") + 1}
-              for r in fileops.list_dirs_under_mounts()]
+              for r in await asyncio.to_thread(fileops.list_dirs_under_mounts)]
     return templates.TemplateResponse("_music_library.html", {
         "request": request, "items": items, "current": music.library_path(),
     })
