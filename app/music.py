@@ -103,8 +103,9 @@ def _hidden_where(folder: str = "") -> tuple[list[str], list]:
         h = h.rstrip("/")
         if cur and (cur == h or cur.startswith(h + "/")):
             continue
-        where.append("path NOT LIKE ? ESCAPE '\\'")
-        args.append(_like_prefix(h + "/") + "%")
+        clause, extra = _prefix_clause(h, negate=True)
+        where.append(clause)
+        args += extra
     return where, args
 
 
@@ -227,7 +228,8 @@ def extract_cover(path: Path) -> bytes | None:
                 if frame.data:
                     return frame.data
         elif suffix in (".m4a", ".mp4", ".aac", ".alac"):
-            covr = MP4(str(path)).tags.get("covr") if MP4(str(path)).tags else None
+            tags = MP4(str(path)).tags
+            covr = tags.get("covr") if tags else None
             if covr:
                 return bytes(covr[0])
         elif suffix == ".flac":
@@ -443,9 +445,20 @@ def _human_size(n: int) -> str:
         i += 1
     return f"{f:.1f} {units[i]}" if i else f"{int(f)} {units[i]}"
 
+def _prefix_clause(folder: str, negate: bool = False) -> tuple[str, list]:
+    """Условие «путь лежит внутри папки» (или «не лежит» при negate).
+
+    Не LIKE: в SQLite он не различает регистр латиницы, и папка «Rock»
+    захватывала соседнюю «ROCK» — её треки выбрасывались из базы при удалении
+    «Rock», переписывались при переименовании и скрывались вместе с ней. А без
+    экранирования «_» и «%» в имени папки ловили лишнее. Сравнение начала
+    строки точное: регистр различается, спецсимволов нет."""
+    prefix = folder.rstrip("/") + "/"
+    return (f"substr(path, 1, ?) {'<>' if negate else '='} ?"), [len(prefix), prefix]
+
 def _folder_where(folder: str) -> tuple[str, list]:
     """Условие отбора по папке — вместе со всем вложенным содержимым."""
-    return "path LIKE ?", [folder.rstrip("/") + "/%"]
+    return _prefix_clause(folder)
 
 def list_tracks(q: str = "", sort: str = "artist", desc: bool = False,
                 artist: str = "", album: str = "", folder: str = "",
@@ -456,8 +469,8 @@ def list_tracks(q: str = "", sort: str = "artist", desc: bool = False,
         where.append(clause)
         args += extra
     if q:
-        where.append("(title LIKE ? OR artist LIKE ? OR album LIKE ?)")
-        like = f"%{q}%"
+        where.append("(title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')")
+        like = f"%{_like_prefix(q)}%"
         args += [like, like, like]
     if artist:
         where.append("artist = ?")
@@ -500,8 +513,8 @@ def random_tracks(q: str = "", artist: str = "", album: str = "", folder: str = 
     """
     where, args = [], []
     if q:
-        where.append("(title LIKE ? OR artist LIKE ? OR album LIKE ?)")
-        like = f"%{q}%"
+        where.append("(title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')")
+        like = f"%{_like_prefix(q)}%"
         args += [like, like, like]
     if artist:
         where.append("artist = ?")
@@ -532,8 +545,8 @@ def track_page(track_id: int, q: str = "", sort: str = "artist", desc: bool = Fa
     """Номер страницы, на которой окажется трек при текущей сортировке и фильтрах."""
     where, args = [], []
     if q:
-        where.append("(title LIKE ? OR artist LIKE ? OR album LIKE ?)")
-        like = f"%{q}%"
+        where.append("(title LIKE ? ESCAPE '\\' OR artist LIKE ? ESCAPE '\\' OR album LIKE ? ESCAPE '\\')")
+        like = f"%{_like_prefix(q)}%"
         args += [like, like, like]
     if artist:
         where.append("artist = ?")
@@ -562,8 +575,9 @@ def track_page(track_id: int, q: str = "", sort: str = "artist", desc: bool = Fa
 def list_folders() -> list[dict]:
     """Папки библиотеки (по одному уровню вложенности) с числом треков."""
     root = library_path().rstrip("/") + "/"
+    clause, extra = _prefix_clause(root)
     with db.connect() as cx:
-        rows = cx.execute("SELECT path FROM tracks WHERE path LIKE ?", (root + "%",)).fetchall()
+        rows = cx.execute(f"SELECT path FROM tracks WHERE {clause}", extra).fetchall()
     counts: dict[str, int] = {}
     for r in rows:
         rel = r["path"][len(root):]
@@ -588,9 +602,9 @@ def list_subfolders(parent: str = "") -> list[dict]:
     base = (parent.rstrip("/") + "/") if parent else root
     if not base.startswith(root):
         base = root                      # чужой путь снаружи библиотеки не обслуживаем
+    clause, extra = _prefix_clause(base)
     with db.connect() as cx:
-        rows = cx.execute("SELECT path FROM tracks WHERE path LIKE ? ESCAPE '\\'",
-                          (_like_prefix(base) + "%",)).fetchall()
+        rows = cx.execute(f"SELECT path FROM tracks WHERE {clause}", extra).fetchall()
     counts: dict[str, int] = {}
     kids: dict[str, bool] = {}
     for r in rows:
@@ -627,11 +641,11 @@ def paths_moved(old_abs: str, new_abs: str) -> int:
     """
     old = old_abs.rstrip("/")
     new = new_abs.rstrip("/")
+    clause, extra = _prefix_clause(old)
     with db.connect() as cx:
         cur = cx.execute(
-            "UPDATE tracks SET path = ? || substr(path, ?) "
-            "WHERE path = ? OR path LIKE ? ESCAPE '\\'",
-            (new, len(old) + 1, old, _like_prefix(old + "/") + "%"))
+            f"UPDATE tracks SET path = ? || substr(path, ?) WHERE path = ? OR {clause}",
+            [new, len(old) + 1, old] + extra)
         moved = cur.rowcount
     _hidden_repath(old, new)
     return moved
@@ -639,8 +653,9 @@ def paths_moved(old_abs: str, new_abs: str) -> int:
 def paths_removed(abs_path: str) -> int:
     """Папку или файл удалили с диска — убрать треки под ними вместе с обложками."""
     p = abs_path.rstrip("/")
-    where = "path = ? OR path LIKE ? ESCAPE '\\'"
-    args = (p, _like_prefix(p + "/") + "%")
+    clause, extra = _prefix_clause(p)
+    where = f"path = ? OR {clause}"
+    args = [p] + extra
     with db.connect() as cx:
         ids = [r["id"] for r in cx.execute(f"SELECT id FROM tracks WHERE {where}", args)]
         for tid in ids:

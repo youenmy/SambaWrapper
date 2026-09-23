@@ -33,6 +33,10 @@ def set_media_dir(path: str) -> tuple[bool, str]:
         return False, "Папка вне зоны хранилища"
     if not p.is_dir():
         return False, "Папка не существует"
+    # путь пишется строкой в /etc/minidlna.conf: перевод строки в имени папки
+    # (такие приходят из торрентов) добавил бы в конфиг свои директивы
+    if any(ord(c) < 32 for c in str(p)):
+        return False, "В пути есть недопустимые символы"
     db.set_setting(SETTING_MEDIA_DIR, str(p))
     if status()["active"]:  # применяем на лету: новый конфиг + пересканирование
         return rescan()

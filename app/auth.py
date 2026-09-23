@@ -19,6 +19,11 @@ def set_username(new: str) -> tuple[bool, str]:
     new = (new or "").strip()
     if not SAFE_LOGIN.match(new):
         return False, "Логин: 2–32 символа, буквы/цифры/._-"
+    # имя, занятое дополнительным пользователем, дало бы двум учёткам одну
+    # сессию и общие настройки интерфейса
+    with db.connect() as cx:
+        if cx.execute("SELECT 1 FROM web_users WHERE username=?", (new,)).fetchone():
+            return False, "Это имя занято другим пользователем веб-интерфейса"
     db.set_setting(SETTING_USERNAME, new)
     return True, ""
 
