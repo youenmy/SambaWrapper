@@ -1897,9 +1897,16 @@
     /** Вернуть последний трек на паузе (автозапуск браузеры блокируют). */
     restoreNow: function () {
       var a = audio();
-      if (!a || a.src) return;
+      if (!a) return;
       var saved = load(LS.track, null);
       if (!saved || !saved.track) return;
+      if (a.getAttribute("src")) {
+        /* Вкладка уже открыта, а слушали тем временем на другом компе.
+           Играющее не трогаем; на паузе — переходим к тому же треку и секунде. */
+        if (!a.paused) return;
+        if (st.nowId === saved.track.id && Math.abs(a.currentTime - (saved.time || 0)) < 2) return;
+        if (st.nowId === saved.track.id) { a.currentTime = saved.time || 0; return; }
+      }
       var track = saved.track;
       st.now = track; st.nowId = track.id;
       a.src = "/music-audio/" + track.id;

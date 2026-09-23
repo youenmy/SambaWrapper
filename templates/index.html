@@ -1578,6 +1578,7 @@ window.addEventListener("focus", () => {
   SW.loadPrefs().then(() => {
     if (window.Music && Music.pins) Music.pins.apply();
     if (window.Studio) Studio.applySaved();       // тему и эффекты могли поменять на другом устройстве
+    if (window.Music && SW.view === "music") Music.restoreNow();   // и дослушать там, где остановились
   });
 });
 
