@@ -22,7 +22,9 @@
         {% endif %}
       </button>
     </td>
-    <td data-col="title" class="px-2 py-1.5 max-w-0"><span class="block truncate" title="{{ t.title }}">{{ t.title }}</span></td>
+    <td data-col="title" class="px-2 py-1.5 max-w-0"><span class="block truncate" title="{{ t.title }}">{{ t.title }}</span>
+      {# вторая строка — только на телефоне, где столбца исполнителя нет #}
+      <span class="sw-sub truncate">{{ t.artist or t.artist_hint or '' }}{% if t.album %} · {{ t.album }}{% endif %}</span></td>
     <td data-col="artist" class="px-2 py-1.5 max-w-0">
       {% if t.artist %}
         <button class="block truncate text-slate-600 hover:text-sky-600 text-left w-full" title="{{ t.artist }}"

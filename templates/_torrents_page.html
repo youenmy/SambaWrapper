@@ -1,4 +1,4 @@
-<div class="flex items-center gap-2 px-3 h-12 border-b border-slate-200 shrink-0">
+<div class="sw-bar sw-icons flex items-center gap-2 px-3 h-12 border-b border-slate-200 shrink-0">
   <i class="ti ti-download text-sky-600 text-lg"></i>
   <span class="font-medium text-sm">Торрент-клиент</span>
   {% if st.installed and st.active %}
@@ -24,36 +24,36 @@
   <div class="p-6 text-sm text-amber-600">Нет смонтированных дисков — некуда качать. Подключи диск слева.</div>
 {% else %}
 
-<div class="flex items-center gap-2 px-3 h-12 border-b border-slate-100 shrink-0 flex-wrap">
+<div class="sw-wrap flex items-center gap-2 px-3 h-12 border-b border-slate-100 shrink-0 flex-wrap">
   <button title="Вставить из буфера обмена" class="text-slate-400 hover:text-sky-600 shrink-0" onclick="SW.pasteMagnet()">
     <i class="ti ti-clipboard-text text-lg"></i>
   </button>
   <input id="tr-magnet" type="text" aria-label="Magnet-ссылка или адрес .torrent" placeholder="magnet:?xt=... или http(s)-ссылка на .torrent"
          onkeydown="if(event.key==='Enter')SW.torrentAdd()"
-         class="flex-1 min-w-[12rem] border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-mono">
+         class="sw-full sw-first flex-1 min-w-[12rem] border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-mono">
   <input type="hidden" id="tr-dir">
   <button id="tr-dest-btn" title="Выбрать папку для сохранения" onclick="SW.openTorrentDest()"
-          class="flex items-center gap-1.5 border border-slate-300 rounded-lg px-3 py-1.5 text-sm hover:bg-slate-50 max-w-[16rem]">
+          class="sw-grow flex items-center gap-1.5 border border-slate-300 rounded-lg px-3 py-1.5 text-sm hover:bg-slate-50 max-w-[16rem]">
     <i class="ti ti-folder text-sky-600 shrink-0"></i>
     <span id="tr-dest-label" class="truncate text-slate-500">Куда сохранить…</span>
   </button>
   <button class="px-3 py-1.5 bg-sky-600 text-white rounded-lg text-sm whitespace-nowrap" onclick="SW.torrentAdd()">
     <i class="ti ti-plus"></i> Добавить
   </button>
-  <label class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm cursor-pointer hover:bg-slate-50 whitespace-nowrap">
-    <i class="ti ti-file-upload"></i> .torrent
+  <label title="Загрузить .torrent-файл" class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm cursor-pointer hover:bg-slate-50 whitespace-nowrap">
+    <i class="ti ti-file-upload"></i><span class="sw-mob-hide"> .torrent</span>
     <input type="file" accept=".torrent" class="hidden" onchange="SW.torrentUpload(this)">
   </label>
   {% if role == 'admin' %}
   <button title="Тихий режим (медленные лимиты)" class="px-2 py-1.5 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
-          onclick="SW.post('/htmx/torrent-alt-speed',{})"><i class="ti ti-tortoise"></i></button>
+          onclick="SW.post('/htmx/torrent-alt-speed',{})"><i class="ti ti-moon-stars"></i></button>
   <button title="Лимиты скорости и раздачи" class="px-2 py-1.5 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
           onclick="SW.openModal('/htmx/torrent-limits')"><i class="ti ti-gauge"></i></button>
   {% endif %}
   <script>window.SW_TR_DIRS = {{ dirs|tojson }}; window.SW && SW.initTrDest();</script>
 </div>
 
-<div class="flex items-center gap-1.5 px-3 h-10 border-b border-slate-100 shrink-0 text-[0.8125rem]">
+<div class="sw-wrap flex items-center gap-1.5 px-3 h-10 border-b border-slate-100 shrink-0 text-[0.8125rem]">
   <div class="flex rounded-lg border border-slate-200 overflow-hidden">
     <button class="tr-flt px-2.5 py-1 bg-sky-600 text-white" data-f="all" onclick="SW.trFilterBy('all')">Все</button>
     <button class="tr-flt px-2.5 py-1 text-slate-500 hover:bg-slate-50" data-f="down" onclick="SW.trFilterBy('down')">Качаются</button>
@@ -61,7 +61,7 @@
     <button class="tr-flt px-2.5 py-1 text-slate-500 hover:bg-slate-50" data-f="stop" onclick="SW.trFilterBy('stop')">Остановлены</button>
   </div>
   <input id="tr-search" type="search" aria-label="Поиск по имени торрента" placeholder="поиск по имени…" oninput="SW.trSearch(this.value)"
-         class="flex-1 min-w-[8rem] max-w-xs border border-slate-200 rounded-lg px-2.5 py-1 ml-1">
+         class="sw-full sw-last flex-1 min-w-[8rem] max-w-xs border border-slate-200 rounded-lg px-2.5 py-1 ml-1">
   <span class="ml-auto"></span>
   <button title="Запустить все" class="text-slate-400 hover:text-emerald-600 px-1.5"
           onclick="SW.post('/htmx/torrent-action',{id:0,action:'start-all'})"><i class="ti ti-player-play text-base"></i></button>
@@ -70,7 +70,7 @@
 </div>
 
 <div class="flex-1 overflow-auto min-h-0">
-  <table class="w-full text-sm border-collapse">
+  <table class="sw-tr-table w-full text-sm border-collapse">
     <thead class="sticky top-0 bg-slate-50 text-[0.6875rem] uppercase tracking-wide text-slate-400 select-none">
       <tr>
         <th class="text-left font-medium px-3 py-2" data-sort="name"><button type="button" class="tr-sort cursor-pointer hover:text-slate-600" onclick="SW.trSortBy('name')">Имя<span data-s="name" class="tr-arr"></span></button></th>

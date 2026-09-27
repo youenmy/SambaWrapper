@@ -1,0 +1,139 @@
+/* ============================================================ телефон
+ *
+ * Всё мобильное — в одном файле и под одним условием ширины, чтобы
+ * настольная раскладка не менялась ни на пиксель. Порог 767px совпадает с
+ * md у Tailwind: ниже него боковая панель уже выезжающая, значит и остальное
+ * перестраивается под палец.
+ *
+ * Правила написаны поверх разметки, а не вместо неё: классы-крючки sw-*
+ * стоят в шаблонах, а Tailwind пересобирать не нужно (бинаря на сервере нет).
+ */
+
+/* Классы, которые нужны и на планшете: панель папок музыки прячется ниже
+   lg (1024px), поэтому кнопка «Папки» и выезжающая панель живут до него. */
+.sw-lists-btn { display: none; }
+@media (max-width: 1023px) {
+  .sw-lists-btn { display: inline-flex; }
+  #music-lists.sw-open {
+    display: block;
+    position: absolute; top: 0; bottom: 0; left: 0; z-index: 35;
+    width: min(18rem, 85vw);
+    background: var(--sw-surface, #ffffff);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, .35);
+  }
+  html.dark #music-lists.sw-open { background: var(--sw-surface, #1e293b); }
+  #sw-lists-backdrop { position: absolute; inset: 0; z-index: 34; background: rgba(0, 0, 0, .4); }
+  /* Док: большая обложка стоит над панелью папок, а панели ниже lg нет,
+     и настольный набор кнопок в эту ширину не влезает — тот же компактный
+     док, что на телефоне. */
+  #mus-vol-zone { display: none !important; }
+  /* ------------------------------------------------------ плеер (док)
+     Компактная полоса как в мобильных плеерах: обложка, название, кнопки.
+     Перемотка — тонкая полоса по верхнему краю дока; большая обложка,
+     время, громкость и повтор уезжают в полноэкранный режим (тап по обложке). */
+  #mus-bar { height: 4rem !important; padding: 0 .5rem 0 .6rem !important; gap: .6rem !important; }
+  #mus-cover-wrap {
+    position: static !important; width: 2.9rem !important; height: 2.9rem !important;
+    flex-shrink: 0;
+  }
+  #mus-cover-wrap:hover { transform: none; }
+  .sw-dock-meta { flex: 1 1 auto; width: auto !important; }
+  #mus-title { font-size: .9rem; }
+  #mus-seek-zone { flex: 0 0 auto; }
+  #mus-shuffle, #mus-repeat, .sw-dock-max { display: none !important; }
+  .sw-seekline {
+    position: absolute; left: 0; right: 0; top: -7px; height: 14px;
+    align-items: stretch !important;
+  }
+  .sw-seekline #mus-cur, .sw-seekline #mus-dur { display: none; }
+  .sw-seekline #mus-seek { height: 100%; }
+  .sw-seekline #mus-viz { opacity: 0; }        /* 14px — спектр в них только шумит */
+  .sw-seekline #mus-fill { top: 6px; bottom: 5px; }
+  .sw-seekline #mus-head { width: 3px; top: 3px; bottom: 2px; border-radius: 2px; }
+  #mus-bar button.w-11 { width: 2.75rem; height: 2.75rem; }
+}
+
+.sw-sub { display: none; }
+
+/* Статистика библиотеки — только на очень широком экране. Раньше это делали
+   классы hidden 2xl:inline, но 2xl в сборке Tailwind нет, а опрос статуса
+   сканирования подменял элемент без hidden — счётчик вылезал всегда и
+   сплющивал поиск в ноль. Поиск теперь не уже 10rem; если места не хватает,
+   полоса листается вбок, а не сминает поле. */
+.sw-stats { display: none; }
+@media (min-width: 1536px) { .sw-stats { display: inline; } }
+.sw-search { min-width: 10rem; }
+.sw-mus-bar { overflow-x: auto; scrollbar-width: none; }
+
+@media (max-width: 767px) {
+  /* 100vh на телефоне включает адресную строку — низ (плеер) уезжал под неё */
+  .sw-app { height: 100vh; height: 100dvh; }
+
+  /* ---------------------------------------------------- панели инструментов
+     Полоса не переносится и не наезжает на соседей: лишнее уезжает вбок и
+     листается пальцем. Подписи кнопок прячутся — остаются значки; имя кнопки
+     для экранного диктора остаётся тем же текстом. */
+  .sw-bar {
+    height: auto !important; min-height: 3rem;
+    flex-wrap: nowrap !important;
+    overflow-x: auto; overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .sw-bar::-webkit-scrollbar { display: none; }
+  .sw-icons .tbb { font-size: 0; gap: 0; padding: .55rem .6rem; flex-shrink: 0; }
+  .sw-icons .tbb i { font-size: 1.25rem; }
+  .sw-icons .sw-sep { display: none; }
+
+  /* полоса, которой лучше переноситься, чем листаться (добавление торрента) */
+  .sw-wrap { height: auto !important; flex-wrap: wrap !important; padding-block: .5rem; row-gap: .5rem; }
+  .sw-wrap .sw-full { flex-basis: 100%; min-width: 0 !important; max-width: none !important; margin-left: 0; }
+  .sw-wrap .sw-last { order: 99; }
+  .sw-wrap .sw-first { order: -1; }
+  .sw-wrap .sw-grow { flex: 1 1 0; min-width: 0; }
+  .sw-search { min-width: 9rem; }
+
+  /* ---------------------------------------------------------------- файлы */
+  #browser .frow { padding-block: .7rem; }
+  #browser .frow .text-sm { font-size: .95rem; }
+  #browser .fchk, #fchk-all { width: 1.15rem; height: 1.15rem; }
+
+  /* --------------------------------------------------------------- музыка */
+  #mus-search { font-size: 1rem; }              /* меньше 16px — iOS увеличивает страницу при фокусе */
+  #mus-sort { max-width: 6.5rem; }
+  .sw-mob-hide { display: none !important; }
+  .sw-icons .sw-lists-btn { font-size: .875rem; gap: .35rem; }
+  /* список треков — две строки: название и исполнитель, справа длительность */
+  .mus-table { width: 100%; table-layout: fixed; }
+  .mus-table thead { display: none; }
+  .mus-table [data-col]:not([data-col="cover"]):not([data-col="title"]):not([data-col="duration"]):not([data-col="actions"]) {
+    display: none !important;
+  }
+  .mus-table [data-col] { width: auto !important; min-width: 0 !important; }
+  .mus-table td[data-col="cover"] { width: 3.25rem !important; padding: .45rem .25rem .45rem .6rem; }
+  .mus-table td[data-col="cover"] button,
+  .mus-table td[data-col="cover"] img { width: 2.75rem; height: 2.75rem; }
+  .mus-table td[data-col="title"] { padding-block: .45rem; }
+  .mus-table td[data-col="title"] > span:first-child { font-size: .95rem; }
+  .mus-table td[data-col="duration"] { width: 3.25rem !important; font-size: .75rem; }
+  .mus-table td[data-col="actions"] { width: 2.5rem !important; }
+  /* столбцы скрыты, поэтому их ячейки на месте — не показываем «пустышку»
+     скрытого столбца, если настольная раскладка его включила */
+  .mus-table td[data-col="actions"] button { padding: .5rem .25rem; }
+  .sw-sub { display: block; font-size: .75rem; color: var(--sw-muted, #94a3b8); }
+
+  /* ------------------------------------------------------------- торренты */
+  #tr-magnet { font-size: 1rem; }
+  #tr-search { font-size: 1rem; }
+  #tr-stats { white-space: nowrap; overflow: hidden; }
+  .sw-tr-table thead { display: none; }
+  .sw-tr-table td:nth-child(n+3):nth-child(-n+10) { display: none; }
+  .sw-tr-table td:nth-child(2) { width: 5.5rem; }
+  .sw-tr-table td:last-child { width: 4.5rem; }
+  .sw-tr-table td:last-child button { padding: .45rem .3rem; }
+  .sw-tr-table td:last-child i { font-size: 1.15rem; }
+
+  /* -------------------------------------------------------- окна и меню */
+  #modal-host { padding: .5rem; align-items: flex-end; }
+  #modal-host > * { max-height: calc(100dvh - 1rem); overflow-y: auto; }
+  #skinmenu, #usermenu { max-width: calc(100vw - 1rem); }
+}

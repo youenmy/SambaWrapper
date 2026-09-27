@@ -5,10 +5,10 @@
   <script>window.SW && (SW.path = {{ (cur_path or '')|tojson }}, SW.sel = null);</script>
 {% else %}
 
-<div class="flex items-center gap-1 px-3 h-12 border-b border-slate-200 shrink-0 flex-wrap">
+<div class="sw-bar sw-icons flex items-center gap-1 px-3 h-12 border-b border-slate-200 shrink-0 flex-wrap">
   <button class="tbb" onclick="SW.mkdir()"><i class="ti ti-folder-plus"></i>Новая папка</button>
   <button class="tbb" onclick="SW.upload()"><i class="ti ti-upload"></i>Загрузить</button>
-  <span class="w-px h-5 bg-slate-200 mx-1"></span>
+  <span class="sw-sep w-px h-5 bg-slate-200 mx-1"></span>
   <button id="btn-rename" class="tbb" onclick="SW.rename()"><i class="ti ti-edit"></i>Переименовать</button>
   <button id="btn-move" class="tbb" onclick="SW.move()"><i class="ti ti-arrows-move"></i>Переместить</button>
   <button id="btn-del" class="tbb text-red-600" onclick="SW.del()"><i class="ti ti-trash"></i>Удалить</button>

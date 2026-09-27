@@ -11,6 +11,8 @@
       <td class="px-3 py-2 max-w-0">
         <span class="block truncate" title="{{ t.name }}">{% if t.seq %}<i class="ti ti-arrows-sort text-sky-500 text-xs" title="Последовательная загрузка"></i> {% endif %}{{ t.name }}</span>
         <span class="block truncate text-[0.6875rem] text-slate-400">{{ t.dir }}</span>
+        {# на телефоне столбцов нет — главное из них одной строкой под именем #}
+        <span class="sw-sub truncate"><span class="text-{{ t.tone }}-600">{{ t.status }}</span> · {{ t.size }}{% if t.running %} · ↓{{ t.down }} ↑{{ t.up }}{% endif %}{% if t.eta and t.eta != '—' %} · {{ t.eta }}{% endif %}</span>
         {% if t.error %}<span class="block truncate text-[0.6875rem] text-red-600" title="{{ t.error }}">{{ t.error }}</span>{% endif %}
       </td>
       <td class="px-2 py-2">

@@ -514,6 +514,29 @@
       }
     },
 
+    /* Папки библиотеки на узком экране: панель выезжает поверх списка треков
+       и убирается, как только выбрали папку, «Все треки» или «играть». */
+    listsDrawer: function (open) {
+      var lists = $("music-lists");
+      if (!lists) return;
+      if (open === undefined) open = !lists.classList.contains("sw-open");
+      lists.classList.toggle("sw-open", open);
+      var shade = $("sw-lists-backdrop");
+      if (open && !shade) {
+        shade = document.createElement("div");
+        shade.id = "sw-lists-backdrop";
+        shade.onclick = function () { M.listsDrawer(false); };
+        lists.parentNode.insertBefore(shade, lists);
+      } else if (!open && shade) shade.remove();
+      if (open && !lists._swDrawer) {
+        lists._swDrawer = true;
+        lists.addEventListener("click", function (e) {
+          var hit = e.target.closest && e.target.closest('[onclick*="filterFolder"], [data-all], [onclick*="playAll"]');
+          if (hit && lists.classList.contains("sw-open")) M.listsDrawer(false);
+        });
+      }
+    },
+
     clearFilters: function () {
       M.sortScope.save();
       st.q = ""; st.artist = ""; st.album = ""; st.folder = ""; st.page = 1;

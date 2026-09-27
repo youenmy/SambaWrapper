@@ -1,15 +1,18 @@
-<div class="flex items-center gap-2 px-3 h-12 border-b border-slate-200 shrink-0">
-  <i class="ti ti-music text-sky-600 text-lg shrink-0"></i>
+<div class="sw-bar sw-icons sw-mus-bar flex items-center gap-2 px-3 h-12 border-b border-slate-200 shrink-0">
+  {# ниже lg панели папок нет — она выезжает по этой кнопке #}
+  <button class="tbb sw-lists-btn shrink-0" onclick="Music.listsDrawer()" aria-label="Папки библиотеки" title="Папки библиотеки">
+    <i class="ti ti-folder"></i>Папки</button>
+  <i class="ti ti-music text-sky-600 text-lg shrink-0 hidden sm:inline"></i>
   <span class="font-medium text-sm shrink-0 hidden sm:inline">Музыка</span>
   {# статистика и путь к библиотеке — первые кандидаты на скрытие при нехватке ширины #}
-  <span id="mus-stats" class="text-[0.6875rem] text-slate-400 shrink-0 hidden 2xl:inline"
+  <span id="mus-stats" class="sw-stats text-[0.6875rem] text-slate-400 shrink-0"
         title="{{ library }}">{{ st.tracks }} треков · {{ st.artists }} исполнителей · {{ (st.duration / 3600)|round|int }} ч</span>
 
   {# плашка текущего фильтра: приходит вместе со списком треков (hx-swap-oob),
      поэтому живёт здесь, а не отдельной полосой над таблицей #}
   <div id="mus-filter-chip" class="hidden"></div>
 
-  <div class="relative flex-1 min-w-0 max-w-xs ml-1">
+  <div class="sw-search relative flex-1 min-w-0 max-w-xs ml-1">
     <i class="ti ti-search absolute left-2.5 top-1.5 text-slate-400 text-sm"></i>
     <input id="mus-search" aria-label="Поиск по библиотеке" type="search" placeholder="поиск: трек, исполнитель, альбом…"
            oninput="Music.search(this.value)"
@@ -32,10 +35,10 @@
   <button id="mus-tree-btn" class="tbb shrink-0" onclick="Music.toggleTree()"
           title="Показывать библиотеку деревом папок">
     <i class="ti ti-binary-tree"></i><span class="hidden lg:inline">Дерево</span></button>
-  <button id="mus-viz-btn" class="tbb shrink-0" onclick="Music.toggleViz()"
+  <button id="mus-viz-btn" class="tbb shrink-0 sw-mob-hide" onclick="Music.toggleViz()"
           title="Выключить визуализатор (если слышны щелчки)">
     <i class="ti ti-wave-sine"></i></button>
-  <button class="tbb shrink-0" onclick="Music.columns.modal()" title="Какие столбцы показывать">
+  <button class="tbb shrink-0 sw-mob-hide" onclick="Music.columns.modal()" title="Какие столбцы показывать">
     <i class="ti ti-columns"></i><span class="hidden lg:inline">Столбцы</span></button>
   <button class="tbb shrink-0" onclick="Music.openDuplicates()" title="Найти дубликаты в текущей папке/фильтре">
     <i class="ti ti-copy"></i><span class="hidden lg:inline">Дубликаты</span></button>

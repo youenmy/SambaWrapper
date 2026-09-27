@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block body %}
-<div class="h-screen flex flex-col">
+<div class="sw-app h-screen flex flex-col">
 
   <header id="sw-header" class="flex items-center justify-between px-3 sm:px-4 h-12 bg-white border-b border-slate-200 shrink-0 gap-2">
     <div class="flex items-center gap-2 font-medium min-w-0">
@@ -74,7 +74,7 @@
         <img id="mus-cover" alt="" class="w-full h-full object-cover hidden">
       </div>
     </div>
-    <div class="min-w-0 w-36 sm:w-56 shrink-0">
+    <div class="sw-dock-meta min-w-0 w-36 sm:w-56 shrink-0">
       <div id="mus-title" class="text-sm truncate">—</div>
       <div id="mus-artist" class="text-[0.6875rem] text-slate-400 truncate"></div>
     </div>
@@ -87,7 +87,7 @@
         <button title="Следующий" class="text-slate-500 hover:text-slate-800" onclick="Music.next()"><i class="ti ti-player-skip-forward-filled text-lg"></i></button>
         <button title="Повтор" id="mus-repeat" class="text-slate-400 hover:text-sky-600" onclick="Music.toggleRepeat()"><i class="ti ti-repeat text-lg"></i></button>
       </div>
-      <div class="flex flex-1 min-w-0 items-end h-full gap-2 text-xs text-slate-400">
+      <div class="sw-seekline flex flex-1 min-w-0 items-end h-full gap-2 text-xs text-slate-400">
         <span id="mus-cur" class="tabular-nums w-10 text-right self-center">0:00</span>
         {# полоса перемотки — полноценный ползунок: с клавиатуры стрелками
            (обработчик в music.js), значение сообщается через aria-valuenow #}
@@ -110,7 +110,7 @@
              oninput="Music.setVolume(this.value)" class="w-full accent-sky-500 cursor-pointer">
     </div>
     <button title="Во весь экран (F)" aria-label="Открыть «Сейчас играет» во весь экран"
-            class="text-slate-400 hover:text-sky-600 shrink-0" onclick="Music.np.show()"><i class="ti ti-arrows-maximize"></i></button>
+            class="sw-dock-max text-slate-400 hover:text-sky-600 shrink-0" onclick="Music.np.show()"><i class="ti ti-arrows-maximize"></i></button>
     <button title="Закрыть плеер" class="text-slate-400 hover:text-red-600 shrink-0" onclick="Music.close()"><i class="ti ti-x"></i></button>
     <!-- две деки: пока играет одна, вторая заранее качает следующий трек -->
     <audio id="mus-audio" preload="auto"></audio>
@@ -628,6 +628,13 @@ const SW = {
       if (this.checked.has(path)) this.checked.delete(path); else this.checked.add(path);
       this.sel = {path, name, isDir}; this._anchor = path;
       this._mark(); this._bar();
+      return;
+    }
+    /* Касание пальцем: двойного нажатия на телефоне нет, поэтому строка
+       открывается сразу, как ссылка. Выделять — галочками слева; пока что-то
+       отмечено, касание выделяет, а не открывает. */
+    if (this._touch && !this.checked.size) {
+      if (isDir) this.navigate(path); else this.openFile(path, name);
       return;
     }
     this.checked.clear();
@@ -1555,6 +1562,8 @@ if (!Object.keys({{ prefs|tojson }}).length) {
   if (Object.keys(mine).length) { SW._prefQueue = mine; SW._prefFlush(); }
 }
 document.body.dataset.view = SW.view;
+// последнее касание пальцем или мышью: одна и та же строка открывается касанием и выбирается кликом
+document.addEventListener("pointerdown", (e) => { SW._touch = e.pointerType === "touch"; }, true);
 SW.restoreSidebar();
 /* Раздел восстанавливаем после полной загрузки: music.js подключается ниже
    этого скрипта, и на момент его выполнения Music ещё не существует. Ошибку

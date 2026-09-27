@@ -11,7 +11,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.33"
+APP_VERSION = "3.34"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -1201,7 +1201,7 @@ async def htmx_music_scan_status(request: Request, _: str = Depends(current_user
     """
     s = music.scan_state()
     stats = await asyncio.to_thread(music.stats)
-    counter = (f'<span id="mus-stats" hx-swap-oob="true" class="text-[0.6875rem] text-slate-400">'
+    counter = (f'<span id="mus-stats" hx-swap-oob="true" class="sw-stats text-[0.6875rem] text-slate-400 shrink-0">'
                f'{stats["tracks"]} треков · {stats["artists"]} исполнителей · '
                f'{round(stats["duration"] / 3600)} ч</span>')
     if not s["running"]:
