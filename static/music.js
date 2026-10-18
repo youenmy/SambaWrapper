@@ -709,6 +709,7 @@
         M.tint.reset();
       }
       M.np.sync(track);
+      M.media.track(track);
       if (track.duration) $("mus-dur").textContent = fmt(track.duration);
       st.recent.push(track.id);
       if (st.recent.length > 150) st.recent.shift();
@@ -941,6 +942,7 @@
       M.np.hide();
       clear(audio()); clear(spare());
       M.viz.stop();
+      M.media.clear();                          // кнопки на миниатюре гаснут вместе с плеером
       st.now = null; st.nowId = 0;
       M._fitLists();
       if (SW.view !== "music") $("mus-bar").classList.add("hidden");
@@ -2005,13 +2007,60 @@
          подкраску и полноэкранный режим надо подготовить здесь же — иначе цвет
          появлялся только со следующим треком. */
       M.np.sync(track);
+      M.media.track(track);
       M.markRow();
     },
 
     // ------------------------------------------------------------------ init
+    /* Системные медиакнопки: кнопки на миниатюре в панели задач Windows,
+       медиаклавиши клавиатуры, шторка телефона и экран блокировки. Браузер
+       показывает их, когда страница описала трек и назначила обработчики. */
+    media: {
+      ok: function () { return "mediaSession" in navigator; },
+      init: function () {
+        if (!M.media.ok()) return;
+        var ms = navigator.mediaSession;
+        var set = function (action, fn) { try { ms.setActionHandler(action, fn); } catch (e) { /* действие не поддерживается */ } };
+        set("play", function () { audio().play().catch(function () {}); });
+        set("pause", function () { audio().pause(); });
+        set("previoustrack", function () { M.prev(); });
+        set("nexttrack", function () { M.next(); });
+        set("seekbackward", function (d) { var a = audio(); a.currentTime = Math.max(0, a.currentTime - (d.seekOffset || 10)); });
+        set("seekforward", function (d) { var a = audio(); if (a.duration) a.currentTime = Math.min(a.duration - 0.5, a.currentTime + (d.seekOffset || 10)); });
+        set("seekto", function (d) { if (d.seekTime != null) audio().currentTime = d.seekTime; });
+        set("stop", function () { M.close(); });
+      },
+      track: function (track) {
+        if (!M.media.ok() || !window.MediaMetadata || !track) return;
+        var art = track.cover ? [{src: location.origin + "/music-cover/" + track.id, sizes: "512x512", type: "image/jpeg"}] : [];
+        try {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: track.title || "—", artist: track.artist || "", album: track.album || "", artwork: art,
+          });
+        } catch (e) {}
+      },
+      state: function (playing) {
+        if (M.media.ok()) navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+      },
+      // полоса времени в системном плеере (шторка телефона, Windows 11)
+      position: function (el) {
+        if (!M.media.ok() || !navigator.mediaSession.setPositionState || !(el.duration > 0) || !isFinite(el.duration)) return;
+        try {
+          navigator.mediaSession.setPositionState({duration: el.duration, position: Math.min(el.currentTime, el.duration),
+                                                   playbackRate: el.playbackRate || 1});
+        } catch (e) {}
+      },
+      clear: function () {
+        if (!M.media.ok()) return;
+        navigator.mediaSession.metadata = null;
+        navigator.mediaSession.playbackState = "none";
+      },
+    },
+
     init: function () {
       var a = audio();
       if (!a) return;
+      M.media.init();
 
       M._applyVolume();          // обе деки получают сохранённую громкость
       M._volumeIcon();
@@ -2045,6 +2094,7 @@
           // позицию сохраняем не чаще раза в 5 секунд (и сразу на паузе — ниже)
           if (!M._savedAt || Date.now() - M._savedAt > 5000) {
             M._savedAt = Date.now();
+            M.media.position(el);
             if (st.now) M._savePos(el.currentTime);
           }
         });
@@ -2059,6 +2109,7 @@
         el.addEventListener("loadedmetadata", function () {
           if (!active()) return;
           var d = $("mus-dur"); if (d) d.textContent = fmt(el.duration);
+          M.media.position(el);
         });
         el.addEventListener("ended", function () {
           if (!active()) return;
@@ -2098,6 +2149,7 @@
           if (!active()) return;
           $("mus-play-icon").className = "ti ti-player-pause-filled text-sm";
           M.np.buttons();
+          M.media.state(true);
           M.viz.start();
         });
         // звук пошёл — только теперь у деки есть готовая аудиодорожка для отвода
@@ -2108,6 +2160,7 @@
           if (!active()) return;
           $("mus-play-icon").className = "ti ti-player-play-filled text-sm";
           M.np.buttons();
+          M.media.state(false);
         });
       });
 
