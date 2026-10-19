@@ -159,3 +159,29 @@
   #music-tracks tr.mrow.sw-swipe > td { background: var(--sw-surface, #ffffff); }
   #music-tracks tr.mrow.sw-swipe-armed > td { opacity: .75; }
 }
+
+/* Отложенное удаление: строка-отсчёт на месте смахнутого трека. Полоса
+   тает за UNDO_MS (music.js задаёт длительность), «Отменить» возвращает трек. */
+.sw-undo td {
+  position: relative; padding: .9rem 1rem; font-size: .875rem;
+  background: var(--sw-surface-2, #f1f5f9); color: var(--sw-text-2, #475569);
+}
+.sw-undo-text { display: inline-block; max-width: calc(100% - 7rem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+.sw-undo-btn {
+  float: right; padding: .3rem .8rem; border-radius: .5rem; font-weight: 600;
+  color: var(--sw-accent, #0284c7); background: transparent;
+}
+.sw-undo-btn:disabled { opacity: .4; }
+.sw-undo-bar {
+  position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+  background: #dc2626; transform-origin: left;
+  animation: sw-undo-run linear forwards;
+}
+@keyframes sw-undo-run { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* Запуск с главного экрана: окно без адресной строки, а на iPhone страница
+   залезает под строку состояния и полоску жестов. Отступаем на их высоту. */
+@media (display-mode: standalone) {
+  .sw-app { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+  .np { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+}

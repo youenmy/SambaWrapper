@@ -1,7 +1,8 @@
 /* Жесты пальцем — только для сенсорных экранов.
  *
  * Док плеера тянется вверх и разворачивается в «Сейчас играет», развёрнутый
- * режим смахивается вниз обратно, строка трека смахивается влево — удалить.
+ * режим смахивается вниз обратно, строка трека смахивается влево — удалить
+ * (с отсчётом и отменой). Вбок по доку или по обложке — следующий/предыдущий.
  * Мышь здесь ни при чём: обработчики слушают только touch-события, поэтому
  * на компьютере всё работает как раньше.
  *
@@ -46,6 +47,29 @@
     }
   }
 
+  // ---------------------------------------------------------- переключение трека вбок
+  var SKIP = 70;              // столько пикселей вбок — уже переключение
+  function nudge(el, dx) {
+    if (!el) return;
+    el.style.transition = "none";
+    el.style.transform = "translateX(" + dx * 0.6 + "px)";
+    el.style.opacity = String(Math.max(0.35, 1 - Math.abs(dx) / 400));
+  }
+  /** Влево — следующий трек, вправо — предыдущий, как в мобильных плеерах. */
+  function skip(g, el) {
+    var go = Math.abs(g.dx) > SKIP || Math.abs(g.vx) > FLICK;
+    if (el) {
+      el.style.transition = EASE + ", opacity .2s";
+      el.style.transform = ""; el.style.opacity = "";
+      setTimeout(function () { el.style.transition = ""; }, 280);
+    }
+    if (!go) return;
+    buzz(10);
+    if (g.dx < 0) Music.next(); else Music.prev();
+  }
+  // короткий толчок вибромотора; iPhone вибрацию из браузера не даёт — там тишина
+  function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+
   // ---------------------------------------------------------- режим «Сейчас играет»
   function sheetAt(y, animate) {
     var el = np();
@@ -81,7 +105,13 @@
   document.addEventListener("touchmove", function (e) {
     if (!dockG) return;
     move(dockG, e);
-    if (dockG.axis === "x") { dockG = null; return; }
+    if (dockG.axis === "x") {
+      // вбок — переключение трека; название едет за пальцем
+      e.preventDefault();
+      dockG.side = true;
+      nudge(document.querySelector("#mus-bar .sw-dock-meta"), dockG.dx);
+      return;
+    }
     if (dockG.axis !== "y") return;
     e.preventDefault();
     if (!dockG.started) {
@@ -96,6 +126,7 @@
   document.addEventListener("touchend", function () {
     if (!dockG) return;
     var g = dockG; dockG = null;
+    if (g.side) { swallowClick(); skip(g, document.querySelector("#mus-bar .sw-dock-meta")); return; }
     if (!g.started) return;
     swallowClick();
     settle(-g.dy > height() * OPEN_SHARE || g.vy < -FLICK);
@@ -112,7 +143,12 @@
   document.addEventListener("touchmove", function (e) {
     if (!sheetG) return;
     move(sheetG, e);
-    if (sheetG.axis === "x") { sheetG = null; return; }
+    if (sheetG.axis === "x") {
+      e.preventDefault();
+      sheetG.side = true;
+      nudge($("mus-np-art"), sheetG.dx);
+      return;
+    }
     if (sheetG.axis !== "y") return;
     e.preventDefault();
     if (!sheetG.started) { sheetG.started = true; np().classList.add("np-drag"); }
@@ -121,6 +157,7 @@
   document.addEventListener("touchend", function () {
     if (!sheetG) return;
     var g = sheetG; sheetG = null;
+    if (g.side) { swallowClick(); skip(g, $("mus-np-art")); return; }
     if (!g.started) return;
     swallowClick();
     settle(!(g.dy > height() * OPEN_SHARE || g.vy > FLICK));
@@ -157,7 +194,10 @@
     if (e.cancelable) e.preventDefault();
     var row = rowG.row, x = Math.min(0, rowG.dx);
     if (!rowG.started) { rowG.started = true; row.classList.add("sw-swipe"); }
-    row.classList.toggle("sw-swipe-armed", -x > row.offsetWidth * DELETE_SHARE);
+    var armed = -x > row.offsetWidth * DELETE_SHARE;
+    // порог пересекли в любую сторону — толчок, чтобы палец чувствовал момент
+    if (armed !== row.classList.contains("sw-swipe-armed")) buzz(armed ? 20 : 8);
+    row.classList.toggle("sw-swipe-armed", armed);
     rowAt(row, x, false);
   }, {passive: false});
   document.addEventListener("touchend", function () {
@@ -168,11 +208,14 @@
     var row = g.row;
     var go = -g.dx > row.offsetWidth * DELETE_SHARE || (g.vx < -FLICK && g.dx < -40);
     if (!go) { rowReset(row); return; }
-    /* Удаление стирает файл с диска безвозвратно, поэтому спрашиваем, как и
-       корзина в строке. Строка возвращается на место; если удаление
-       подтвердят, она исчезнет вместе со списком. */
-    rowReset(row);
-    Music.deleteTrack(Number(row.dataset.id), row.dataset.title || "");
+    /* Без окна-вопроса: строка уходит за край и превращается в обратный
+       отсчёт с «Отменить» — случайный взмах успевают отменить. */
+    rowAt(row, -row.offsetWidth, true);
+    setTimeout(function () {
+      row.classList.remove("sw-swipe", "sw-swipe-armed");
+      cells(row).forEach(function (td) { td.style.transition = ""; td.style.transform = ""; });
+      Music.deleteSoon(Number(row.dataset.id), row.dataset.title || "");
+    }, 230);
   });
   document.addEventListener("touchcancel", function () {
     if (rowG && rowG.started) rowReset(rowG.row);

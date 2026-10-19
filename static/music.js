@@ -773,6 +773,7 @@
     prev: function () {
       var a = audio();
       if (a.currentTime > 3) { a.currentTime = 0; return; }
+      M._skipDir = -1;                          // режим «Сейчас играет» листает обложку вправо
       if (!st.queue.length) return;
       var i = M._indexOfNow();
       M.playTrack(st.queue[(i - 1 + st.queue.length) % st.queue.length]);
@@ -1337,10 +1338,35 @@
         M.np._return = null;
         if (back && back.focus && document.body.contains(back)) back.focus({preventScroll: true});
       },
+      /* Смена трека в режиме «Сейчас играет»: старая обложка уходит в одну
+         сторону, новая въезжает с другой — как перелистывание. dir 1 —
+         следующий (въезд справа), -1 — предыдущий. Web Animations, а не
+         классы: анимация не спорит с переходами и жестом, который двигает
+         обложку через style.transform. */
+      _swap: function (dir) {
+        var art = $("mus-np-art"), info = document.querySelector("#mus-np .np-info");
+        var ease = "cubic-bezier(.2,.8,.2,1)";
+        if (art && art.animate) {
+          art.animate([
+            {transform: "translateX(" + (dir * 42) + "%) scale(.92)", opacity: 0},
+            {transform: "none", opacity: 1},
+          ], {duration: 360, easing: ease});
+        }
+        if (info && info.animate) {
+          info.animate([
+            {transform: "translateX(" + (dir * 24) + "px)", opacity: 0},
+            {transform: "none", opacity: 1},
+          ], {duration: 300, delay: 60, easing: ease, fill: "backwards"});
+        }
+      },
       /** Перенести в режим название, обложку и состояние кнопок. */
       sync: function (track) {
         var title = $("mus-np-title");
         if (!title || !track) return;
+        // трек сменился при открытом режиме — обложка уезжает в сторону переключения
+        if (M.np.open && M.np._lastId && M.np._lastId !== track.id) M.np._swap(M._skipDir || 1);
+        M.np._lastId = track.id;
+        M._skipDir = 0;
         title.textContent = track.title || "—";
         $("mus-np-meta").textContent = [track.artist, track.album].filter(Boolean).join(" — ");
         var src = track.cover ? "/music-cover/" + track.id : "";
@@ -1665,14 +1691,53 @@
     /* done вызывается, только если файл действительно удалён: раньше
        интерфейс убирал строку и переключал музыку и при отказе сервера
        (нет прав, защищённый от записи диск), хотя файл оставался на месте. */
-    _request: function (id, done) {
+    _request: function (id, done, fail) {
       fetch("/htmx/music-delete", {method: "POST", body: new URLSearchParams({id: id})})
         .then(M._deletedFrom)
         .then(function (res) {
           SW._toastHtml(res.html);
-          if (done && res.deleted.indexOf(id) >= 0) done();
+          if (res.deleted.indexOf(id) >= 0) { if (done) done(); }
+          else if (fail) fail();
         })
-        .catch(function () { SW.toast("Не удалось удалить"); });
+        .catch(function () { SW.toast("Не удалось удалить"); if (fail) fail(); });
+    },
+
+    /* Удаление смахиванием: без окна-вопроса, но с отсрочкой. Строка
+       превращается в полосу обратного отсчёта с кнопкой «Отменить», и только
+       когда полоса дошла до конца, файл стирается на сервере. Играющий трек
+       сменяется следующим сразу — дослушивать удаляемую песню незачем. */
+    UNDO_MS: 4000,
+    deleteSoon: function (id, name) {
+      var row = document.querySelector('#music-tracks .mrow[data-id="' + id + '"]');
+      if (!row || row.hidden) return;
+      if (id === st.nowId) M._playAfterDelete(M._nextInQueue(id));
+      row.hidden = true;
+      var undo = document.createElement("tr");
+      undo.className = "sw-undo";
+      var td = document.createElement("td");
+      td.colSpan = 13;
+      var label = document.createElement("span");
+      label.className = "sw-undo-text";
+      label.textContent = "«" + (name || "трек") + "» удалится";
+      var btn = document.createElement("button");
+      btn.type = "button"; btn.className = "sw-undo-btn"; btn.textContent = "Отменить";
+      var bar = document.createElement("div");
+      bar.className = "sw-undo-bar";
+      bar.style.animationDuration = M.UNDO_MS + "ms";
+      td.appendChild(label); td.appendChild(btn); td.appendChild(bar);
+      undo.appendChild(td);
+      row.parentNode.insertBefore(undo, row.nextSibling);
+
+      function restore() { undo.remove(); row.hidden = false; }
+      var timer = setTimeout(function () {
+        btn.disabled = true;
+        M._request(id, function () { undo.remove(); M.dropRow(id); }, restore);
+      }, M.UNDO_MS);
+      btn.onclick = function (e) {
+        e.stopPropagation();
+        clearTimeout(timer);
+        restore();
+      };
     },
 
     // ------------------------------------------------------------ дубликаты
