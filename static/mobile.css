@@ -137,3 +137,25 @@
   #modal-host > * { max-height: calc(100dvh - 1rem); overflow-y: auto; }
   #skinmenu, #usermenu { max-width: calc(100vw - 1rem); }
 }
+
+/* ============================================================ жесты
+ * Ведёт static/gestures.js; здесь — только то, что мешало пальцу. */
+
+/* Пока палец тянет режим «Сейчас играет», его не гасит переход прозрачности:
+   он виден целиком и едет за пальцем. */
+.np.np-drag { opacity: 1 !important; transition: none; }
+
+@media (pointer: coarse) {
+  /* Страница сама по себе не прокручивается — прокручиваются списки внутри.
+     Без этого палец на доке протягивал всё окно вверх (подпрыгивание и
+     «потяни, чтобы обновить» браузера). */
+  html:has(.sw-app), html:has(.sw-app) body { overflow: hidden; overscroll-behavior: none; height: 100%; }
+  #browser, #music-tracks, #music-lists, #sidebar { overscroll-behavior: contain; }
+  /* док и режим целиком принадлежат жестам, а не прокрутке */
+  #mus-bar, .np { touch-action: none; }
+  /* строку трека браузер прокручивает только по вертикали; горизонталь — смахивание */
+  #music-tracks tr.mrow { touch-action: pan-y; }
+  #music-tracks tr.mrow.sw-swipe { background: #dc2626 !important; }
+  #music-tracks tr.mrow.sw-swipe > td { background: var(--sw-surface, #ffffff); }
+  #music-tracks tr.mrow.sw-swipe-armed > td { opacity: .75; }
+}
