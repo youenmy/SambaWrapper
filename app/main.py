@@ -11,7 +11,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.40"
+APP_VERSION = "3.41"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -209,7 +209,7 @@ def _polled(request: Request, response, sig: str):
 # браузере — они про конкретное устройство, а не про человека.
 
 UI_PREFS_KEYS = {"skin", "musPins", "musCols", "musSorts", "musTree", "musViz", "customTheme", "fx",
-                 "musTrack", "musAllNow"}
+                 "musTrack", "musAllNow", "musModes"}
 
 def _clean_now_playing(value):
     """Играющий трек: id — целое (из него собираются адреса), время — число."""
@@ -244,6 +244,9 @@ async def api_prefs_save(request: Request, user: str = Depends(current_user)):
         if cleaned is None:
             raise HTTPException(status_code=400, detail="своя тема не прошла проверку")
         patch["customTheme"] = cleaned
+    if patch.get("musModes") is not None:
+        m = patch["musModes"] if isinstance(patch["musModes"], dict) else {}
+        patch["musModes"] = {"shuffle": m.get("shuffle") is True, "repeat": m.get("repeat") is True}
     for key in ("musTrack", "musAllNow"):
         if patch.get(key) is not None:
             patch[key] = _clean_now_playing(patch[key])

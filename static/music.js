@@ -12,7 +12,8 @@
   var LS = {
     view: "sw.musView",       // фильтры и сортировка
     track: "sw.musTrack",     // что играло и на какой секунде
-    allNow: "sw.musAllNow",   // то же, но только для «Все треки» — кнопка «играть» продолжает отсюда
+    allNow: "sw.musAllNow",
+    modes: "sw.musModes",     // «перемешать» и «повтор» переживают закрытие вкладки   // то же, но только для «Все треки» — кнопка «играть» продолжает отсюда
     volume: "sw.musVolume",   // прежняя линейная громкость — читается один раз для переноса
     level: "sw.musLevel",     // положение ползунка громкости
     muted: "sw.musMuted",     // приглушение тоже переживает перезагрузку
@@ -95,7 +96,8 @@
      сохранения не приходится помнить отдельно. */
   var SHARED = {"sw.musPins": "musPins", "sw.musCols": "musCols",
                 "sw.musSorts": "musSorts", "sw.musTree": "musTree", "sw.musViz": "musViz",
-                "sw.musTrack": "musTrack", "sw.musAllNow": "musAllNow"};   // что играло и с какой секунды — продолжить на другом компе
+                "sw.musTrack": "musTrack", "sw.musAllNow": "musAllNow",
+                "sw.musModes": "musModes"};   // что играло и с какой секунды — продолжить на другом компе
 
   function store(key, value) {
     try { localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value)); }
@@ -807,6 +809,7 @@
       M.shuffleOn = !M.shuffleOn;
       $("mus-shuffle").classList.toggle("text-sky-600", M.shuffleOn);
       M.np.buttons();
+      M._saveModes();
       // список остаётся в своей сортировке — случайным становится только выбор трека
       SW.toast(M.shuffleOn ? "Случайное воспроизведение включено"
                            : "Случайное воспроизведение выключено");
@@ -846,6 +849,19 @@
     toggleRepeat: function () {
       M.repeatOn = !M.repeatOn;
       $("mus-repeat").classList.toggle("text-sky-600", M.repeatOn);
+      M.np.buttons();
+      M._saveModes();
+    },
+    /* Режимы хранятся вместе с остальными настройками (на сервере), поэтому
+       одинаковы на всех устройствах и не сбрасываются с закрытием вкладки. */
+    _saveModes: function () { store(LS.modes, {shuffle: M.shuffleOn, repeat: M.repeatOn}); },
+    _restoreModes: function () {
+      var m = load(LS.modes, null);
+      if (!m) return;
+      M.shuffleOn = m.shuffle === true; M.repeatOn = m.repeat === true;
+      var sh = $("mus-shuffle"), rp = $("mus-repeat");
+      if (sh) sh.classList.toggle("text-sky-600", M.shuffleOn);
+      if (rp) rp.classList.toggle("text-sky-600", M.repeatOn);
       M.np.buttons();
     },
     seekClick: function (event) {
@@ -2148,6 +2164,7 @@
       var a = audio();
       if (!a) return;
       M.media.init();
+      M._restoreModes();
       /* Тап по пустому месту дока или по названию разворачивает «Сейчас
          играет». Кнопки, перемотка и громкость работают как раньше. */
       var bar = $("mus-bar");
