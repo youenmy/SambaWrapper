@@ -923,6 +923,13 @@
       if (rp) rp.classList.toggle("text-sky-600", M.repeatOn);
       M.np.buttons();
     },
+    /** Перемотка на долю длительности (0…1) — для жестов. */
+    seekTo: function (frac) {
+      var a = audio();
+      if (!a || !a.duration) return;
+      a.currentTime = Math.max(0, Math.min(1, frac)) * a.duration;
+      M.viz.frame();
+    },
     seekClick: function (event) {
       var a = audio();
       if (!a.duration) return;

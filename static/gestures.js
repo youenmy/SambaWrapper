@@ -101,6 +101,33 @@
     if (e.target.closest("#mus-np .np-btn, #mus-np .np-play, #mus-bar button")) buzz(8);
   }, true);
 
+  // ---------------------------------------------------------- перемотка пальцем по полосе дока
+  /* Касание полосы сразу ставит позицию, ведение пальцем перематывает
+     следом — как ползунок. Мышью полоса работает щелчком, как раньше. */
+  var seekG = null;
+  function seekTo(x) {
+    var bar = $("mus-seek");
+    if (!bar) return;
+    var r = bar.getBoundingClientRect();
+    var frac = Math.max(0, Math.min(1, (x - r.left) / r.width));
+    Music.seekTo(frac);
+  }
+  document.addEventListener("touchstart", function (e) {
+    if (e.touches.length !== 1 || !e.target.closest || !e.target.closest("#mus-bar #mus-seek")) return;
+    seekG = true;
+    seekTo(e.touches[0].clientX);
+  }, {passive: true});
+  document.addEventListener("touchmove", function (e) {
+    if (!seekG) return;
+    if (e.cancelable) e.preventDefault();
+    seekTo(e.touches[0].clientX);
+  }, {passive: false});
+  document.addEventListener("touchend", function () {
+    if (!seekG) return;
+    seekG = null;
+    swallowClick();                 // иначе следом придёт click и перемотает ещё раз
+  });
+
   // ---------------------------------------------------------- режим «Сейчас играет»
   function sheetAt(y, animate) {
     var el = np();
@@ -289,6 +316,6 @@
     if (rowG && rowG.started) rowReset(rowG.row);
     if (dockG && dockG.started) settle(false);
     if (sheetG && sheetG.started) settle(true);
-    rowG = dockG = sheetG = null;
+    rowG = dockG = sheetG = null; seekG = null;
   });
 })();

@@ -47,15 +47,25 @@
   #mus-title { font-size: .9rem; }
   #mus-seek-zone { flex: 0 0 auto; }
   #mus-shuffle, #mus-repeat, .sw-dock-max { display: none !important; }
+  /* Полоса спектра над доком: отделяет док от списка и служит перемоткой —
+     по ней удобно попадать пальцем. Высота — около трёх четвертей строки
+     трека; снизу она продолжает фон дока, кверху растворяется в списке. */
   .sw-seekline {
-    position: absolute; left: 0; right: 0; top: -7px; height: 14px;
+    position: absolute; left: 0; right: 0; bottom: 100%; height: 3.25rem;
     align-items: stretch !important;
+    padding: 0 .6rem;
+    background: linear-gradient(to top, var(--sw-surface, #ffffff) 0%, var(--sw-surface, #ffffff) 45%,
+                color-mix(in srgb, var(--sw-surface, #ffffff) 75%, transparent) 75%, transparent 100%);
+    pointer-events: none;
   }
   .sw-seekline #mus-cur, .sw-seekline #mus-dur { display: none; }
-  .sw-seekline #mus-seek { height: 100%; }
-  .sw-seekline #mus-viz { opacity: 0; }        /* 14px — спектр в них только шумит */
-  .sw-seekline #mus-fill { top: 6px; bottom: 5px; }
-  .sw-seekline #mus-head { width: 3px; top: 3px; bottom: 2px; border-radius: 2px; }
+  .sw-seekline #mus-seek { height: 100%; pointer-events: auto; touch-action: none; overflow: visible; }
+  /* сыгранная часть видна по цвету столбиков; полоса прогресса — тонкая
+     линия по низу, она нужна и при выключенном визуализаторе */
+  .sw-seekline #mus-fill { top: auto; bottom: 0; height: 3px; border-radius: 2px; }
+  .sw-seekline #mus-head { width: 2px; top: 10%; bottom: 0; border-radius: 2px; }
+  /* док и полоса — одно целое, отделённое от списка тенью */
+  #mus-bar { box-shadow: 0 -10px 28px -12px rgba(0, 0, 0, .55); }
   #mus-bar button.w-11 { width: 2.75rem; height: 2.75rem; }
 }
 
@@ -232,4 +242,13 @@
   .np-btn:active { transform: scale(.88); background: rgba(255,255,255,.18); }
   .np-play:active { transform: scale(.9); }
   #mus-bar button:active { transform: scale(.88); }
+}
+
+/* Полоса спектра стоит над доком и закрывала бы последние строки списков —
+   пока док виден, списки получают снизу запас на её высоту. */
+@media (max-width: 1023px) {
+  body:has(#mus-bar:not(.hidden)) #music-tracks,
+  body:has(#mus-bar:not(.hidden)) #music-lists,
+  body:has(#mus-bar:not(.hidden)) #browser .overflow-y-auto,
+  body:has(#mus-bar:not(.hidden)) #browser .overflow-auto { padding-bottom: 3.5rem; }
 }
