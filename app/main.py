@@ -11,7 +11,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.47"
+APP_VERSION = "3.48"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -221,7 +221,15 @@ def _clean_now_playing(value):
     t = value.get("time")
     time = float(t) if isinstance(t, (int, float)) and not isinstance(t, bool) and 0 <= t < 10 ** 6 else 0.0
     keep = {k: v for k, v in track.items() if isinstance(v, (str, int, float, bool)) or v is None}
-    return {"track": keep, "time": time}
+    out = {"track": keep, "time": time}
+    # когда и каким устройством записано — чтобы два играющих устройства не перетирали друг друга
+    at = value.get("at")
+    if isinstance(at, (int, float)) and not isinstance(at, bool) and 0 < at < 10 ** 14:
+        out["at"] = at
+    dev = value.get("dev")
+    if isinstance(dev, str) and 0 < len(dev) <= 40 and dev.isalnum():
+        out["dev"] = dev
+    return out
 
 @app.get("/api/prefs")
 async def api_prefs(request: Request, user: str = Depends(current_user)):

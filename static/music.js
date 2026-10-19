@@ -13,6 +13,9 @@
     view: "sw.musView",       // фильтры и сортировка
     track: "sw.musTrack",     // что играло и на какой секунде
     allNow: "sw.musAllNow",
+    trackMine: "sw.musTrackMine",   // то же только этого устройства — на сервер не уходит
+    allMine: "sw.musAllNowMine",
+    dev: "sw.devId",                // метка устройства: кто записал позицию
     modes: "sw.musModes",     // «перемешать» и «повтор» переживают закрытие вкладки   // то же, но только для «Все треки» — кнопка «играть» продолжает отсюда
     volume: "sw.musVolume",   // прежняя линейная громкость — читается один раз для переноса
     level: "sw.musLevel",     // положение ползунка громкости
@@ -104,6 +107,32 @@
     catch (e) { /* приватный режим — просто не сохраняем */ }
     if (SHARED[key] && window.SW && SW.savePref) SW.savePref(SHARED[key]);
   }
+  /* Позиция «что играло и с какой секунды» общая для всех устройств, но
+     каждое помнит и свою. Брать чужую стоит, только когда там перестали
+     играть: если другое устройство играет прямо сейчас (писало меньше
+     ACTIVE_MS назад), его позиция перетёрла бы нашу каждые 5 секунд — так и
+     было, когда музыка звучала на телефоне и в забытой вкладке компьютера. */
+  var ACTIVE_MS = 30000;
+  function deviceId() {
+    var id = null;
+    try { id = localStorage.getItem(LS.dev); } catch (e) {}
+    if (!id) {
+      id = Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+      try { localStorage.setItem(LS.dev, id); } catch (e) {}
+    }
+    return id;
+  }
+  function stamp(o) { o.at = Date.now(); o.dev = deviceId(); return o; }
+  /** Чью позицию продолжать: свою или пришедшую с другого устройства. */
+  function pickPos(sharedKey, mineKey) {
+    var shared = load(sharedKey, null), mine = load(mineKey, null);
+    if (!shared || !shared.track) return mine && mine.track ? mine : null;
+    if (!mine || !mine.track || shared.dev === deviceId()) return shared;
+    var otherPlaying = shared.at && Date.now() - shared.at < ACTIVE_MS;
+    if (otherPlaying || (mine.at || 0) >= (shared.at || 0)) return mine;
+    return shared;
+  }
+
   function load(key, fallback) {
     try {
       var raw = localStorage.getItem(key);
@@ -552,7 +581,7 @@
        такими, как их настроили. При включённом «случайно» первый трек берётся
        случайный, как и все следующие. */
     playAll: function () {
-      var saved = load(LS.allNow, null);
+      var saved = pickPos(LS.allNow, LS.allMine);
       var a = audio();
       if (saved && saved.track && st.nowId === saved.track.id) {
         // этот трек и так стоит в плеере — просто продолжаем
@@ -786,7 +815,8 @@
       M.preloadNext();
       M._fitLists();
       st.nowAll = M._isAll();                   // трек запущен из «Все треки»
-      store(LS.track, {track: track, time: 0});
+      var pos = stamp({track: track, time: 0});
+      store(LS.track, pos); store(LS.trackMine, pos);
     },
     /** Сохранить позицию прямо сейчас (страницу сворачивают или закрывают). */
     savePosNow: function () {
@@ -799,8 +829,9 @@
     /** Запомнить секунду; для трека из «Все треки» — ещё и отдельно, чтобы
         кнопка «играть» возвращала туда после прослушивания других папок. */
     _savePos: function (time) {
-      store(LS.track, {track: st.now, time: time});
-      if (st.nowAll) store(LS.allNow, {track: st.now, time: time});
+      var pos = stamp({track: st.now, time: time});
+      store(LS.track, pos); store(LS.trackMine, pos);
+      if (st.nowAll) { store(LS.allNow, pos); store(LS.allMine, pos); }
     },
 
     /** Заранее скачать следующий трек во вторую деку. */
@@ -2146,7 +2177,7 @@
     restoreNow: function () {
       var a = audio();
       if (!a) return;
-      var saved = load(LS.track, null);
+      var saved = pickPos(LS.track, LS.trackMine);
       if (!saved || !saved.track) return;
       if (a.getAttribute("src")) {
         /* Вкладка уже открыта, а слушали тем временем на другом компе.
@@ -2157,7 +2188,7 @@
       }
       var track = saved.track;
       st.now = track; st.nowId = track.id;
-      var all = load(LS.allNow, null);
+      var all = pickPos(LS.allNow, LS.allMine);
       st.nowAll = !!(all && all.track && all.track.id === track.id);
       a.src = "/music-audio/" + track.id;
       a.addEventListener("loadedmetadata", function once() {
