@@ -11,7 +11,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.41"
+APP_VERSION = "3.42"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -1160,10 +1160,12 @@ async def api_music_random(request: Request, _: str = Depends(current_user),
 
 @app.get("/api/music-track-page")
 async def api_music_track_page(request: Request, id: int, _: str = Depends(current_user),
-                               sort: str = "artist", desc: str = "no", seed: int = 0):
-    """На какой странице «Все треки» лежит трек — чтобы показать его строку."""
-    page = await asyncio.to_thread(music.track_page, id, "", sort, desc == "yes",
-                                   "", "", "", MUSIC_PAGE_SIZE, seed)
+                               sort: str = "artist", desc: str = "no", seed: int = 0,
+                               q: str = "", artist: str = "", album: str = "", folder: str = ""):
+    """На какой странице текущего списка лежит трек — чтобы показать его строку.
+    Без фильтров это «Все треки»."""
+    page = await asyncio.to_thread(music.track_page, id, q.strip(), sort, desc == "yes",
+                                   artist, album, folder, MUSIC_PAGE_SIZE, seed)
     return {"page": page}
 
 @app.get("/htmx/music-lists", response_class=HTMLResponse)

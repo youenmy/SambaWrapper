@@ -577,14 +577,22 @@
           a.currentTime = t;
         });
       }
-      // трек может лежать дальше первой страницы — показываем его страницу
-      if (!document.querySelector('#music-tracks .mrow[data-id="' + saved.track.id + '"]')) {
-        fetch("/api/music-track-page?" + new URLSearchParams({id: saved.track.id, sort: st.sort,
-                desc: st.desc ? "yes" : "no", seed: st.seed}))
-          .then(function (r) { return r.json(); })
-          .then(function (d) { if (d && d.page > 1) M.jumpToPage(d.page); })
-          .catch(function () {});
-      }
+      M._reveal(saved.track.id);
+    },
+    /* Показать строку трека, даже если она не на загруженной странице:
+       спрашиваем у сервера, на какой странице текущего списка он лежит, и
+       перерисовываем список с неё. jumpToPage сам подсветит и прокрутит. */
+    _reveal: function (id) {
+      if (document.querySelector('#music-tracks .mrow[data-id="' + id + '"]')) return;
+      fetch("/api/music-track-page?" + new URLSearchParams({id: id, sort: st.sort,
+              desc: st.desc ? "yes" : "no", seed: st.seed,
+              q: st.q, artist: st.artist, album: st.album, folder: st.folder}))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          // пока ждали ответ, могли переключить трек — показываем только актуальный
+          if (d && d.page && st.nowId === id) M.jumpToPage(d.page);
+        })
+        .catch(function () {});
     },
 
     goPage: function (page) {
@@ -769,7 +777,9 @@
       // вернулись «назад» по истории — «вперёд» сначала проходит её обратно
       if (M.shuffleOn && st.fwd.length) {
         if (st.now) st.back.push(st.now);
-        return M.playTrack(st.fwd.pop(), true);
+        var fwd = st.fwd.pop();
+        M.playTrack(fwd, true);
+        return M._reveal(fwd.id);
       }
       if (M.shuffleOn) return M.playRandom();
       if (!st.queue.length) return;
@@ -793,7 +803,9 @@
       M._skipDir = -1;                          // режим «Сейчас играет» листает обложку вправо
       if (M.shuffleOn && st.back.length) {
         if (st.now) st.fwd.push(st.now);
-        return M.playTrack(st.back.pop(), true);
+        var back = st.back.pop();
+        M.playTrack(back, true);
+        return M._reveal(back.id);
       }
       if (!st.queue.length) return;
       var i = M._indexOfNow();
