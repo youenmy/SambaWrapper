@@ -543,15 +543,28 @@ html.sw-tinted #mus-head { background: var(--sw-cover) !important; }
   font-size: .75rem; letter-spacing: .14em; text-transform: uppercase;
   color: rgba(255,255,255,.78); margin-bottom: .6rem;
 }
+/* Подпись трека занимает постоянную высоту — не больше двух строк названия
+   и заданного числа строк исполнителя, и столько же, если строк меньше.
+   Иначе от трека к треку «Сейчас играет» и кнопки прыгали вверх-вниз.
+   Короткая подпись стоит посередине своего места. */
+.np-text {
+  --np-tf: clamp(1.6rem, 3.6vw, 3rem);
+  --np-mf: clamp(.95rem, 1.5vw, 1.2rem);
+  --np-ml: 1;                                      /* строк исполнителя */
+  height: calc(var(--np-tf) * 1.1 * 2 + .6rem + var(--np-mf) * 1.3 * var(--np-ml));
+  display: flex; flex-direction: column; justify-content: center;
+}
 .np-title {
-  font-size: clamp(1.6rem, 3.6vw, 3rem); font-weight: 700; line-height: 1.1;
+  font-size: var(--np-tf); font-weight: 700; line-height: 1.1;
   letter-spacing: -.01em;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  flex: none;
 }
 .np-meta {
-  margin-top: .6rem; font-size: clamp(.95rem, 1.5vw, 1.2rem);
+  margin-top: .6rem; font-size: var(--np-mf); line-height: 1.3;
   color: rgba(255,255,255,.84);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: none;
 }
 .np-controls { display: flex; align-items: center; gap: .9rem; margin-top: 2rem; }
 .np-btn {
@@ -587,7 +600,8 @@ html.sw-tinted #mus-head { background: var(--sw-cover) !important; }
   .np-stage { flex-direction: column; text-align: center; padding-top: 4rem; }
   .np-art { width: min(42vh, 78vw); }
   .np-controls { justify-content: center; }
-  .np-meta { white-space: normal; }
+  .np-meta { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .np-text { --np-ml: 2; }
 }
 
 
