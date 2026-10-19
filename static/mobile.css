@@ -224,3 +224,12 @@
 }
 /* док открывает полный экран по тапу — пусть это видно по курсору */
 #mus-bar { cursor: pointer; }
+
+/* Кнопки плеера под пальцем: проседают и подсвечиваются в момент касания
+   (толчок вибрации добавляет gestures.js). Без задержки — сразу на касание. */
+@media (pointer: coarse) {
+  .np-btn, .np-play, #mus-bar button { -webkit-tap-highlight-color: transparent; transition: transform .12s ease, background-color .12s ease; }
+  .np-btn:active { transform: scale(.88); background: rgba(255,255,255,.18); }
+  .np-play:active { transform: scale(.9); }
+  #mus-bar button:active { transform: scale(.88); }
+}

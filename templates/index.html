@@ -159,8 +159,11 @@ new MutationObserver(() => {
     </div>
     <div class="np-info">
       <div class="np-kicker">Сейчас играет</div>
-      <div id="mus-np-title" class="np-title">—</div>
-      <div id="mus-np-meta" class="np-meta"></div>
+      {# название и исполнитель листаются лентой вместе с обложкой; кнопки стоят #}
+      <div class="np-text">
+        <div id="mus-np-title" class="np-title">—</div>
+        <div id="mus-np-meta" class="np-meta"></div>
+      </div>
       <div class="np-controls">
         <button type="button" id="mus-np-shuffle" class="np-btn" onclick="Music.toggleShuffle()"
                 title="Перемешать" aria-label="Перемешать" aria-pressed="false"><i class="ti ti-arrows-shuffle"></i></button>

@@ -52,7 +52,7 @@
   /* Палец ведёт кадр один к одному — как ленту. В полноэкранном режиме
      вместе с обложкой едет и подпись. */
   function frames(el) {
-    if (el && el.id === "mus-np-art") return [el, document.querySelector("#mus-np .np-info")];
+    if (el && el.id === "mus-np-art") return [el, document.querySelector("#mus-np .np-text")];
     if (el && el.classList.contains("sw-dock-tape")) return [$("mus-cover-wrap"), el.querySelector(".sw-dock-meta")];
     return [el];
   }
@@ -93,6 +93,13 @@
   }
   // короткий толчок вибромотора; iPhone вибрацию из браузера не даёт — там тишина
   function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+
+  /* Отклик кнопок плеера под пальцем: лёгкий толчок в момент касания.
+     Само нажатие видно по CSS (:active) — кнопка чуть проседает. */
+  document.addEventListener("pointerdown", function (e) {
+    if (e.pointerType !== "touch" || !e.target.closest) return;
+    if (e.target.closest("#mus-np .np-btn, #mus-np .np-play, #mus-bar button")) buzz(8);
+  }, true);
 
   // ---------------------------------------------------------- режим «Сейчас играет»
   function sheetAt(y, animate) {

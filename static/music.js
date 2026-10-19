@@ -692,14 +692,16 @@
        треком, въезжает следом вплотную — как соседние кадры одной плёнки.
        from — сдвиг, на котором кадр отпустил палец: лента продолжает с него.
        host должен быть позиционирован и обрезать то, что за краем. */
-    _tape: function (host, els, dir, from, gap) {
+    _tape: function (host, els, dir, from, gap, step0) {
       if (!host) return;
       var hr = host.getBoundingClientRect();
       var ease = "cubic-bezier(.22,.7,.2,1)", ms = 320;
       els.forEach(function (el) {
         if (!el || !el.animate) return;
         var r = el.getBoundingClientRect();            // уже со сдвигом пальца
-        var step = r.width + gap;
+        // общий шаг (step0) держит кадры в строю: иначе узкий и широкий
+        // кадр ехали с разной скоростью и текст наплывал на обложку
+        var step = step0 || r.width + gap;
         var ghost = el.cloneNode(true);
         ghost.removeAttribute("id");
         Array.prototype.forEach.call(ghost.querySelectorAll("[id]"), function (n) { n.removeAttribute("id"); });
@@ -707,6 +709,10 @@
         ghost.style.cssText = "position:absolute;margin:0;z-index:2;pointer-events:none;transition:none;" +
           "left:" + (r.left - hr.left) + "px;top:" + (r.top - hr.top) + "px;width:" + r.width + "px;height:" + r.height + "px;";
         ghost.setAttribute("aria-hidden", "true");
+        // снимок висит прямо в host, вне родителя — наследуемое оформление переносим явно
+        var cs = getComputedStyle(el);
+        ghost.style.textAlign = cs.textAlign; ghost.style.textShadow = cs.textShadow;
+        ghost.style.color = cs.color; ghost.style.fontSize = cs.fontSize;
         host.appendChild(ghost);
         ghost.animate([{transform: "translateX(0)"}, {transform: "translateX(" + (-dir * step - from) + "px)"}],
                       {duration: ms, easing: ease, fill: "forwards"}).onfinish = function () { ghost.remove(); };
@@ -722,7 +728,8 @@
       M._dockDx = 0;
       if (!tape || getComputedStyle(tape).display === "contents") return;   // настольный док
       if ($("mus-bar").classList.contains("hidden")) return;
-      M._tape(tape, [$("mus-cover-wrap"), tape.querySelector(".sw-dock-meta")], dir, from, 24);
+      M._tape(tape, [$("mus-cover-wrap"), tape.querySelector(".sw-dock-meta")], dir, from, 0,
+              tape.getBoundingClientRect().width + 16);
     },
 
     playTrack: function (track, fromHistory) {
@@ -1438,7 +1445,10 @@
       _swap: function (dir) {
         var from = M.np._swipeDx || 0;
         M.np._swipeDx = 0;
-        M._tape($("mus-np"), [$("mus-np-art"), document.querySelector("#mus-np .np-info")], dir, from, 48);
+        // шаг ленты — ширина экрана: обложка и подпись едут вместе и не догоняют друг друга
+        var host = $("mus-np");
+        M._tape(host, [$("mus-np-art"), document.querySelector("#mus-np .np-text")], dir, from, 0,
+                host ? host.getBoundingClientRect().width : 0);
       },
       /** Перенести в режим название, обложку и состояние кнопок. */
       sync: function (track) {
