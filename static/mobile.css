@@ -185,3 +185,14 @@
   .sw-app { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
   .np { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
 }
+
+/* Выезжающая панель дисков стоит от шапки до низа экрана, а док плеера лежит
+   поверх неё — нижние пункты («Музыка», «Торрент») уходили под док. Пока док
+   виден, панель заканчивается над ним. */
+@media (max-width: 767px) {
+  body:has(#mus-bar:not(.hidden)) #sidebar { bottom: 4rem; }
+}
+@media (max-width: 767px) and (display-mode: standalone) {
+  #sidebar { top: calc(3rem + env(safe-area-inset-top)); }
+  body:has(#mus-bar:not(.hidden)) #sidebar { bottom: calc(4rem + env(safe-area-inset-bottom)); }
+}
