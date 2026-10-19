@@ -58,6 +58,7 @@
     hasMore: false, // есть ли ещё порции для подгрузки
     loading: false, // порция уже запрашивается
     recent: [],     // недавно сыгранные id (чтобы «случайно» не повторялось)
+    back: [], fwd: [], // история для «назад»/«вперёд» в режиме «перемешать»
     dups: [],       // копии, показанные в окне дубликатов (в порядке отображения)
     now: null,      // трек, который звучит (может не быть в queue)
     nowId: 0,
@@ -676,8 +677,17 @@
       return null;
     },
     /** Единственное место, где начинается воспроизведение. */
-    playTrack: function (track) {
+    playTrack: function (track, fromHistory) {
       var url = "/music-audio/" + track.id;
+      /* История для режима «перемешать»: «назад» возвращает к тому, что
+         действительно играло, а не к соседу по списку — в случайном режиме
+         сосед по списку выглядел как ещё один случайный трек. Переход по
+         истории (fromHistory) сам перекладывает треки между стопками. */
+      if (!fromHistory && st.now && st.now.id !== track.id) {
+        st.back.push(st.now);
+        if (st.back.length > 200) st.back.shift();
+        st.fwd = [];
+      }
       st.now = track; st.nowId = track.id;
 
       if (srcOf(spare()) === url) {
@@ -754,6 +764,11 @@
       if (a.paused) a.play().catch(function () {}); else a.pause();
     },
     next: function () {
+      // вернулись «назад» по истории — «вперёд» сначала проходит её обратно
+      if (M.shuffleOn && st.fwd.length) {
+        if (st.now) st.back.push(st.now);
+        return M.playTrack(st.fwd.pop(), true);
+      }
       if (M.shuffleOn) return M.playRandom();
       if (!st.queue.length) return;
       var i = M._indexOfNow();
@@ -774,6 +789,10 @@
       var a = audio();
       if (a.currentTime > 3) { a.currentTime = 0; return; }
       M._skipDir = -1;                          // режим «Сейчас играет» листает обложку вправо
+      if (M.shuffleOn && st.back.length) {
+        if (st.now) st.fwd.push(st.now);
+        return M.playTrack(st.back.pop(), true);
+      }
       if (!st.queue.length) return;
       var i = M._indexOfNow();
       M.playTrack(st.queue[(i - 1 + st.queue.length) % st.queue.length]);
@@ -1621,6 +1640,9 @@
      * браузеры анимировать не умеют. */
     dropRow: function (id) {
       var row = document.querySelector('#music-tracks .mrow[data-id="' + id + '"]');
+      // удалённый файл не должен всплыть по «назад»
+      var gone = function (t) { return t.id !== id; };
+      st.back = st.back.filter(gone); st.fwd = st.fwd.filter(gone);
       for (var k = 0; k < st.queue.length; k++) {
         if (st.queue[k].id === id) { st.queue.splice(k, 1); break; }
       }
@@ -2126,6 +2148,13 @@
       var a = audio();
       if (!a) return;
       M.media.init();
+      /* Тап по пустому месту дока или по названию разворачивает «Сейчас
+         играет». Кнопки, перемотка и громкость работают как раньше. */
+      var bar = $("mus-bar");
+      if (bar) bar.addEventListener("click", function (e) {
+        if (e.target.closest("button, input, #mus-seek, a")) return;
+        if (st.now) M.np.show();
+      });
 
       M._applyVolume();          // обе деки получают сохранённую громкость
       M._volumeIcon();

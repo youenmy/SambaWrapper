@@ -196,3 +196,12 @@
   #sidebar { top: calc(3rem + env(safe-area-inset-top)); }
   body:has(#mus-bar:not(.hidden)) #sidebar { bottom: calc(4rem + env(safe-area-inset-bottom)); }
 }
+
+/* На сенсорном экране «Сейчас играет» сворачивается смахиванием вниз —
+   круглая кнопка сворачивания только занимала угол. На компьютере она
+   остаётся: там жестов нет (и есть Esc). */
+@media (pointer: coarse) {
+  .np-close { display: none; }
+}
+/* док открывает полный экран по тапу — пусть это видно по курсору */
+#mus-bar { cursor: pointer; }

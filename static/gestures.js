@@ -217,6 +217,43 @@
       Music.deleteSoon(Number(row.dataset.id), row.dataset.title || "");
     }, 230);
   });
+  // ---------------------------------------------------------- панель дисков: влево — закрыть
+  var sideG = null;
+  function sidebarOpen() {
+    var sb = $("sidebar");
+    return sb && window.innerWidth < 768 && !sb.classList.contains("-translate-x-full");
+  }
+  document.addEventListener("touchstart", function (e) {
+    if (!sidebarOpen() || e.touches.length !== 1) return;
+    var t = e.target.closest && e.target.closest("#sidebar, #sb-backdrop");
+    if (!t) return;
+    sideG = track(e);
+  }, {passive: true});
+  document.addEventListener("touchmove", function (e) {
+    if (!sideG) return;
+    move(sideG, e);
+    if (sideG.axis === "y") { sideG = null; return; }       // прокрутка списка дисков
+    if (sideG.axis !== "x") return;
+    if (e.cancelable) e.preventDefault();
+    var sb = $("sidebar");
+    if (!sideG.started) { sideG.started = true; sb.style.transition = "none"; }
+    sb.style.transform = "translateX(" + Math.min(0, sideG.dx) + "px)";
+  }, {passive: false});
+  document.addEventListener("touchend", function () {
+    if (!sideG) return;
+    var g = sideG; sideG = null;
+    if (!g.started) return;
+    swallowClick();
+    var sb = $("sidebar");
+    var close = -g.dx > sb.offsetWidth * 0.3 || g.vx < -FLICK;
+    sb.style.transition = EASE;
+    sb.style.transform = close ? "translateX(-100%)" : "";
+    setTimeout(function () {
+      sb.style.transition = ""; sb.style.transform = "";
+      if (close) SW.closeSidebar();
+    }, 260);
+  });
+
   document.addEventListener("touchcancel", function () {
     if (rowG && rowG.started) rowReset(rowG.row);
     if (dockG && dockG.started) settle(false);
