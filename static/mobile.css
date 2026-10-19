@@ -90,6 +90,15 @@
   .sw-wrap .sw-last { order: 99; }
   .sw-wrap .sw-first { order: -1; }
   .sw-wrap .sw-grow { flex: 1 1 0; min-width: 0; }
+  /* торренты: папка назначения — своей строкой рядом с кнопкой буфера,
+     иначе её сжимало до одной буквы; ниже — «Добавить» и значки */
+  .sw-wrap .sw-dest { flex: 1 1 calc(100% - 3rem); max-width: none; min-width: 0; }
+  /* фильтры — во всю ширину, под ними поиск и «запустить/остановить все» */
+  .sw-wrap .sw-seg { flex: 1 1 100%; }
+  .sw-wrap .sw-seg > button { flex: 1 1 auto; padding-block: .45rem; }
+  .sw-wrap .sw-search-tr { flex: 1 1 0; min-width: 0; max-width: none; margin-left: 0; }
+  .sw-wrap .sw-search-tr ~ button { padding: .5rem .55rem; }
+  .sw-wrap .sw-search-tr ~ button i { font-size: 1.25rem; }
   .sw-search { min-width: 9rem; }
 
   /* ---------------------------------------------------------------- файлы */
@@ -125,6 +134,8 @@
   #tr-magnet { font-size: 1rem; }
   #tr-search { font-size: 1rem; }
   #tr-stats { white-space: nowrap; overflow: hidden; }
+  /* общий график скорости в узкой полосе вытеснял «↑ отдача» за край */
+  #tr-stats .tr-spark-total { display: none; }
   .sw-tr-table thead { display: none; }
   .sw-tr-table td:nth-child(n+3):nth-child(-n+10) { display: none; }
   .sw-tr-table td:nth-child(2) { width: 5.5rem; }

@@ -11,7 +11,7 @@ import socket
 import time
 from pathlib import Path
 
-APP_VERSION = "3.39"
+APP_VERSION = "3.40"
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, FileResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -956,7 +956,7 @@ async def htmx_torrents_stats(request: Request, _: str = Depends(current_user), 
     s = await asyncio.to_thread(torrent.stats)
     if not s:
         return HTMLResponse("")
-    alt = '<span class="text-amber-500" title="Тихий режим включён"><i class="ti ti-tortoise"></i></span>' if s["alt"] else ""
+    alt = '<span class="text-amber-500" title="Тихий режим включён"><i class="ti ti-moon-stars"></i></span>' if s["alt"] else ""
     return _polled(request, HTMLResponse(
         f'<span>{s["count"]} торрентов · активных {s["active"]}</span>'
         f'<span class="text-sky-600 ml-auto tr-speed"><svg class="tr-spark tr-spark-total" data-spark="total-d" aria-hidden="true"></svg>'
