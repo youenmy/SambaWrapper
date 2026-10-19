@@ -43,7 +43,7 @@
     <link rel="stylesheet" href="/static/style.css?v=90">
     <link rel="stylesheet" href="/static/themes.css?v=11">
     <link rel="stylesheet" href="/static/effects.css?v=9">
-    <link rel="stylesheet" href="/static/mobile.css?v=7">
+    <link rel="stylesheet" href="/static/mobile.css?v=8">
     {# своя тема — после themes.css: её токены должны перекрыть токены html.dark #}
     <style id="sw-custom-theme">{{ custom_css|safe if custom_css is defined else "" }}</style>
     <style>
@@ -103,8 +103,8 @@ document.body.addEventListener("htmx:afterSwap", function(evt) {
 </script>
 {% block scripts %}{% endblock %}
 <script src="/static/ui.js?v=9"></script>
-<script src="/static/gestures.js?v=3"></script>
-<script src="/static/music.js?v=112"></script>
+<script src="/static/gestures.js?v=5"></script>
+<script src="/static/music.js?v=114"></script>
 <script src="/static/theme-studio.js?v=6"></script>
 </body>
 </html>

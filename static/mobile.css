@@ -38,6 +38,12 @@
   }
   #mus-cover-wrap:hover { transform: none; }
   .sw-dock-meta { flex: 1 1 auto; width: auto !important; }
+  /* обложка и название — одна лента: за её края смена трека не вылезает */
+  #mus-bar .sw-dock-tape {
+    display: flex; align-items: center; gap: .6rem;
+    flex: 1 1 auto; min-width: 0; align-self: stretch;
+    position: relative; overflow: hidden;
+  }
   #mus-title { font-size: .9rem; }
   #mus-seek-zone { flex: 0 0 auto; }
   #mus-shuffle, #mus-repeat, .sw-dock-max { display: none !important; }
@@ -54,6 +60,8 @@
 }
 
 .sw-sub { display: none; }
+/* на компьютере обёртка ленты в доке не участвует в раскладке */
+.sw-dock-tape { display: contents; }
 
 /* Статистика библиотеки — только на очень широком экране. Раньше это делали
    классы hidden 2xl:inline, но 2xl в сборке Tailwind нет, а опрос статуса

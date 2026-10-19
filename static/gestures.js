@@ -49,23 +49,47 @@
 
   // ---------------------------------------------------------- переключение трека вбок
   var SKIP = 70;              // столько пикселей вбок — уже переключение
+  /* Палец ведёт кадр один к одному — как ленту. В полноэкранном режиме
+     вместе с обложкой едет и подпись. */
+  function frames(el) {
+    if (el && el.id === "mus-np-art") return [el, document.querySelector("#mus-np .np-info")];
+    if (el && el.classList.contains("sw-dock-tape")) return [$("mus-cover-wrap"), el.querySelector(".sw-dock-meta")];
+    return [el];
+  }
   function nudge(el, dx) {
-    if (!el) return;
-    el.style.transition = "none";
-    el.style.transform = "translateX(" + dx * 0.6 + "px)";
-    el.style.opacity = String(Math.max(0.35, 1 - Math.abs(dx) / 400));
+    frames(el).forEach(function (f) {
+      if (!f) return;
+      f.style.transition = "none";
+      f.style.transform = "translateX(" + dx + "px)";
+    });
   }
   /** Влево — следующий трек, вправо — предыдущий, как в мобильных плеерах. */
   function skip(g, el) {
     var go = Math.abs(g.dx) > SKIP || Math.abs(g.vx) > FLICK;
-    if (el) {
-      el.style.transition = EASE + ", opacity .2s";
-      el.style.transform = ""; el.style.opacity = "";
-      setTimeout(function () { el.style.transition = ""; }, 280);
+    var np = el && el.id === "mus-np-art";
+    var dock = el && el.classList.contains("sw-dock-tape");
+    if (go && (np || dock)) {
+      /* Кадр остаётся там, где его отпустили: смену трека дорисует лента
+         (Music.np._swap или Music._dockTape) — старый уедет дальше, новый
+         въедет вплотную. */
+      if (np) Music.np._swipeDx = g.dx; else Music._dockDx = g.dx;
+    } else {
+      frames(el).forEach(function (f) {
+        if (!f) return;
+        f.style.transition = EASE;
+        f.style.transform = "";
+        setTimeout(function () { f.style.transition = ""; }, 280);
+      });
     }
     if (!go) return;
     buzz(10);
     if (g.dx < 0) Music.next(); else Music.prev();
+    // трек так и не сменился (список пуст, сервер не ответил) — кадр возвращаем на место
+    if (go && (np || dock)) setTimeout(function () {
+      if (np ? !Music.np._swipeDx : !Music._dockDx) return;
+      if (np) Music.np._swipeDx = 0; else Music._dockDx = 0;
+      frames(el).forEach(function (f) { if (f) { f.style.transition = EASE; f.style.transform = ""; } });
+    }, 2500);
   }
   // короткий толчок вибромотора; iPhone вибрацию из браузера не даёт — там тишина
   function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
@@ -109,7 +133,7 @@
       // вбок — переключение трека; название едет за пальцем
       e.preventDefault();
       dockG.side = true;
-      nudge(document.querySelector("#mus-bar .sw-dock-meta"), dockG.dx);
+      nudge(document.querySelector("#mus-bar .sw-dock-tape"), dockG.dx);
       return;
     }
     if (dockG.axis !== "y") return;
@@ -126,7 +150,7 @@
   document.addEventListener("touchend", function () {
     if (!dockG) return;
     var g = dockG; dockG = null;
-    if (g.side) { swallowClick(); skip(g, document.querySelector("#mus-bar .sw-dock-meta")); return; }
+    if (g.side) { swallowClick(); skip(g, document.querySelector("#mus-bar .sw-dock-tape")); return; }
     if (!g.started) return;
     swallowClick();
     settle(-g.dy > height() * OPEN_SHARE || g.vy < -FLICK);

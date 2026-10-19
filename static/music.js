@@ -687,8 +687,48 @@
       return null;
     },
     /** Единственное место, где начинается воспроизведение. */
+    /* Лента смены трека. Для каждого кадра делаем снимок (клон) с прежним
+       содержимым поверх host: снимок уезжает, а настоящий элемент, уже с новым
+       треком, въезжает следом вплотную — как соседние кадры одной плёнки.
+       from — сдвиг, на котором кадр отпустил палец: лента продолжает с него.
+       host должен быть позиционирован и обрезать то, что за краем. */
+    _tape: function (host, els, dir, from, gap) {
+      if (!host) return;
+      var hr = host.getBoundingClientRect();
+      var ease = "cubic-bezier(.22,.7,.2,1)", ms = 320;
+      els.forEach(function (el) {
+        if (!el || !el.animate) return;
+        var r = el.getBoundingClientRect();            // уже со сдвигом пальца
+        var step = r.width + gap;
+        var ghost = el.cloneNode(true);
+        ghost.removeAttribute("id");
+        Array.prototype.forEach.call(ghost.querySelectorAll("[id]"), function (n) { n.removeAttribute("id"); });
+        ghost.removeAttribute("onclick");
+        ghost.style.cssText = "position:absolute;margin:0;z-index:2;pointer-events:none;transition:none;" +
+          "left:" + (r.left - hr.left) + "px;top:" + (r.top - hr.top) + "px;width:" + r.width + "px;height:" + r.height + "px;";
+        ghost.setAttribute("aria-hidden", "true");
+        host.appendChild(ghost);
+        ghost.animate([{transform: "translateX(0)"}, {transform: "translateX(" + (-dir * step - from) + "px)"}],
+                      {duration: ms, easing: ease, fill: "forwards"}).onfinish = function () { ghost.remove(); };
+        el.style.transition = "none"; el.style.transform = ""; el.style.opacity = "";
+        el.animate([{transform: "translateX(" + (from + dir * step) + "px)"}, {transform: "translateX(0)"}],
+                   {duration: ms, easing: ease});
+      });
+    },
+    /** Та же лента в компактном доке (телефон, планшет): обложка и название. */
+    _dockTape: function (dir) {
+      var tape = document.querySelector("#mus-bar .sw-dock-tape");
+      var from = M._dockDx || 0;
+      M._dockDx = 0;
+      if (!tape || getComputedStyle(tape).display === "contents") return;   // настольный док
+      if ($("mus-bar").classList.contains("hidden")) return;
+      M._tape(tape, [$("mus-cover-wrap"), tape.querySelector(".sw-dock-meta")], dir, from, 24);
+    },
+
     playTrack: function (track, fromHistory) {
       var url = "/music-audio/" + track.id;
+      // смена трека в компактном доке — лентой (до того, как док получит новый трек)
+      if (st.now && st.now.id !== track.id) M._dockTape(M._skipDir || 1);
       /* История для режима «перемешать»: «назад» возвращает к тому, что
          действительно играло, а не к соседу по списку — в случайном режиме
          сосед по списку выглядел как ещё один случайный трек. Переход по
@@ -1390,21 +1430,15 @@
          следующий (въезд справа), -1 — предыдущий. Web Animations, а не
          классы: анимация не спорит с переходами и жестом, который двигает
          обложку через style.transform. */
+      /* Лента: обложка и подпись старого трека уезжают, новые въезжают
+         следом вплотную, как соседние кадры одной плёнки. Старый кадр — это
+         снимок (клон) прежних элементов поверх режима: сами элементы уже
+         получат новый трек. Если перелистывали пальцем, лента продолжает
+         движение с того места, где её отпустили (_swipeDx). */
       _swap: function (dir) {
-        var art = $("mus-np-art"), info = document.querySelector("#mus-np .np-info");
-        var ease = "cubic-bezier(.2,.8,.2,1)";
-        if (art && art.animate) {
-          art.animate([
-            {transform: "translateX(" + (dir * 42) + "%) scale(.92)", opacity: 0},
-            {transform: "none", opacity: 1},
-          ], {duration: 360, easing: ease});
-        }
-        if (info && info.animate) {
-          info.animate([
-            {transform: "translateX(" + (dir * 24) + "px)", opacity: 0},
-            {transform: "none", opacity: 1},
-          ], {duration: 300, delay: 60, easing: ease, fill: "backwards"});
-        }
+        var from = M.np._swipeDx || 0;
+        M.np._swipeDx = 0;
+        M._tape($("mus-np"), [$("mus-np-art"), document.querySelector("#mus-np .np-info")], dir, from, 48);
       },
       /** Перенести в режим название, обложку и состояние кнопок. */
       sync: function (track) {

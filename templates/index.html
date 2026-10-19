@@ -67,7 +67,10 @@
     </main>
   <!-- ===== музыкальный плеер (появляется, когда включён трек) ===== -->
   <div id="mus-bar" class="hidden relative z-[60] h-12 shrink-0 bg-white border-t border-slate-200 flex items-center gap-3 px-3 pl-52">
-    <!-- обложка поднимается над доком и вписана по ширине в панель библиотеки (w-52) -->
+    <!-- обложка поднимается над доком и вписана по ширине в панель библиотеки (w-52).
+         Обёртка sw-dock-tape на компьютере не существует для раскладки
+         (display: contents), а в компактном доке обрезает ленту смены трека -->
+    <div class="sw-dock-tape">
     <div id="mus-cover-wrap" class="mus-cover-frame absolute left-2 bottom-2 w-48 h-48 cursor-pointer"
          onclick="Music.np.show()" title="Во весь экран (F)">
       <div class="w-full h-full rounded-md overflow-hidden mus-nocover">
@@ -77,6 +80,7 @@
     <div class="sw-dock-meta min-w-0 w-36 sm:w-56 shrink-0">
       <div id="mus-title" class="text-sm truncate">—</div>
       <div id="mus-artist" class="text-[0.6875rem] text-slate-400 truncate"></div>
+    </div>
     </div>
     <div id="mus-seek-zone" class="flex-1 min-w-0 h-full flex items-center gap-3">
       <div class="flex items-center gap-3 shrink-0">
