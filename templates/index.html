@@ -460,13 +460,23 @@ const SW = {
     try { this._prefQueue[key] = raw === null ? null : JSON.parse(raw); }
     catch (e) { this._prefQueue[key] = raw; }
     clearTimeout(this._prefTimer);
+    /* Вкладка уже не на экране (браузер свернули или закрывают) — шлём сразу:
+       телефон замораживает таймеры фоновой вкладки, и отложенная отправка
+       не уходила вовсе — последний трек и секунда терялись. */
+    if (document.hidden) { this._prefFlush(); return; }
     this._prefTimer = setTimeout(() => this._prefFlush(), 800);
   },
+  _leaving() {
+    if (window.Music && Music.savePosNow) Music.savePosNow();   // точная секунда играющего трека
+    this._prefFlush();
+  },
   _prefFlush() {
+    clearTimeout(this._prefTimer);
     const patch = this._prefQueue;
     this._prefQueue = null;
     if (!patch || !Object.keys(patch).length) return;
-    fetch("/api/prefs", {method: "POST", credentials: "same-origin",
+    // keepalive: браузер доводит запрос до конца, даже если страницу закрывают
+    fetch("/api/prefs", {method: "POST", credentials: "same-origin", keepalive: true,
                          headers: {"Content-Type": "application/json"},
                          body: JSON.stringify(patch)})
       .catch(() => { /* сеть отвалилась: локальная копия уже сохранена */ });
@@ -1569,6 +1579,10 @@ if (!Object.keys({{ prefs|tojson }}).length) {
   if (Object.keys(mine).length) { SW._prefQueue = mine; SW._prefFlush(); }
 }
 document.body.dataset.view = SW.view;
+/* Уход со страницы — последний надёжный момент что-то отправить: на телефоне
+   после него вкладку могут выгрузить без единого события. */
+document.addEventListener("visibilitychange", () => { if (document.hidden) SW._leaving(); });
+window.addEventListener("pagehide", () => SW._leaving());
 // последнее касание пальцем или мышью: одна и та же строка открывается касанием и выбирается кликом
 document.addEventListener("pointerdown", (e) => { SW._touch = e.pointerType === "touch"; }, true);
 SW.restoreSidebar();

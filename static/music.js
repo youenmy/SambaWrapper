@@ -788,6 +788,13 @@
       st.nowAll = M._isAll();                   // трек запущен из «Все треки»
       store(LS.track, {track: track, time: 0});
     },
+    /** Сохранить позицию прямо сейчас (страницу сворачивают или закрывают). */
+    savePosNow: function () {
+      var a = audio();
+      if (!st.now || !a || !(a.currentTime > 0)) return;
+      M._savedAt = Date.now();
+      M._savePos(a.currentTime);
+    },
     _isAll: function () { return !st.q && !st.artist && !st.album && !st.folder; },
     /** Запомнить секунду; для трека из «Все треки» — ещё и отдельно, чтобы
         кнопка «играть» возвращала туда после прослушивания других папок. */
