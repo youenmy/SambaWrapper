@@ -1581,8 +1581,17 @@
         var sr = strip.getBoundingClientRect();
         if (sr.height && sr.top < bottom) bottom = sr.top;
       }
-      if (r.top < top) pane.scrollTop -= (top - r.top) + gap;
-      else if (r.bottom > bottom) pane.scrollTop += (r.bottom - bottom) + gap;
+      var delta = 0;
+      if (r.top < top) delta = -((top - r.top) + gap);
+      else if (r.bottom > bottom) delta = (r.bottom - bottom) + gap;
+      if (!delta) return;
+      /* К соседнему треку список доезжает плавно, вместе с перетеканием
+         подсветки, — смена трека читается как шаг вниз или вверх. Далёкий
+         прыжок (после смены страницы, случайный трек) — сразу, иначе список
+         долго бы прокручивался через всё подряд. */
+      var near = Math.abs(delta) < pane.clientHeight * 0.75;
+      if (near && pane.scrollBy) pane.scrollBy({top: delta, behavior: "smooth"});
+      else pane.scrollTop += delta;
     },
     /* Обложка выступает над доком и перекрывала бы хвост списка папок —
      * дотягиваем список ровно на высоту выступающей части. */
