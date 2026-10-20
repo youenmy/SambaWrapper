@@ -1572,8 +1572,17 @@
       /* Прокручиваем вручную. scrollIntoView про липкую шапку не знает и
          прижимает строку к краю контейнера — она оказывается под заголовками,
          снова считается невидимой, и так каждый раз. */
+      /* Нижняя граница — не край списка, а верх полосы спектра над доком
+         (на телефоне она лежит поверх последних строк): иначе играющая
+         строка оставалась под градиентом и казалась невидимой. */
+      var bottom = p.bottom;
+      var strip = document.querySelector("#mus-bar:not(.hidden) .sw-seekline");
+      if (strip) {
+        var sr = strip.getBoundingClientRect();
+        if (sr.height && sr.top < bottom) bottom = sr.top;
+      }
       if (r.top < top) pane.scrollTop -= (top - r.top) + gap;
-      else if (r.bottom > p.bottom) pane.scrollTop += (r.bottom - p.bottom) + gap;
+      else if (r.bottom > bottom) pane.scrollTop += (r.bottom - bottom) + gap;
     },
     /* Обложка выступает над доком и перекрывала бы хвост списка папок —
      * дотягиваем список ровно на высоту выступающей части. */
