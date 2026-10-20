@@ -115,7 +115,10 @@ html[data-fx-glass] #browser #tr-details .sticky,
 html[data-fx-glass] #browser .mus-table tbody td[data-col="pick"],
 html[data-fx-glass] #browser .mus-table tbody td[data-col="actions"] {
   background: transparent !important;
-  transition: background-color .15s ease;
+  /* те же переходы и та же длительность, что у остальных ячеек строки
+     (style.css, tr.mrow > td): иначе при смене трека липкие ячейки
+     перекрашивались раньше строки, а их рамка — без перехода вовсе */
+  transition: background-color .2s ease, box-shadow .2s ease, color .2s ease;
 }
 /* у шапок списков те же id, что в правиле покоя выше, — иначе оно сильнее
    и фон при прокрутке оставался прозрачным, хотя размытие включалось */
